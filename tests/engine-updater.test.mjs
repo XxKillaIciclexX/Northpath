@@ -11,17 +11,25 @@ const exec = promisify(execFile);
 const source = fileURLToPath(new URL('../scripts/engine-overlay', import.meta.url));
 const script = fileURLToPath(new URL('../scripts/Update-IcePackEngine.mjs', import.meta.url));
 
-async function fixture(t) {
+async function fixture(t, sourceFolder = 'engine') {
   const root = await mkdtemp(join(tmpdir(), 'icepack-updater-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const engine = join(root, 'target engine');
   const updater = join(root, 'Update-IcePackEngine.mjs');
   await cp(script, updater);
-  await cp(source, join(root, 'engine'), { recursive: true });
+  await cp(source, join(root, sourceFolder), { recursive: true });
   await cp(source, engine, { recursive: true });
   await writeFile(join(engine, 'server.mjs'), '');
   return { engine, run: (...args) => exec(process.execPath, [updater, '--engine', engine, ...args]) };
 }
+
+test('the checkout updater uses the checked-in engine overlay without an alpha installation', async t => {
+  const { engine, run } = await fixture(t, 'engine-overlay');
+  const { stdout } = await run();
+  assert.match(stdout, /Update source: .*engine-overlay/);
+  assert.equal((stdout.match(/^CURRENT /gm) ?? []).length, 2);
+  assert.deepEqual((await readdir(engine)).sort(), ['icepack-custom-rules.mjs', 'public', 'server.mjs']);
+});
 
 test('the updater defaults to a dry run and accepts Windows line endings', async t => {
   const { engine, run } = await fixture(t);

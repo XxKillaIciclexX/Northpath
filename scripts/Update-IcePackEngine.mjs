@@ -49,6 +49,21 @@ async function enginePath(override) {
   return realpath(typeof configured === 'string' && configured.trim() ? configured : 'C:\\IcePackARK\\ice-pack-ark');
 }
 
+async function updateSource() {
+  for (const folder of ['engine-overlay', 'engine']) {
+    const candidate = join(here, folder);
+    try {
+      if (!(await lstat(candidate)).isDirectory()) {
+        throw new Error(`Expected an update source directory: ${candidate}`);
+      }
+      return await realpath(candidate);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  throw new Error('Update files missing. Run the updater from the Northpath checkout or an installed alpha.');
+}
+
 async function readVersion(root, spec, currentOnly = false) {
   const path = join(root, spec.path);
   const { mode } = await regularFile(path);
@@ -161,9 +176,9 @@ async function main() {
     return;
   }
   const engine = await enginePath(values.engine);
-  const alphaEngine = await realpath(join(here, 'engine'));
-  if (engine === alphaEngine) throw new Error('Choose the Control Center engine folder outside the alpha installation.');
-  let source = alphaEngine;
+  const bundledSource = await updateSource();
+  if (engine === bundledSource) throw new Error('Choose a target engine folder separate from the update source.');
+  let source = bundledSource;
   if (values.restore !== undefined) {
     source = await realpath(resolve(values.restore));
     if (dirname(source) !== engine || !basename(source).startsWith(backupPrefix)) {
@@ -174,7 +189,7 @@ async function main() {
   try {
     const plan = await planUpdate(engine, source, values.restore !== undefined);
     console.log(`Target engine: ${engine}`);
-    if (values.restore !== undefined) console.log(`Restore source: ${source}`);
+    console.log(`${values.restore === undefined ? 'Update' : 'Restore'} source: ${source}`);
     for (const { before, after } of plan) {
       console.log(`${before.hash === after.hash ? 'CURRENT' : 'UPDATE'} ${before.path}`);
     }
