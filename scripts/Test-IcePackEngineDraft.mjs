@@ -17,16 +17,27 @@ async function readJson(filename, label, maxBytes) {
   }
 }
 
+function requireEngineDraft(config) {
+  if (config?.schemaVersion !== 2) throw new Error('Choose a version 2 engine draft from Download engine draft.');
+}
+
 export async function rehearseEngineDraft(root, { draft, catalog, prefs }) {
   const input = await readJson(draft, 'Engine draft', 400_000);
-  if (input?.schemaVersion !== 2) throw new Error('Choose a version 2 engine draft from Download engine draft.');
+  requireEngineDraft(input);
   const bundled = join(root, 'companion', 'src', 'catalog.json');
   const sourceCatalog = await readJson(catalog ?? bundled, 'ARK catalog', 4_000_000);
-  if (catalog && sourceCatalog?.schemaVersion !== 2) {
+  const preferences = prefs ? await readJson(prefs, 'Content preferences', 400_000) : undefined;
+  return rehearseEngineConfiguration(root, {
+    config: input, catalog: sourceCatalog, catalogSource: catalog ? 'selected' : 'bundled', preferences,
+  });
+}
+
+export async function rehearseEngineConfiguration(root, { config, catalog, catalogSource, preferences }) {
+  requireEngineDraft(config);
+  if (catalogSource === 'selected' && catalog?.schemaVersion !== 2) {
     throw new Error('Choose a version 2 Kit Editor catalog.');
   }
-  const preferences = prefs ? await readJson(prefs, 'Content preferences', 400_000) : undefined;
-  if (prefs && (!Array.isArray(preferences?.enabledPacks) || preferences.enabledPacks.some(pack => typeof pack !== 'string'))) {
+  if (preferences !== undefined && (!Array.isArray(preferences?.enabledPacks) || preferences.enabledPacks.some(pack => typeof pack !== 'string'))) {
     throw new Error('Content preferences must contain an enabledPacks array of pack IDs.');
   }
   const engineModule = name => import(pathToFileURL(join(root, 'engine', name)).href);
@@ -37,8 +48,8 @@ export async function rehearseEngineDraft(root, { draft, catalog, prefs }) {
 
   const scratch = await mkdtemp(join(tmpdir(), 'icepack-rehearsal-'));
   try {
-    await writeFile(join(scratch, 'streamer-config-v2.json'), JSON.stringify(input), { flag: 'wx' });
-    await writeFile(join(scratch, 'ark-catalog-v2.json'), JSON.stringify(sourceCatalog), { flag: 'wx' });
+    await writeFile(join(scratch, 'streamer-config-v2.json'), JSON.stringify(config), { flag: 'wx' });
+    await writeFile(join(scratch, 'ark-catalog-v2.json'), JSON.stringify(catalog), { flag: 'wx' });
     if (preferences) {
       await writeFile(join(scratch, 'content-prefs.json'), JSON.stringify(preferences), { flag: 'wx' });
     }
@@ -61,8 +72,8 @@ export async function rehearseEngineDraft(root, { draft, catalog, prefs }) {
     return {
       ruleCount: rules.length,
       kitCount: kits.length,
-      catalogSource: catalog ? 'selected' : 'bundled',
-      packSource: prefs ? 'selected content preferences' : 'catalog defaults',
+      catalogSource,
+      packSource: preferences ? 'selected content preferences' : 'catalog defaults',
       results,
     };
   } finally {

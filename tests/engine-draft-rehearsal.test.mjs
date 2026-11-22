@@ -3,7 +3,7 @@ import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { rehearseEngineDraft } from '../scripts/Test-IcePackEngineDraft.mjs';
+import { rehearseEngineConfiguration, rehearseEngineDraft } from '../scripts/Test-IcePackEngineDraft.mjs';
 
 async function setup(t, failLoad = false) {
   const root = await mkdtemp(join(tmpdir(), 'icepack-rehearsal-test-'));
@@ -62,4 +62,17 @@ test('removes temporary files when the engine rejects the draft', async t => {
   await assert.rejects(rehearseEngineDraft(root, { draft, catalog }), /Engine rejected draft/);
   const scratch = await readFile(scratchRecord, 'utf8');
   await assert.rejects(lstat(scratch), { code: 'ENOENT' });
+});
+
+test('runs the same rehearsal on reviewed dashboard data without source files', async t => {
+  const { root, original } = await setup(t);
+  const config = JSON.parse(original);
+  const catalog = { schemaVersion: 2, dinosaurs: [], items: [] };
+  const report = await rehearseEngineConfiguration(root, { config, catalog, catalogSource: 'selected' });
+  assert.equal(report.catalogSource, 'selected');
+  assert.equal(report.packSource, 'catalog defaults');
+  assert.equal(report.results.length, 2);
+  assert.equal(report.results[0].prepared, 1);
+  assert.equal(report.results[1].blocked, 'Unsupported item');
+  assert.equal(JSON.stringify(config), original);
 });

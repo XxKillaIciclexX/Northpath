@@ -50,16 +50,16 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v4.8 Alpha — Run the engine updater from the Northpath checkout
+## v4.9 Alpha — Rehearse drafts from the Dashboard
 
-The v4.7 Windows filter checks passed. The v4.8 updater can use the verified engine files in the Git checkout directly. To check whether your regular Control Center engine needs an update, pull `development` and run this from the Northpath checkout:
+The v4.8 Windows checkout-updater checks passed. The updater still uses the verified engine files in the Git checkout directly. To check whether your regular Control Center engine needs an update, pull `development` and run this from the Northpath checkout:
 
 ```powershell
 git pull --ff-only origin development
 node .\scripts\Update-IcePackEngine.mjs
 ```
 
-Check **Target engine**, **Update source**, and both file statuses. A verified v4.7 engine reports `CURRENT` for both files in v4.8. If a subsequent release reports `UPDATE`, stop the engine and rerun with `--apply`. The checkout updater uses the same hash checks, backup, and restore as the installed alpha updater.
+Check **Target engine**, **Update source**, and both file statuses. A verified v4.7 engine reports `CURRENT` for both files in v4.9. If a subsequent release reports `UPDATE`, stop the engine and rerun with `--apply`. The checkout updater uses the same hash checks, backup, and restore as the installed alpha updater.
 
 ### Build a separate alpha preview install
 
@@ -73,14 +73,14 @@ node .\scripts\Install-IcePackAlpha.mjs `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.8` after the build. Use `--install-root` to select another parent directory. An existing v4.8 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.9` after the build. Use `--install-root` to select another parent directory. An existing v4.9 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.8 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.9 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.8\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.9\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
@@ -105,7 +105,7 @@ The download contains only the version 2 rules and Kits. Dashboard exports do no
 The rehearsal can run while your usual Companion is open. There is no need to start the alpha Dashboard. Use the same Kit Editor catalog you selected for the draft review, or omit `--catalog` if the review used the bundled catalog.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.8'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.9'
 node "$alpha\Test-IcePackEngineDraft.mjs" `
   --draft "$env:USERPROFILE\Downloads\icepack-engine-draft-v2.json" `
   --catalog "C:\path\to\ark-catalog-v2.json"
@@ -126,7 +126,7 @@ With the alpha services running, open `http://127.0.0.1:3210/` and find **Custom
 Run the dry run first. The updater discovers the engine path from Control Center settings. Use `--engine` with an explicit folder to test against a spare engine copy. The dry run prints the target and whether each of the two files needs an update.
 
 ```powershell
-$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.8\Update-IcePackEngine.mjs"
+$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.9\Update-IcePackEngine.mjs"
 node "$updater"
 ```
 
@@ -151,3 +151,9 @@ After at least one real delivery outcome, expand **Recent gift deliveries** and 
 Under **Recent gift deliveries → Review a saved report**, choose a version 1 JSON export from v4.5 or later. The saved report shows separately below the current session table and is read locally in your browser. The page rejects an invalid file and clears the previous saved view. The download button continues to export current session outcomes.
 
 Under **Recent gift deliveries**, filter current and saved rows together by partial gift name or outcome. Each table shows its own match count. **Clear filters** shows the full tables again. Downloads still include every current-session outcome, even when some rows are hidden by a filter.
+
+### Rehearse the reviewed draft in the Dashboard
+
+In the installed alpha Dashboard, load a Companion export and optional Kit Editor catalog. Select **Review engine draft**, then **Rehearse engine draft**. The results list prepared and blocked rules with reasons, and count disabled rules separately. The rehearsal uses catalog-default content packs. Use the existing PowerShell rehearsal with `--content-prefs` when you need to check custom content-pack settings.
+
+The bundled planner uses temporary files for the rehearsal and removes them afterward. It leaves loaded rules, engine modes, and the regular Control Center installation unchanged. Selecting a different draft or catalog clears the review and rehearsal.

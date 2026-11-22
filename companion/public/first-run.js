@@ -83,6 +83,10 @@ const draftActions = byId('draft-actions');
 const draftError = byId('draft-error');
 const reviewExport = byId('review-export');
 const downloadExport = byId('download-export');
+const rehearseExport = byId('rehearse-export');
+const rehearsalStatus = byId('rehearsal-status');
+const rehearsalRules = byId('rehearsal-rules');
+const rehearsalError = byId('rehearsal-error');
 const exportStatus = byId('export-status');
 const exportNotes = byId('export-notes');
 const exportError = byId('export-error');
@@ -100,10 +104,19 @@ function updateDraftButtons() {
 function clearExport() {
   reviewedConfig = undefined;
   downloadExport.disabled = true;
+  rehearseExport.disabled = true;
+  clearRehearsal();
   exportStatus.textContent = '';
   exportNotes.replaceChildren();
   exportNotes.hidden = true;
   exportError.textContent = '';
+}
+
+function clearRehearsal() {
+  rehearsalStatus.textContent = '';
+  rehearsalError.textContent = '';
+  rehearsalRules.replaceChildren();
+  rehearsalRules.hidden = true;
 }
 
 function clearDraftResult() {
@@ -256,8 +269,38 @@ reviewExport.addEventListener('click', async () => {
     exportNotes.hidden = false;
     reviewedConfig = config;
     downloadExport.disabled = false;
+    rehearseExport.disabled = false;
   } catch (error) {
     exportError.textContent = error.message;
+  } finally {
+    draftControls.disabled = !pairedToken;
+    pair.disabled = false;
+    preview.disabled = !pairedToken;
+  }
+});
+
+rehearseExport.addEventListener('click', async () => {
+  clearRehearsal();
+  draftControls.disabled = true;
+  pair.disabled = true;
+  preview.disabled = true;
+  try {
+    const { report } = await post('draft/rehearse', pairedToken, { config: reviewedConfig, catalog });
+    const blocked = report.results.filter(row => row.blocked !== undefined).length;
+    const prepared = report.results.length - blocked;
+    const disabled = report.ruleCount - report.results.length;
+    rehearsalStatus.textContent =
+      `Rehearsal: ${prepared} prepared, ${blocked} blocked, ${disabled} disabled. No game commands sent. Content packs: catalog defaults.`;
+    for (const row of report.results) {
+      const item = document.createElement('li');
+      item.textContent = row.blocked === undefined
+        ? `${row.gift}: prepared ${row.prepared} command(s)`
+        : `${row.gift}: blocked — ${row.blocked}`;
+      rehearsalRules.append(item);
+    }
+    rehearsalRules.hidden = report.results.length === 0;
+  } catch (error) {
+    rehearsalError.textContent = error.message;
   } finally {
     draftControls.disabled = !pairedToken;
     pair.disabled = false;

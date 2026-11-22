@@ -4,6 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { readJsonBody,getCatalog,convertDashboard,hashConfig,safeToApply,atomicApply } from './sync.mjs';
 import { validateGiftRequest,assertPreviewOnly } from './preview-safety.mjs';
 import { validateControl, activityCategory } from './controls.mjs';
@@ -76,7 +77,7 @@ const server=http.createServer(async(req,res)=>{
   if(origin&&!permittedOrigins.has(origin))return json(403,{error:'Allowed only from local dashboard'});
   if(req.method==='GET'&&req.url==='/status'){try{return json(200,await engineState());}catch(e){return json(503,{online:true,engineOnline:false,engineStatus:'Local engine unavailable',error:String(e.message).slice(0,120)});}}
   const endpoints=standalonePreview
-    ? ['/pairing/check','/simulate/preview','/draft/preview','/draft/export']
+    ? ['/pairing/check','/simulate/preview','/draft/preview','/draft/export','/draft/rehearse']
     : ['/sync/preview','/sync/apply','/sync/compare','/sync/drift','/simulate/preview','/control','/recovery/list','/recovery/compare','/recovery/preview','/recovery/restore','/recovery/audit','/target/read','/target/save'];
   if(!endpoints.includes(req.url)||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
   // No cross-origin browser access: requests through Vite's same-origin proxy include Origin on POST.
@@ -91,6 +92,16 @@ const server=http.createServer(async(req,res)=>{
   if(req.url==='/draft/export'){
     const draftExport=exportDashboardDraft(await readJsonBody(req),draftCatalog);
     return json(200,{ok:true,draftExport});
+  }
+  if(req.url==='/draft/rehearse'){
+    const {config,catalog}=await readJsonBody(req)??{};
+    const {rehearseEngineConfiguration}=await import('../../Test-IcePackEngineDraft.mjs');
+    const root=fileURLToPath(new URL('../../',import.meta.url));
+    const report=await rehearseEngineConfiguration(root,{
+      config,catalog:catalog===undefined?draftCatalog:catalog,
+      catalogSource:catalog===undefined?'bundled':'selected',
+    });
+    return json(200,{ok:true,report});
   }
   if(req.url==='/target/read') {
     const r=await fetch(`${ENGINE_URL}/state`,{signal:AbortSignal.timeout(2500)});
