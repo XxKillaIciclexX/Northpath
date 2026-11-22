@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'IcePack-Health.ps1')
 $result = Get-IcePackHealth
 if ($Json) { $result | ConvertTo-Json -Depth 3; return }
-Write-Host 'Ice Pack Companion v2.0.1 - operational readiness' -ForegroundColor Cyan
+Write-Host 'Ice Pack Companion - Operational readiness' -ForegroundColor Cyan
 $fields = @(
   @('Engine HTTP health', $result.EngineHealthy),
   @('Bridge reachable', $result.BridgeReachable),

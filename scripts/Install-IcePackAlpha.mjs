@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { copyFile, lstat, mkdir, mkdtemp, rename, rm, rmdir, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, mkdtemp, readFile, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -10,8 +10,10 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
-const version = 'v5.5';
+const companionSource = join(here, '..', 'companion');
+const releasePath = join(companionSource, 'src', 'icepack-release.json');
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
+const bundledCompanionDashboardHash = 'e708b3196be892a191bd2f964f31e1358b34075c10736b5f35b59c464547e3f1';
 const bundledEngineDashboardHash = '847d9f1014035f503211f7262fdfc9b74da25f1ded15746a27ae02d158226fe3';
 const bundledEngineRulesHash = 'b26538a9b27513f6b91274a2ec75877605a7f61091d40c408d637061a33fff46';
 
@@ -32,10 +34,14 @@ async function verifyArchive(source, copy, expected, label) {
   return hash;
 }
 
-async function stageFirstRun(staged, companion, engine) {
+async function stageFirstRun(staged, companion, engine, releaseBytes) {
   const bridge = join(companion, 'agent-bridge', 'bridge.mjs');
   if (await sha256(bridge) !== bundledBridgeHash) {
     throw new Error('The Companion ZIP bridge does not match the supported v3.1 source bundle');
+  }
+  const dashboard = join(companion, 'src', 'App.tsx');
+  if (await sha256(dashboard) !== bundledCompanionDashboardHash) {
+    throw new Error('The Companion ZIP dashboard does not match the supported v3.1 source bundle');
   }
   const rules = join(engine, 'icepack-custom-rules.mjs');
   if (await sha256(rules) !== bundledEngineRulesHash) {
@@ -47,14 +53,15 @@ async function stageFirstRun(staged, companion, engine) {
   }
   await copyFile(join(here, 'engine-overlay', 'icepack-custom-rules.mjs'), rules);
   await copyFile(join(here, 'engine-overlay', 'public', 'index.html'), engineDashboard);
-  const source = join(here, '..', 'companion');
+  await copyFile(join(companionSource, 'src', 'App.tsx'), dashboard);
+  await writeFile(join(companion, 'src', 'icepack-release.json'), releaseBytes);
   for (const name of ['bridge.mjs', 'draft-preview.mjs', 'sync.mjs']) {
-    await copyFile(join(source, 'agent-bridge', name), join(companion, 'agent-bridge', name));
+    await copyFile(join(companionSource, 'agent-bridge', name), join(companion, 'agent-bridge', name));
   }
   const publicDir = join(companion, 'public');
   await mkdir(publicDir, { recursive: true });
   for (const name of ['first-run.html', 'first-run.js']) {
-    await copyFile(join(source, 'public', name), join(publicDir, name));
+    await copyFile(join(companionSource, 'public', name), join(publicDir, name));
   }
 
   const previewRules = join(staged, 'preview-rules');
@@ -114,6 +121,11 @@ async function install(values) {
   if (major < 22 || (major === 22 && minor < 12)) {
     throw new Error('Use Node.js 22.12 or newer for these packages');
   }
+  const releaseBytes = await readFile(releasePath);
+  const { version: release } = JSON.parse(releaseBytes.toString('utf8'));
+  const match = typeof release === 'string' && /^(\d+\.\d+)-alpha$/.exec(release);
+  if (!match) throw new Error('Invalid alpha release metadata');
+  const version = `v${match[1]}`;
   const appData = process.env.LOCALAPPDATA;
   const installRoot = values['install-root'] ??
     (appData && join(appData, 'IcePackCompanion', 'alpha-installs'));
@@ -142,7 +154,7 @@ async function install(values) {
     const engine = join(staged, 'engine');
     await rename(join(appSource, 'companion'), companion);
     await rename(join(engineSource, 'engine'), engine);
-    await stageFirstRun(staged, companion, engine);
+    await stageFirstRun(staged, companion, engine, releaseBytes);
     installPackages(companion, engine, scratch);
     for (const file of [
       join(companion, 'dist', 'index.html'),
@@ -157,7 +169,7 @@ async function install(values) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '5.5-alpha',
+      version: release,
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');

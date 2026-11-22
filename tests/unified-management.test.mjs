@@ -15,5 +15,5 @@ test('stop order drains bridge before engine',()=>assert.match(stop,/foreach\(\$
 test('stop refuses ownership mismatch',()=>assert.match(stop,/if\(-not\(Test-IcePackOwnedProcess \$rec \$def\)\)/));
 test('both operations offer dry run and use existing managed helpers',()=>{for(const file of [start,stop])assert.match(file,/\[switch\]\$CheckOnly/);assert.match(start,/Start-IcePackBackground.ps1/);assert.match(stop,/Stop-IcePackBackground.ps1/)});
 test('UI has one click Start and Stop and confirms Stop',()=>{assert.match(ui,/Start Companion/);assert.match(ui,/Stop Companion/);assert.match(ui,/Confirm managed stop/);assert.match(ui,/Invoke-IcePackManagedAction 'Start-IcePackCompanionManaged.ps1'/)});
-test('UI uses hidden child and checks nonzero exit codes',()=>{assert.match(ui,/CreateNoWindow=\$true/);assert.match(ui,/ExitCode -ne 0/);assert.match(ui,/ReadToEndAsync/)});
+test('UI uses hidden child and checks nonzero exit codes',()=>{assert.match(ui,/CreateNoWindow\s*=\s*\$true/);assert.match(ui,/\$exitCode -ne 0/);assert.match(ui,/ReadToEndAsync/)});
 test('status displays ownership not secrets',()=>{assert.match(status,/UNOWNED\/PORT BUSY/);assert.doesNotMatch(status,/Read-IcePackBridgeToken|RCON_PASSWORD/)});

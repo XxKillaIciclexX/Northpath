@@ -1,5 +1,5 @@
-# Ice Pack Companion v2.2 Alpha - Windows Operations Center.
-# Only reads local ports and starts the existing v0.9 launcher. No RCON or gift-mode controls.
+# Ice Pack Companion Windows Operations Center.
+# Local service, diagnostics, and recovery controls.
 [CmdletBinding()]
 param()
 $ErrorActionPreference = 'Stop'
@@ -14,6 +14,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 . (Join-Path $PSScriptRoot 'Common.ps1')
 . (Join-Path $PSScriptRoot 'IcePack-Health.ps1')
+. (Join-Path $PSScriptRoot 'IcePack-Release.ps1')
 
 $settings = Get-IcePackSettings
 $launchScript = Join-Path $PSScriptRoot 'Start-IcePackCompanion.ps1'
@@ -23,93 +24,235 @@ foreach ($script in @($launchScript, $diagnosticScript, $readinessScript)) {
     if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing support script: $script" }
 }
 
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Ice Pack Companion - Operations Center (v2.7 Alpha)'
-$form.Size = New-Object System.Drawing.Size(650, 1092)
-$form.MinimumSize = New-Object System.Drawing.Size(650, 1092)
-$form.MaximumSize = New-Object System.Drawing.Size(650, 1092)
+$theme = @{
+    Background = [System.Drawing.ColorTranslator]::FromHtml('#09111f')
+    Surface    = [System.Drawing.ColorTranslator]::FromHtml('#101c2d')
+    Border     = [System.Drawing.ColorTranslator]::FromHtml('#26374b')
+    Foreground = [System.Drawing.ColorTranslator]::FromHtml('#e2e8f0')
+    Title      = [System.Drawing.ColorTranslator]::FromHtml('#f8fafc')
+    Muted      = [System.Drawing.ColorTranslator]::FromHtml('#94a3b8')
+    Accent     = [System.Drawing.ColorTranslator]::FromHtml('#67e8f9')
+    Primary    = [System.Drawing.ColorTranslator]::FromHtml('#0e6477')
+    PrimaryHover = [System.Drawing.ColorTranslator]::FromHtml('#11758a')
+    PrimaryBorder = [System.Drawing.ColorTranslator]::FromHtml('#22a3bb')
+    Secondary  = [System.Drawing.ColorTranslator]::FromHtml('#17283a')
+    Hover      = [System.Drawing.ColorTranslator]::FromHtml('#23374d')
+    ButtonBorder = [System.Drawing.ColorTranslator]::FromHtml('#35495f')
+    Danger     = [System.Drawing.ColorTranslator]::FromHtml('#451f2b')
+    DangerHover = [System.Drawing.ColorTranslator]::FromHtml('#572534')
+    DangerBorder = [System.Drawing.ColorTranslator]::FromHtml('#813a4d')
+    Success    = [System.Drawing.ColorTranslator]::FromHtml('#6ee7b7')
+    Warning    = [System.Drawing.ColorTranslator]::FromHtml('#fcd34d')
+    Error      = [System.Drawing.ColorTranslator]::FromHtml('#fda4af')
+}
+$fontFamily = 'Segoe UI'
+$form = [System.Windows.Forms.Form]::new()
+$form.Text = 'Ice Pack Companion - Operations Center'
+$form.AutoScaleDimensions = [System.Drawing.SizeF]::new(96, 96)
+$form.AutoScaleMode = 'Dpi'
+$form.ClientSize = [System.Drawing.Size]::new(752, 790)
+$form.MinimumSize = [System.Drawing.Size]::new(556, 480)
 $form.StartPosition = 'CenterScreen'
-$form.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
-$form.ForeColor = [System.Drawing.Color]::White
-$form.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+$form.BackColor = $theme.Background
+$form.ForeColor = $theme.Foreground
+$form.Font = [System.Drawing.Font]::new($fontFamily, 10)
+$form.SuspendLayout()
 
-function Add-Text([string]$Text, [int]$X, [int]$Y, [int]$W, [int]$H, [int]$Size, [bool]$Bold, [System.Drawing.Color]$Color) {
-    $label = New-Object System.Windows.Forms.Label
+function New-Stack {
+    $stack = [System.Windows.Forms.TableLayoutPanel]::new()
+    $stack.ColumnCount = 1
+    [void]$stack.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', 100))
+    $stack.Dock = 'Top'
+    $stack.AutoSize = $true
+    $stack.AutoSizeMode = 'GrowAndShrink'
+    $stack.Margin = [System.Windows.Forms.Padding]::new(0)
+    return $stack
+}
+
+function Add-Row([System.Windows.Forms.TableLayoutPanel]$Stack, [System.Windows.Forms.Control]$Control) {
+    $row = $Stack.RowCount
+    $Stack.RowCount++
+    [void]$Stack.RowStyles.Add([System.Windows.Forms.RowStyle]::new('AutoSize'))
+    $Stack.Controls.Add($Control, 0, $row)
+}
+
+function New-Text([string]$Text, [int]$Size, [bool]$Bold, [System.Drawing.Color]$Color) {
+    $label = [System.Windows.Forms.Label]::new()
     $label.Text = $Text
-    $label.Location = New-Object System.Drawing.Point($X, $Y)
-    $label.Size = New-Object System.Drawing.Size($W, $H)
+    $label.AutoSize = $true
+    $label.UseMnemonic = $false
     $label.ForeColor = $Color
-    $label.Font = New-Object System.Drawing.Font('Segoe UI', $Size, $(if ($Bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }))
-    $form.Controls.Add($label)
+    $label.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 6)
+    $style = if ($Bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
+    $label.Font = [System.Drawing.Font]::new($fontFamily, $Size, $style)
     return $label
 }
-function Add-Button([string]$Text, [int]$X, [int]$Y, [int]$W, [int]$H, [bool]$Primary) {
-    $button = New-Object System.Windows.Forms.Button
+
+function New-Card([System.Windows.Forms.TableLayoutPanel]$Stack, [string]$Title) {
+    $frame = [System.Windows.Forms.Panel]::new()
+    $frame.Dock = 'Top'
+    $frame.AutoSize = $true
+    $frame.AutoSizeMode = 'GrowAndShrink'
+    $frame.BackColor = $theme.Border
+    $frame.Padding = [System.Windows.Forms.Padding]::new(1)
+    $frame.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 12)
+
+    $card = New-Stack
+    $card.BackColor = $theme.Surface
+    $card.Padding = [System.Windows.Forms.Padding]::new(16, 12, 16, 12)
+    Add-Row $card (New-Text $Title 13 $true $theme.Title)
+    $frame.Controls.Add($card)
+    Add-Row $Stack $frame
+    return $card
+}
+
+function New-ActionButton([string]$Text, [string]$Variant = 'Secondary') {
+    $button = [System.Windows.Forms.Button]::new()
     $button.Text = $Text
-    $button.Location = New-Object System.Drawing.Point($X, $Y)
-    $button.Size = New-Object System.Drawing.Size($W, $H)
+    $button.Dock = 'Fill'
+    $button.AutoSize = $true
+    $button.MinimumSize = [System.Drawing.Size]::new(0, 38)
+    $button.Padding = [System.Windows.Forms.Padding]::new(6, 3, 6, 3)
     $button.FlatStyle = 'Flat'
-    $button.FlatAppearance.BorderSize = 1
+    $button.UseVisualStyleBackColor = $false
     $button.Cursor = [System.Windows.Forms.Cursors]::Hand
-    if ($Primary) {
-        $button.BackColor = [System.Drawing.Color]::FromArgb(6, 182, 212)
-        $button.ForeColor = [System.Drawing.Color]::FromArgb(2, 6, 23)
-        $button.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(6, 182, 212)
-    } else {
-        $button.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
-        $button.ForeColor = [System.Drawing.Color]::White
-        $button.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
+    switch ($Variant) {
+        'Primary' {
+            $button.BackColor = $theme.Primary
+            $button.ForeColor = $theme.Title
+            $button.FlatAppearance.BorderColor = $theme.PrimaryBorder
+            $button.FlatAppearance.MouseOverBackColor = $theme.PrimaryHover
+        }
+        'Danger' {
+            $button.BackColor = $theme.Danger
+            $button.ForeColor = $theme.Error
+            $button.FlatAppearance.BorderColor = $theme.DangerBorder
+            $button.FlatAppearance.MouseOverBackColor = $theme.DangerHover
+        }
+        default {
+            $button.BackColor = $theme.Secondary
+            $button.ForeColor = $theme.Foreground
+            $button.FlatAppearance.BorderColor = $theme.ButtonBorder
+            $button.FlatAppearance.MouseOverBackColor = $theme.Hover
+        }
     }
-    $form.Controls.Add($button)
     return $button
 }
 
-$white = [System.Drawing.Color]::White
-$muted = [System.Drawing.Color]::FromArgb(148, 163, 184)
-$green = [System.Drawing.Color]::FromArgb(52, 211, 153)
-$red = [System.Drawing.Color]::FromArgb(251, 113, 133)
-$yellow = [System.Drawing.Color]::FromArgb(250, 204, 21)
+function Add-ActionRow([System.Windows.Forms.TableLayoutPanel]$Stack, [System.Windows.Forms.Button[]]$Buttons) {
+    $row = New-Stack
+    $row.ColumnCount = $Buttons.Count
+    $row.ColumnStyles.Clear()
+    $columnWidth = 100 / $Buttons.Count
+    for ($i = 0; $i -lt $Buttons.Count; $i++) {
+        [void]$row.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', $columnWidth))
+        $left = if ($i -eq 0) { 0 } else { 8 }
+        $Buttons[$i].Margin = [System.Windows.Forms.Padding]::new($left, 6, 0, 0)
+        $row.Controls.Add($Buttons[$i], $i, 0)
+    }
+    Add-Row $Stack $row
+}
 
-$null = Add-Text 'ICE PACK COMPANION' 26 18 580 42 23 $true $white
-$null = Add-Text 'Northpath / local Windows agent / v2.7 Alpha' 28 62 565 25 10 $false $muted
-$null = Add-Text 'Local service status' 28 112 500 30 14 $true $white
-$null = Add-Text 'ARK Engine   ·   127.0.0.1:3210' 28 157 355 27 11 $false $white
-$null = Add-Text 'Local Bridge  ·   127.0.0.1:3212' 28 199 355 27 11 $false $white
-$null = Add-Text 'Dashboard   ·   127.0.0.1:5173' 28 241 355 27 11 $false $white
-$engineLabel = Add-Text 'Checking...' 402 157 195 28 11 $true $yellow
-$bridgeLabel = Add-Text 'Checking...' 402 199 195 28 11 $true $yellow
-$dashboardLabel = Add-Text 'Checking...' 402 241 195 28 11 $true $yellow
-$statusLabel = Add-Text 'Checking local services...' 28 291 570 24 9 $false $muted
+function Add-ServiceRow([System.Windows.Forms.TableLayoutPanel]$Stack, [string]$Name, [int]$Port) {
+    $row = New-Stack
+    $row.ColumnCount = 2
+    [void]$row.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('AutoSize'))
+    $nameLabel = New-Text "$Name  /  127.0.0.1:$Port" 10 $false $theme.Foreground
+    $status = New-Text 'Checking...' 10 $true $theme.Warning
+    $status.Anchor = 'Top, Right'
+    $row.Controls.Add($nameLabel, 0, 0)
+    $row.Controls.Add($status, 1, 0)
+    Add-Row $Stack $row
+    return $status
+}
 
-$startButton = Add-Button 'Legacy startup' 28 326 278 44 $true
-$openButton = Add-Button 'Open dashboard' 320 326 278 44 $false
-$checkButton = Add-Button 'Refresh status' 28 381 177 40 $false
-$diagButton = Add-Button 'Diagnostics' 219 381 180 40 $false
-$folderButton = Add-Button 'Open project folder' 413 381 185 40 $false
-$null = Add-Text 'Configuration protection' 28 437 560 26 13 $true $white
-$backupButton = Add-Button 'Backup now' 28 472 177 40 $true
-$backupsButton = Add-Button 'Open backups' 219 472 180 40 $false
-$restoreHelpButton = Add-Button 'Recovery guide' 413 472 185 40 $false
-$null = Add-Text 'Companion controls (Engine + Bridge + Dashboard)' 28 658 570 27 13 $true $white
-$quietStartButton = Add-Button 'Start Companion' 28 693 177 40 $true
-$quietStopButton = Add-Button 'Stop Companion' 219 693 180 40 $false
-$quietLogsButton = Add-Button 'Open logs' 413 693 185 40 $false
-$null = Add-Text 'Managed bridge token is encrypted for your Windows user account.' 28 752 585 24 9 $false $muted
-$copyTokenButton = Add-Button 'Copy bridge pairing token' 28 782 278 41 $true
-$null = Add-Text 'Clipboard contains a secret until replaced. Never share it.' 320 790 275 36 9 $false $muted
-$null = Add-Text 'Application updates (local packages)' 28 846 560 27 13 $true $white
-$updateManagerButton = Add-Button 'Open Update Manager' 28 882 278 43 $true
-$null = Add-Text 'Dry-run first; services must be stopped before apply or rollback.' 320 884 282 44 9 $false $muted
-$null = Add-Text 'Installation inventory (read-only)' 28 941 560 28 13 $true $white
-$reportButton = Add-Button 'View installation report' 28 979 278 42 $false
-$baselineButton = Add-Button 'Version / baseline status' 320 979 278 42 $false
-$null = Add-Text 'Shows tracked updates, component presence, and file differences.' 320 981 285 39 9 $false $muted
+$layout = New-Stack
+$layout.Dock = 'Fill'
+$layout.AutoSize = $false
 
-$null = Add-Text 'Operational readiness (read-only)' 28 529 570 27 13 $true $white
-$targetLabel = Add-Text 'Player target: checking...' 28 563 360 25 10 $false $muted
-$safeLabel = Add-Text 'Reward lanes: checking...' 28 590 360 25 10 $false $muted
-$readinessButton = Add-Button 'Run preflight' 413 560 185 45 $true
-$null = Add-Text 'Preflight never sends RCON or enables Preview/Live.' 28 623 570 24 9 $false $muted
+$header = New-Stack
+$header.ColumnCount = 2
+[void]$header.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('AutoSize'))
+$header.Padding = [System.Windows.Forms.Padding]::new(20, 14, 20, 10)
+$heading = New-Stack
+Add-Row $heading (New-Text 'Ice Pack Companion' 21 $true $theme.Title)
+Add-Row $heading (New-Text 'Operations Center' 11 $false $theme.Muted)
+$releasePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'companion/src/icepack-release.json'
+$versionBadge = New-Text (Get-IcePackReleaseLabel $releasePath) 9 $true $theme.Accent
+$versionBadge.BackColor = $theme.Secondary
+$versionBadge.Padding = [System.Windows.Forms.Padding]::new(8, 4, 8, 4)
+$versionBadge.Anchor = 'Top, Right'
+$header.Controls.Add($heading, 0, 0)
+$header.Controls.Add($versionBadge, 1, 0)
+Add-Row $layout $header
+
+$scroll = [System.Windows.Forms.Panel]::new()
+$scroll.Dock = 'Fill'
+$scroll.AutoScroll = $true
+$scroll.Margin = [System.Windows.Forms.Padding]::new(0)
+$scroll.Padding = [System.Windows.Forms.Padding]::new(20, 0, 20, 0)
+[void]$layout.RowStyles.Add([System.Windows.Forms.RowStyle]::new('Percent', 100))
+$layout.RowCount = 2
+$layout.Controls.Add($scroll, 0, 1)
+$content = New-Stack
+$scroll.Controls.Add($content)
+
+$services = New-Card $content 'Local services'
+$engineLabel = Add-ServiceRow $services 'ARK Engine' 3210
+$bridgeLabel = Add-ServiceRow $services 'Local Bridge' 3212
+$dashboardLabel = Add-ServiceRow $services 'Dashboard' 5173
+$quietStartButton = New-ActionButton 'Start Companion' 'Primary'
+$openButton = New-ActionButton 'Open dashboard'
+$quietStopButton = New-ActionButton 'Stop Companion' 'Danger'
+Add-ActionRow $services @($quietStartButton, $openButton, $quietStopButton)
+$checkButton = New-ActionButton 'Refresh status'
+$diagButton = New-ActionButton 'Diagnostics'
+$quietLogsButton = New-ActionButton 'Open logs'
+Add-ActionRow $services @($checkButton, $diagButton, $quietLogsButton)
+
+$readiness = New-Card $content 'Operational readiness'
+$targetLabel = New-Text 'Player target: checking...' 10 $false $theme.Muted
+$safeLabel = New-Text 'Reward lanes: checking...' 10 $false $theme.Muted
+Add-Row $readiness $targetLabel
+Add-Row $readiness $safeLabel
+$readinessButton = New-ActionButton 'Run preflight'
+Add-ActionRow $readiness @($readinessButton)
+
+$pairing = New-Card $content 'Bridge pairing'
+Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
+$copyTokenButton = New-ActionButton 'Copy bridge pairing token'
+Add-ActionRow $pairing @($copyTokenButton)
+
+$recovery = New-Card $content 'Configuration protection'
+$backupButton = New-ActionButton 'Backup now'
+$backupsButton = New-ActionButton 'Open backups'
+$restoreHelpButton = New-ActionButton 'Recovery guide'
+Add-ActionRow $recovery @($backupButton, $backupsButton, $restoreHelpButton)
+
+$updates = New-Card $content 'Updates and inventory'
+$updateManagerButton = New-ActionButton 'Open Update Manager'
+Add-ActionRow $updates @($updateManagerButton)
+$reportButton = New-ActionButton 'View installation report'
+$baselineButton = New-ActionButton 'Version / baseline status'
+Add-ActionRow $updates @($reportButton, $baselineButton)
+
+$tools = New-Card $content 'Utilities'
+$startButton = New-ActionButton 'Legacy startup'
+$folderButton = New-ActionButton 'Open project folder'
+Add-ActionRow $tools @($startButton, $folderButton)
+
+$footer = New-Stack
+$footer.BackColor = $theme.Surface
+$footer.Padding = [System.Windows.Forms.Padding]::new(20, 7, 20, 2)
+$statusLabel = New-Text 'Checking local services...' 9 $false $theme.Muted
+$statusLabel.Dock = 'Fill'
+$statusLabel.AutoSize = $false
+$statusLabel.AutoEllipsis = $true
+$statusLabel.Height = 20
+Add-Row $footer $statusLabel
+Add-Row $layout $footer
+$form.Controls.Add($layout)
+$form.ResumeLayout($true)
 
 function Refresh-IcePackStatus {
     # Health probes read only three fixed localhost URLs; no tokens or IDs are displayed.
@@ -119,24 +262,24 @@ function Refresh-IcePackStatus {
     $open = 0
     for ($i = 0; $i -lt $labels.Count; $i++) {
         if ($serviceResults[$i]) {
-            $labels[$i].Text = 'RESPONDING'
-            $labels[$i].ForeColor = $green
+            $labels[$i].Text = 'Responding'
+            $labels[$i].ForeColor = $theme.Success
             $open++
         } else {
-            $labels[$i].Text = 'CHECK SERVICE'
-            $labels[$i].ForeColor = $red
+            $labels[$i].Text = 'Check service'
+            $labels[$i].ForeColor = $theme.Error
         }
     }
     if ($health.TargetSaved -and $health.TargetLoaded) {
-        $targetLabel.Text = 'Player target: SAVED + LOADED'
-        $targetLabel.ForeColor = $green
+        $targetLabel.Text = 'Player target: saved and loaded'
+        $targetLabel.ForeColor = $theme.Success
     } else {
-        $targetLabel.Text = 'Player target: NOT VERIFIED'
-        $targetLabel.ForeColor = $yellow
+        $targetLabel.Text = 'Player target: unverified'
+        $targetLabel.ForeColor = $theme.Warning
     }
     $safeLabel.Text = 'Reward lanes: ' + $health.RewardState
-    $safeLabel.ForeColor = if ($health.RewardLanesOff -or $health.PreviewSafe) { $green } elseif ($health.LiveOrArmed) { $red } else { $yellow }
-    $statusLabel.Text = "$open of 3 services respond to HTTP  ·  $(Get-Date -Format 'h:mm:ss tt')"
+    $safeLabel.ForeColor = if ($health.RewardLanesOff -or $health.PreviewSafe) { $theme.Success } elseif ($health.LiveOrArmed) { $theme.Error } else { $theme.Warning }
+    $statusLabel.Text = "$open of 3 services responding  /  $(Get-Date -Format 'h:mm:ss tt')"
     # Status represents endpoint health only, never live gift readiness or RCON connectivity.
 }
 
@@ -161,14 +304,14 @@ $folderButton.Add_Click({ Start-Process 'explorer.exe' -ArgumentList ('"' + $set
 $backupButton.Add_Click({
     try {
         $script = Join-Path $PSScriptRoot 'Backup-IcePackConfiguration.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Install v1.2 backup scripts first.' }
+        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing backup support script: $script" }
         Open-PowerShellScript $script
     } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Backup unavailable', 'OK', 'Warning') | Out-Null }
 })
 $backupsButton.Add_Click({
     try {
         $script = Join-Path $PSScriptRoot 'IcePack-ConfigCommon.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Install v1.2 backup scripts first.' }
+        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing backup support script: $script" }
         $root = Join-Path (Split-Path -Parent (Get-IcePackConfigPath)) 'backups'
         New-Item -ItemType Directory -Path $root -Force | Out-Null
         Start-Process -FilePath 'explorer.exe' -ArgumentList ('"' + $root + '"')
@@ -261,7 +404,7 @@ $script:managedActionTimer.Add_Tick({
     }
 })
 
-function Invoke-IcePackManagedAction([string]$FileName) {
+function Invoke-IcePackManagedAction([string]$FileName, [string]$ActionName) {
     if ($null -ne $script:managedProcess) { throw 'Another managed action is in progress. Wait for its result.' }
     $actionScript = Join-Path $PSScriptRoot $FileName
     if (-not (Test-Path -LiteralPath $actionScript -PathType Leaf)) { throw "Missing managed action: $actionScript" }
@@ -280,13 +423,13 @@ function Invoke-IcePackManagedAction([string]$FileName) {
         $script:managedOutputTask = $process.StandardOutput.ReadToEndAsync()
         $script:managedErrorTask = $process.StandardError.ReadToEndAsync()
         $script:managedProcess = $process
-        $script:managedActionName = $FileName
+        $script:managedActionName = $ActionName
         $script:managedActionStarted = [datetime]::UtcNow
         $script:managedTimeoutReported = $false
         $script:managedExitedAt = [datetime]::MinValue
         $quietStartButton.Enabled = $false
         $quietStopButton.Enabled = $false
-        $statusLabel.Text = 'Running ' + $FileName + '... other controls remain available.'
+        $statusLabel.Text = "$ActionName in progress..."
         $script:managedActionTimer.Start()
     } catch {
         $process.Dispose()
@@ -295,12 +438,12 @@ function Invoke-IcePackManagedAction([string]$FileName) {
 }
 
 $quietStartButton.Add_Click({
-    try { Invoke-IcePackManagedAction 'Start-IcePackCompanionManaged.ps1' }
+    try { Invoke-IcePackManagedAction 'Start-IcePackCompanionManaged.ps1' 'Start Companion' }
     catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Managed startup','OK','Warning') | Out-Null }
 })
 $quietStopButton.Add_Click({
     if ([System.Windows.Forms.MessageBox]::Show('Stop ONLY processes owned by Ice Pack Companion? In-flight RCON commands cannot be recalled.','Confirm managed stop','YesNo','Warning') -eq 'Yes') {
-        try { Invoke-IcePackManagedAction 'Stop-IcePackCompanionManaged.ps1' }
+        try { Invoke-IcePackManagedAction 'Stop-IcePackCompanionManaged.ps1' 'Stop Companion' }
         catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Managed shutdown','OK','Warning') | Out-Null }
     }
 })
@@ -313,7 +456,7 @@ $copyTokenButton.Add_Click({
 $updateManagerButton.Add_Click({
     try {
         $path = Join-Path $PSScriptRoot 'Open-IcePackUpdateManager.ps1'
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'Install the v2.5 Update Manager script first.' }
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing Update Manager script: $path" }
         # Separate window/process keeps the Operations Center responsive.
         Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList @('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',('"' + $path + '"')) -WorkingDirectory $settings.repoPath
     } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Update Manager','OK','Warning') | Out-Null }
@@ -321,7 +464,7 @@ $updateManagerButton.Add_Click({
 $reportButton.Add_Click({
     try {
         $script = Join-Path $PSScriptRoot 'Get-IcePackInstallationReport.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Missing v2.6 installation report script.' }
+        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing installation report script: $script" }
         # Read-only report in a separate PowerShell window, with no impact on status polling.
         Open-PowerShellScript $script
     } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Installation report','OK','Warning') | Out-Null }
@@ -329,7 +472,7 @@ $reportButton.Add_Click({
 $baselineButton.Add_Click({
     try {
         $script = Join-Path $PSScriptRoot 'Get-IcePackVersionStatus.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Missing v2.7 version status script.' }
+        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing version status script: $script" }
         Open-PowerShellScript $script
     } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Version status','OK','Warning') | Out-Null }
 })
@@ -343,6 +486,11 @@ $timer.Interval = 10000
 $timer.Add_Tick({
     # Service refresh stays active during managed startup/shutdown.
     try { Refresh-IcePackStatus } catch { $statusLabel.Text = 'Status check failed; try Refresh status.' }
+})
+$form.Add_Load({
+    $workArea = [System.Windows.Forms.Screen]::FromControl($form).WorkingArea
+    $form.Width = [Math]::Min($form.Width, $workArea.Width)
+    $form.Height = [Math]::Min($form.Height, $workArea.Height)
 })
 $form.Add_Shown({ Refresh-IcePackStatus; $timer.Start() })
 $form.Add_FormClosed({

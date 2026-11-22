@@ -23,7 +23,7 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {$OutputDirectory=Join-Path 
 $dest=[IO.Path]::GetFullPath($OutputDirectory)
 if ($dest.TrimEnd('\') -eq $repo.TrimEnd('\') -or $dest.StartsWith($repo.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) {throw 'Output directory must be outside the repository.'}
 # Only known source paths. No .env, user data, backups, node_modules, .git, or credentials.
-$required=@('companion/package.json','companion/vite.config.ts','companion/index.html','companion/src/App.tsx','companion/src/main.tsx','companion/agent-bridge/bridge.mjs','scripts/Open-IcePackControlCenter.ps1','scripts/Start-IcePackCompanionManaged.ps1','scripts/Stop-IcePackCompanionManaged.ps1')
+$required=@('companion/package.json','companion/vite.config.ts','companion/index.html','companion/src/App.tsx','companion/src/main.tsx','companion/src/icepack-release.json','companion/agent-bridge/bridge.mjs','scripts/Open-IcePackControlCenter.ps1','scripts/IcePack-Release.ps1','scripts/Start-IcePackCompanionManaged.ps1','scripts/Stop-IcePackCompanionManaged.ps1')
 $selected=New-Object 'System.Collections.Generic.List[string]'
 foreach($rel in $required){
   $p=Join-Path $repo ($rel.Replace('/','\'))

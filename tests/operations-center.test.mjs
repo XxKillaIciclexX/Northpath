@@ -8,6 +8,9 @@ const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../scripts
 const health=fs.readFileSync(path.join(base,'IcePack-Health.ps1'),'utf8');
 const ui=fs.readFileSync(path.join(base,'Open-IcePackControlCenter.ps1'),'utf8');
 const preflight=fs.readFileSync(path.join(base,'Test-IcePackReadiness.ps1'),'utf8');
+const inventory=fs.readFileSync(path.join(base,'Get-IcePackInstallationReport.ps1'),'utf8');
+const builder=fs.readFileSync(path.join(base,'New-IcePackReleaseBundle.ps1'),'utf8');
+const dashboard=fs.readFileSync(new URL('../companion/src/App.tsx', import.meta.url), 'utf8');
 test('readiness only requests approved local status URLs',()=>{
   assert.match(health,/127\.0\.0\.1:3210\/state/);
   assert.match(health,/127\.0\.0\.1:3212\/status/);
@@ -28,6 +31,16 @@ test('operations center preserves protected startup and recovery controls',()=>{
   assert.match(ui,/Ready|readiness/i);
   assert.match(ui,/Get-IcePackHealth/);
   assert.match(ui,/Run preflight/);
+});
+test('operations center, dashboard, and inventory share the packaged release metadata', () => {
+  for (const source of [ui, inventory]) {
+    assert.match(source, /Get-IcePackReleaseLabel/);
+    assert.match(source, /'companion\/src\/icepack-release\.json'/);
+    assert.doesNotMatch(source, /\bv2\.\d+(?:\.\d+)? Alpha\b/);
+  }
+  assert.match(dashboard, /import release from '\.\/icepack-release\.json'/);
+  assert.match(dashboard, /\{releaseLabel\}/);
+  assert.match(builder, /\$required=.*'companion\/src\/icepack-release\.json'/);
 });
 test('no live mode or RCON writes added by new scripts',()=>{
   for(const source of [health,preflight]){

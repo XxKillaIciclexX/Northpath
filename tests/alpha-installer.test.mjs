@@ -7,6 +7,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../scripts/Install-IcePackAlpha.mjs', import.meta.url));
+const { version: release } = JSON.parse(await readFile(new URL('../companion/src/icepack-release.json', import.meta.url), 'utf8'));
+const releaseFolder = `v${release.replace(/-alpha$/, '')}`;
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'icepack-installer-test-'));
@@ -37,7 +39,7 @@ test('a hash mismatch leaves no staged or installed files', async t => {
 
 test('the installer preserves an existing version folder', async t => {
   const { installRoot, run } = await fixture(t);
-  const installed = join(installRoot, 'v5.5');
+  const installed = join(installRoot, releaseFolder);
   const marker = join(installed, 'keep.txt');
   await mkdir(installed, { recursive: true });
   await writeFile(marker, 'existing install');
@@ -46,5 +48,5 @@ test('the installer preserves an existing version folder', async t => {
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stderr, /Installation already exists/);
   assert.equal(await readFile(marker, 'utf8'), 'existing install');
-  assert.deepEqual(await readdir(installRoot), ['v5.5']);
+  assert.deepEqual(await readdir(installRoot), [releaseFolder]);
 });

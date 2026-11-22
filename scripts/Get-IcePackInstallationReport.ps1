@@ -1,8 +1,9 @@
-# Ice Pack Companion v2.6 - Read-only installation inventory and tracked update integrity.
+# Ice Pack Companion - Read-only installation inventory and tracked update integrity.
 # Windows PowerShell 5.1 compatible. Does not access .env, pairing tokens, or player IDs.
 [CmdletBinding()]
 param([switch]$AsJson)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'IcePack-Release.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $settingsPath = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\settings.json'
 $enginePath = 'C:\IcePackARK\ice-pack-ark'
@@ -73,7 +74,9 @@ if ($latest) {
 }
 $report=[pscustomobject]@{
     Product='Ice Pack Companion'
-    ControlCenterBuild='2.6 Alpha'
+    ControlCenterBuild=$(if (Test-Path -LiteralPath $requirements.ControlCenter -PathType Leaf) {
+        Get-IcePackReleaseLabel (Join-Path $repo 'companion/src/icepack-release.json')
+    } else { 'Unavailable' })
     InstallSettings=$installationNote
     TrackedPackageVersion=$(if($latest){$latest.Version}else{'None (manual overlays not tracked)'})
     TrackedUpdateId=$(if($latest){$latest.Id}else{$null})
@@ -85,7 +88,7 @@ $report=[pscustomobject]@{
 }
 if($AsJson){$report|ConvertTo-Json -Depth 6;return}
 Write-Host 'Ice Pack Companion - Installation report (read-only)'
-Write-Host "Control Center build: $($report.ControlCenterBuild)"
+Write-Host "Operations Center release label: $($report.ControlCenterBuild)"
 Write-Host "Installer settings: $($report.InstallSettings)"
 Write-Host "Latest tracked package: $($report.TrackedPackageVersion)"
 Write-Host "Update records: $updateCount"

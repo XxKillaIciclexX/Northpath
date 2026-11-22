@@ -39,8 +39,8 @@ test('managed logs never capture bridge pairing token',()=>{
  assert.match(start,/RedirectStandardError/);
  assert.doesNotMatch(start,/bridge\.stdout|bridge\.stderr|pairingToken/);
 });
-test('Control Center has quiet start stop and logs without removing recovery controls',()=>{
- for(const token of ['Start quietly','Stop owned','Open logs','Backup now','Open backups','Run preflight','Recovery guide'])assert.ok(ui.includes(token), token);
+test('Operations Center has managed start, stop, logs, and recovery controls',()=>{
+ for(const token of ['Start Companion','Stop Companion','Open logs','Backup now','Open backups','Run preflight','Recovery guide'])assert.ok(ui.includes(token), token);
  assert.match(ui,/Confirm managed stop/);
 });
 test('status only reports owned processes after verification',()=>{

@@ -12,10 +12,10 @@ $installer = Join-Path $PSScriptRoot 'Install-IcePackUpdate.ps1'
 $restorer = Join-Path $PSScriptRoot 'Restore-IcePackUpdate.ps1'
 $history = Join-Path $PSScriptRoot 'Get-IcePackUpdateHistory.ps1'
 foreach ($path in @($installer,$restorer,$history,(Join-Path $PSScriptRoot 'IcePack-UpdateCommon.ps1'))) {
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Install v2.4 update scripts first. Missing: $path" }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing update support script: $path" }
 }
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Ice Pack Companion - Update Manager (v2.5 Alpha)'
+$form.Text = 'Ice Pack Companion - Update Manager'
 $form.Size = New-Object Drawing.Size(810,700)
 $form.MinimumSize = New-Object Drawing.Size(810,700)
 $form.StartPosition = 'CenterScreen'
