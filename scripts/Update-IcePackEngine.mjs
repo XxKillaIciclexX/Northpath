@@ -11,11 +11,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const updates = [
   {
     path: 'icepack-custom-rules.mjs',
-    current: '93f509421899de3195c510e113713d8f480dad08494774daf7555368b5abecc6',
+    current: '24258b8581f7e039973596c6eacf8e19871c8a233d1c3d3f1355afd481fc4feb',
     original: [
       'b26538a9b27513f6b91274a2ec75877605a7f61091d40c408d637061a33fff46',
       '43b909e3bd02b22bac1ecef7f3adec2a97fc7ec2d457aa671d15c92ecfe9ad2d',
       '1e45f4e5af341c493f94b3351b5f1672e0cfe914e145268cb6a9d6a82d03645f',
+      '93f509421899de3195c510e113713d8f480dad08494774daf7555368b5abecc6',
     ],
   },
   {

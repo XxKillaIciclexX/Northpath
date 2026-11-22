@@ -50,37 +50,51 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v5.3 Alpha — Guarded migration for the regular Control Center setup
+## v5.4 Alpha — Verify what the running ARK Engine loaded
 
-The v5.2 Windows spare apply and restore checks passed. The updater still uses the verified engine files in the Git checkout directly. To check whether your regular Control Center engine needs an update, pull `development` and run this from the Northpath checkout:
+After applying or restoring a migration, verify that the engine loaded the expected rules, catalog, and optional content preferences. The verifier compares the SHA-256 fingerprints from the last successful engine load with your staged migration receipt. It detects stale rules even when rule and Kit counts match.
+
+Pull Northpath's `development` branch and run the updater directly from the checkout:
 
 ```powershell
+git switch development
 git pull --ff-only origin development
 node .\scripts\Update-IcePackEngine.mjs
 ```
 
-Check **Target engine**, **Update source**, and both file statuses. A verified v4.7 engine reports `CURRENT` for both files in v5.3. If a subsequent release reports `UPDATE`, stop the engine and rerun with `--apply`. The checkout updater uses the same hash checks, backup, and restore as the installed alpha updater.
+Check **Target engine**. From the v5.3 engine, expect `UPDATE` for `icepack-custom-rules.mjs` and `CURRENT` for `public/index.html`. Stop Companion through Control Center, run `node .\scripts\Update-IcePackEngine.mjs --apply`, and save the printed backup path. You can use this checkout workflow with your existing installation.
+
+Restart Companion through Control Center. Open the engine dashboard at `http://127.0.0.1:3210/`. Under **Custom Gift Rules**, select **Reload saved Kits & rules**, then **Enable preview**. Enter a migrated gift in **Test gift name** and select **Simulate custom gift (NO RCON)**. Check the Event log for the expected actions. Run the verifier against the original staging folder containing `migration-receipt.json` and all staged files:
+
+```powershell
+$stage = (Read-Host 'Full path to the original staged migration folder').Trim('"')
+Test-Path -LiteralPath (Join-Path $stage 'migration-receipt.json') -PathType Leaf
+node .\scripts\Verify-IcePackMigration.mjs --package "$stage"
+$LASTEXITCODE
+```
+
+Expect `True` for the receipt check and three `MATCH` lines followed by `PASS` and exit code `0` after the migrated rules load. After a restore, use the same command with `--baseline` to verify the original rules. Exit code `2` means a loaded input differs. Exit code `1` means verification could not run. The verifier reads the last successful load, so edits on disk take effect in the report after a successful reload. It reads the current mode and leaves it as set.
 
 ### Build a separate alpha preview install
 
 Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
 ```powershell
-node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\tests\engine-draft-rehearsal.test.mjs .\tests\engine-updater.test.mjs .\tests\migration-staging.test.mjs .\tests\migration-apply.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs
+node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\tests\engine-draft-rehearsal.test.mjs .\tests\engine-updater.test.mjs .\tests\migration-staging.test.mjs .\tests\migration-apply.test.mjs .\tests\migration-verify.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs .\companion\agent-bridge\test\sync.test.mjs
 
 node .\scripts\Install-IcePackAlpha.mjs `
   --companion "C:\path\to\companion-source.zip" --companion-sha256 "<trusted companion ZIP SHA-256>" `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v5.3` after the build. Use `--install-root` to select another parent directory. An existing v5.3 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v5.4` after the build. Use `--install-root` to select another parent directory. An existing v5.4 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v5.3 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v5.4 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.3\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.4\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
@@ -105,7 +119,7 @@ The download contains only the version 2 rules and Kits. Dashboard exports do no
 The rehearsal can run while your usual Companion is open. There is no need to start the alpha Dashboard. Use the same Kit Editor catalog you selected for the draft review, or omit `--catalog` if the review used the bundled catalog.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.3'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.4'
 node "$alpha\Test-IcePackEngineDraft.mjs" `
   --draft "$env:USERPROFILE\Downloads\icepack-engine-draft-v2.json" `
   --catalog "C:\path\to\ark-catalog-v2.json"
@@ -126,7 +140,7 @@ With the alpha services running, open `http://127.0.0.1:3210/` and find **Custom
 Run the dry run first. The updater discovers the engine path from Control Center settings. Use `--engine` with an explicit folder to test against a spare engine copy. The dry run prints the target and whether each of the two files needs an update.
 
 ```powershell
-$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.3\Update-IcePackEngine.mjs"
+$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.4\Update-IcePackEngine.mjs"
 node "$updater"
 ```
 
@@ -169,7 +183,7 @@ The comparison validates both files against the selected catalog and works on co
 Use the downloaded version 2 draft and the existing Kit Editor configuration and catalog. The stage command reads those files, validates both configurations, and rehearses the draft. It can run while the regular engine is open.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.3'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.4'
 $draft = Join-Path $env:USERPROFILE 'Downloads\icepack-engine-draft-v2.json'
 $kit = 'C:\path\to\your\KitEditor'
 $stage = Join-Path $env:LOCALAPPDATA ('IcePackCompanion\migration-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -184,7 +198,7 @@ The first command reports changes and readiness. The second creates a new folder
 Keep your v5.1 staging folder. Use it with the original Kit Editor folder you staged from. The first command creates a new spare named by you. It copies only rules, catalog, and optional preferences after checking their fingerprints. The regular Kit Editor can stay open. Do not point a running engine or Kit Editor at the spare during the test.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.3'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.4'
 $kit = 'C:\path\to\your\KitEditor'
 $stage = 'C:\path\to\your\v5.1\migration-folder'
 $spare = Join-Path $env:LOCALAPPDATA ('IcePackCompanion\migration-spare-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -202,7 +216,7 @@ Apply requires a spare created for this package. It rechecks the staged hashes a
 Run the dry run first. It finds the Kit Editor and ARK Engine from Control Center settings and checks that the engine points to that Kit Editor. It rehearses the candidate with the configured engine's planner.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.3'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.4'
 $stage = (Read-Host 'Full path to your staged migration folder').Trim('"')
 $tool = Join-Path $alpha 'Apply-IcePackMigration.mjs'
 node "$tool" --package "$stage" --regular
@@ -218,4 +232,4 @@ The command refuses occupied engine, Dashboard, Bridge, and Kit Editor ports. It
 
 To restore, stop Companion and Kit Editor again. Preview the restore with `--regular --restore` on the same package, then append `--apply`. The command checks that the current file still matches the applied draft and that the backup matches the original hash.
 
-The next milestone is a post-restart check that compares the loaded rules themselves with the staged candidate, so matching rule counts are no longer the only confirmation.
+After v5.4 passes on Windows, v5.5 will add a read-only pre-Live readiness report. It will combine the loaded file check with Preview preparation results and engine safety state so you can see what still needs attention before enabling Live.
