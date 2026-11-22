@@ -4,17 +4,22 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
-async function readJson(filename, label, maxBytes) {
+export async function readJsonWithBytes(filename, label, maxBytes) {
   const stat = await lstat(filename);
   if (!stat.isFile() || stat.size > maxBytes) {
     throw new Error(`${label} must be a regular JSON file of at most ${maxBytes} bytes.`);
   }
   try {
-    return JSON.parse((await readFile(filename, 'utf8')).replace(/^\uFEFF/, ''));
+    const bytes = await readFile(filename);
+    return { bytes, value: JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, '')) };
   } catch (error) {
     if (error instanceof SyntaxError) throw new Error(`${label} is not valid JSON.`);
     throw error;
   }
+}
+
+async function readJson(filename, label, maxBytes) {
+  return (await readJsonWithBytes(filename, label, maxBytes)).value;
 }
 
 function requireEngineDraft(config) {

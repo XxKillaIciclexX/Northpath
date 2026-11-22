@@ -50,37 +50,37 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v5.0 Alpha — Compare the reviewed draft with Kit Editor
+## v5.1 Alpha — Stage a rehearsed migration package
 
-The v4.9 Windows Dashboard rehearsal checks passed. The updater still uses the verified engine files in the Git checkout directly. To check whether your regular Control Center engine needs an update, pull `development` and run this from the Northpath checkout:
+The v5.0 Windows migration comparison checks passed. The updater still uses the verified engine files in the Git checkout directly. To check whether your regular Control Center engine needs an update, pull `development` and run this from the Northpath checkout:
 
 ```powershell
 git pull --ff-only origin development
 node .\scripts\Update-IcePackEngine.mjs
 ```
 
-Check **Target engine**, **Update source**, and both file statuses. A verified v4.7 engine reports `CURRENT` for both files in v5.0. If a subsequent release reports `UPDATE`, stop the engine and rerun with `--apply`. The checkout updater uses the same hash checks, backup, and restore as the installed alpha updater.
+Check **Target engine**, **Update source**, and both file statuses. A verified v4.7 engine reports `CURRENT` for both files in v5.1. If a subsequent release reports `UPDATE`, stop the engine and rerun with `--apply`. The checkout updater uses the same hash checks, backup, and restore as the installed alpha updater.
 
 ### Build a separate alpha preview install
 
 Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
 ```powershell
-node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\tests\engine-draft-rehearsal.test.mjs .\tests\engine-updater.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs
+node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\tests\engine-draft-rehearsal.test.mjs .\tests\engine-updater.test.mjs .\tests\migration-staging.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs
 
 node .\scripts\Install-IcePackAlpha.mjs `
   --companion "C:\path\to\companion-source.zip" --companion-sha256 "<trusted companion ZIP SHA-256>" `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v5.0` after the build. Use `--install-root` to select another parent directory. An existing v5.0 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v5.1` after the build. Use `--install-root` to select another parent directory. An existing v5.1 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v5.0 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v5.1 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.0\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.1\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
@@ -105,7 +105,7 @@ The download contains only the version 2 rules and Kits. Dashboard exports do no
 The rehearsal can run while your usual Companion is open. There is no need to start the alpha Dashboard. Use the same Kit Editor catalog you selected for the draft review, or omit `--catalog` if the review used the bundled catalog.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.0'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.1'
 node "$alpha\Test-IcePackEngineDraft.mjs" `
   --draft "$env:USERPROFILE\Downloads\icepack-engine-draft-v2.json" `
   --catalog "C:\path\to\ark-catalog-v2.json"
@@ -126,7 +126,7 @@ With the alpha services running, open `http://127.0.0.1:3210/` and find **Custom
 Run the dry run first. The updater discovers the engine path from Control Center settings. Use `--engine` with an explicit folder to test against a spare engine copy. The dry run prints the target and whether each of the two files needs an update.
 
 ```powershell
-$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.0\Update-IcePackEngine.mjs"
+$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v5.1\Update-IcePackEngine.mjs"
 node "$updater"
 ```
 
@@ -163,3 +163,20 @@ The bundled planner uses temporary files for the rehearsal and removes them afte
 Load your Companion export and matching Kit Editor catalog in the standalone Dashboard, then select **Review engine draft**. Under **Compare with Kit Editor**, choose the current `streamer-config-v2.json` and click **Compare with current file**. The report groups changes by rule and Kit ID, lists changed fields, and counts additions, removals, and unchanged entries. Kit entry order is included. A renamed ID appears as an addition and a removal. In particular, review changes to cooldowns when comparing with a draft exported by the Dashboard.
 
 The comparison validates both files against the selected catalog and works on copies in the local preview session. It leaves the original files and the running engine untouched. Changing the draft, catalog, or current file clears the prior comparison. The combined request limit is 400 KB.
+
+### Stage a migration after review
+
+Use the downloaded version 2 draft and the existing Kit Editor configuration and catalog. The stage command reads those files, validates both configurations, and rehearses the draft. It can run while the regular engine is open.
+
+```powershell
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v5.1'
+$draft = Join-Path $env:USERPROFILE 'Downloads\icepack-engine-draft-v2.json'
+$kit = 'C:\path\to\your\KitEditor'
+$stage = Join-Path $env:LOCALAPPDATA ('IcePackCompanion\migration-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+node "$alpha\Stage-IcePackMigration.mjs" --draft "$draft" --current "$kit\streamer-config-v2.json" --catalog "$kit\ark-catalog-v2.json"
+node "$alpha\Stage-IcePackMigration.mjs" --draft "$draft" --current "$kit\streamer-config-v2.json" --catalog "$kit\ark-catalog-v2.json" --stage "$stage"
+```
+
+The first command reports changes and readiness. The second creates a new folder outside Kit Editor after every enabled rule prepares. Add `--content-prefs "$kit\content-prefs.json"` to both commands if you use custom pack settings. The receipt includes the original configuration, catalog, and optional preferences SHA-256 hashes, staged file hashes, the comparison, and the rehearsal results. A blocked rule exits with code 2 and leaves no package. Leave all staged files together for verification.
+
+Next milestone after Windows verification: use the receipt to guard an explicit apply, take a backup, verify the replacement, and provide rollback.
