@@ -14,13 +14,15 @@
     section { margin-top: 1.5rem; padding: 1.5rem; border: 1px solid #334860; border-radius: .9rem; background: #112238; }
     h2 { margin: 0 0 .7rem; font-size: 1.15rem; }
     label { display: block; margin-bottom: .35rem; }
-    input, button { font: inherit; border-radius: .45rem; padding: .55rem .8rem; }
-    input { width: 100%; box-sizing: border-box; background: #0b1627; color: inherit; border: 1px solid #68809d; }
+    input, select, button { font: inherit; border-radius: .45rem; padding: .55rem .8rem; }
+    input, select { width: 100%; box-sizing: border-box; background: #0b1627; color: inherit; border: 1px solid #68809d; }
     button { margin-top: .8rem; background: #9be4f5; color: #092134; font-weight: 700; border: 0; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
     :focus-visible { outline: 3px solid #99d7ff; outline-offset: 4px; }
     [role="status"] { color: #a7f0cd; margin-bottom: 0; }
     [role="alert"] { color: #ffb9bb; margin-bottom: 0; }
+    fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+    select { margin-bottom: .4rem; }
     small { color: #b7c6d8; }
   </style>
   <script type="module" src="/first-run.js"></script>
@@ -46,6 +48,21 @@
       <button id="preview" type="button" disabled>Run Heart Me Preview</button>
       <p id="preview-status" role="status"></p>
       <p id="preview-error" role="alert"></p>
+    </section>
+    <section>
+      <h2>Preview your Gift Rules and Kits</h2>
+      <p class="intro">Choose a JSON file from your usual Companion Dashboard’s Export JSON button. This checks the draft against the bundled catalog and shows what a gift would trigger.</p>
+      <fieldset id="draft-controls" disabled>
+        <label for="draft-file">Companion export</label>
+        <input id="draft-file" type="file" accept=".json,application/json">
+        <p id="draft-loaded" role="status"></p>
+        <label for="draft-gift">Gift rule</label>
+        <select id="draft-gift" disabled></select>
+        <button id="draft-preview" type="button" disabled>Preview draft gift</button>
+      </fieldset>
+      <p id="draft-status" role="status"></p>
+      <ul id="draft-actions" hidden></ul>
+      <p id="draft-error" role="alert"></p>
     </section>
   </main>
 </body>

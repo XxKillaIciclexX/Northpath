@@ -10,7 +10,7 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
-const version = 'v3.6';
+const version = 'v3.7';
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
 
 async function sha256(file) {
@@ -37,6 +37,7 @@ async function stageFirstRun(staged, companion, engine) {
   }
   const source = join(here, '..', 'companion');
   await copyFile(join(source, 'agent-bridge', 'bridge.mjs'), bridge);
+  await copyFile(join(source, 'agent-bridge', 'draft-preview.mjs'), join(companion, 'agent-bridge', 'draft-preview.mjs'));
   const publicDir = join(companion, 'public');
   await mkdir(publicDir, { recursive: true });
   for (const name of ['first-run.html', 'first-run.js']) {
@@ -143,7 +144,7 @@ async function install(values) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '3.6-alpha',
+      version: '3.7-alpha',
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');

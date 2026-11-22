@@ -50,31 +50,32 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v3.6 Alpha — First-run pairing and Heart Me Preview
+## v3.7 Alpha — Preview an exported draft
 
 Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
 ```powershell
-node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs
+node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs
 
 node .\scripts\Install-IcePackAlpha.mjs `
   --companion "C:\path\to\companion-source.zip" --companion-sha256 "<trusted companion ZIP SHA-256>" `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v3.6` after the build. Use `--install-root` to select another parent directory. An existing v3.6 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v3.7` after the build. Use `--install-root` to select another parent directory. An existing v3.7 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v3.6 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v3.7 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v3.6\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v3.7\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
 5. Click **Run Heart Me Preview**. Expect **The engine preview planned 25 Stone. No game command was sent.**
-6. Press Ctrl+C in the launcher. Confirm Windows has released the three ports.
+6. Open **Preview your Gift Rules and Kits**, choose a version 1 file saved with **Export JSON** in the usual Dashboard, select a Gift Rule, and click **Preview draft gift**. Check that the actions and quantities match your draft. A Kit expands to its item and creature actions.
+7. Press Ctrl+C in the launcher. Confirm Windows has released the three ports.
 
    ```powershell
    Get-NetTCPConnection -State Listen -LocalPort 3210,3212,5174 -ErrorAction SilentlyContinue |
@@ -82,3 +83,5 @@ The installer checks both ZIPs before extraction, stages the updated Bridge and 
    ```
 
 The sample setup uses its own rule, catalog and placeholder target. It starts in the engine's Preview mode, with live RCON settings absent. The token is generated per launch, kept in memory by the pairing page, and should stay private. A restart requires a new token.
+
+The draft preview uses the catalog included in the Companion ZIP. It returns a plan and leaves the engine's loaded rules, files, and modes alone. If validation rejects a missing catalog entry or an unsupported action setting, the page displays the reason without applying the draft.
