@@ -53,7 +53,7 @@ namespace IcePack.Operations
         }
     }
 
-    public class RoundedSurface : Panel
+    public class RoundedSurface : TableLayoutPanel
     {
         public int Radius { get; set; }
         public Color FillStart { get; set; }
@@ -137,6 +137,26 @@ namespace IcePack.Operations
         }
     }
 
+    public sealed class ActionStrip : FlowLayoutPanel
+    {
+        public ActionStrip()
+        {
+            // The card uses the strip's actual height after its width has been assigned.
+            AutoSize = false;
+            WrapContents = true;
+            Height = 0;
+        }
+
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            base.OnLayout(e);
+            if (ClientSize.Width <= 0) return;
+
+            int wrappedHeight = GetPreferredSize(new Size(ClientSize.Width, 0)).Height;
+            if (Height != wrappedHeight) Height = wrappedHeight;
+        }
+    }
+
     public sealed class RoundedButton : Button
     {
         public Color FillStart { get; set; }
@@ -151,8 +171,7 @@ namespace IcePack.Operations
         {
             FlatStyle = FlatStyle.Flat;
             UseVisualStyleBackColor = false;
-            SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.ResizeRedraw, true);
-            BackColor = Color.Transparent;
+            SetStyle(ControlStyles.Opaque | ControlStyles.ResizeRedraw, true);
             DoubleBuffered = true;
 
             MouseEnter += delegate { hovered = true; Invalidate(); };
@@ -175,6 +194,10 @@ namespace IcePack.Operations
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            // Clear the corners as well as the face so no previous frame shows through.
+            using (SolidBrush background = new SolidBrush(BackColor))
+                e.Graphics.FillRectangle(background, e.ClipRectangle);
+
             Color start = hovered ? HoverStart : FillStart;
             Color end = hovered ? HoverEnd : FillEnd;
             Color ink = ForeColor;

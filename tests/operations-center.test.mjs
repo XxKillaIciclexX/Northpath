@@ -39,6 +39,15 @@ test('rounded Operations Center buttons retain native button behavior and ship i
   assert.match(theme, /class RoundedButton\s*:\s*Button\b/);
   assert.match(builder, /\$fixed=.*'scripts\/IcePack-OperationsTheme\.cs'/);
 });
+test('Operations Center applies the card surface behind button corners and measures action strips at their current width', () => {
+  const theme = fs.readFileSync(path.join(base, 'IcePack-OperationsTheme.cs'), 'utf8');
+  assert.match(ui, /\$card\.FillStart = \$card\.FillEnd = \$theme\.Surface/);
+  assert.match(ui, /\$button\.BackColor = \$theme\.Surface/);
+  assert.match(theme, /ControlStyles\.Opaque/);
+  assert.match(theme, /FillRectangle\(background, e\.ClipRectangle\)/);
+  assert.match(ui, /\[IcePack\.Operations\.ActionStrip\]::new\(\)/);
+  assert.match(theme, /GetPreferredSize\(new Size\(ClientSize\.Width, 0\)\)\.Height/);
+});
 test('operations center, dashboard, and inventory share the packaged release metadata', () => {
   for (const source of [ui, inventory]) {
     assert.match(source, /Get-IcePackReleaseLabel/);

@@ -68,8 +68,7 @@ $form.ForeColor = $theme.Foreground
 $form.Font = [System.Drawing.Font]::new($fontFamily, 10)
 $form.SuspendLayout()
 
-function New-Stack {
-    $stack = [System.Windows.Forms.TableLayoutPanel]::new()
+function New-Stack([System.Windows.Forms.TableLayoutPanel]$Stack = [System.Windows.Forms.TableLayoutPanel]::new()) {
     $stack.ColumnCount = 1
     [void]$stack.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', 100))
     $stack.Dock = 'Top'
@@ -99,24 +98,19 @@ function New-Text([string]$Text, [int]$Size, [bool]$Bold, [System.Drawing.Color]
 }
 
 function New-Card([System.Windows.Forms.TableLayoutPanel]$Stack, [string]$Title) {
-    $frame = [IcePack.Operations.RoundedSurface]::new()
-    $frame.Dock = 'Top'
-    $frame.AutoSize = $true
-    $frame.AutoSizeMode = 'GrowAndShrink'
-    $frame.FillStart = $frame.FillEnd = $theme.Surface
-    $frame.Outline = $theme.Border
-    $frame.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 14)
-
-    $card = New-Stack
+    $card = New-Stack ([IcePack.Operations.RoundedSurface]::new())
+    $card.FillStart = $card.FillEnd = $theme.Surface
+    $card.Outline = $theme.Border
+    $card.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 14)
     $card.Padding = [System.Windows.Forms.Padding]::new(18, 14, 18, 15)
     Add-Row $card (New-Text $Title 13 $true $theme.Title)
-    $frame.Controls.Add($card)
-    Add-Row $Stack $frame
+    Add-Row $Stack $card
     return $card
 }
 
 function New-ActionButton([string]$Text, [string]$Variant = 'Secondary') {
     $button = [IcePack.Operations.RoundedButton]::new()
+    $button.BackColor = $theme.Surface
     $button.Text = $Text
     $button.Font = $actionFont
     $button.AutoSize = $true
@@ -149,11 +143,8 @@ function New-ActionButton([string]$Text, [string]$Variant = 'Secondary') {
 }
 
 function Add-ActionRow([System.Windows.Forms.TableLayoutPanel]$Stack, [System.Windows.Forms.Button[]]$Buttons) {
-    $row = [System.Windows.Forms.FlowLayoutPanel]::new()
+    $row = [IcePack.Operations.ActionStrip]::new()
     $row.Dock = 'Top'
-    $row.AutoSize = $true
-    $row.AutoSizeMode = 'GrowAndShrink'
-    $row.WrapContents = $true
     $row.Margin = [System.Windows.Forms.Padding]::new(0)
     foreach ($button in $Buttons) {
         $button.Margin = [System.Windows.Forms.Padding]::new(0, 7, 8, 0)
@@ -203,15 +194,10 @@ $layout.AutoSize = $false
 
 $headerShell = New-Stack
 $headerShell.Padding = [System.Windows.Forms.Padding]::new(20, 16, 20, 14)
-$hero = [IcePack.Operations.RoundedSurface]::new()
-$hero.Dock = 'Top'
-$hero.AutoSize = $true
-$hero.AutoSizeMode = 'GrowAndShrink'
-$hero.FillStart = $theme.Hero
-$hero.FillEnd = $theme.Surface
-$hero.Outline = $theme.Border
-$hero.Margin = [System.Windows.Forms.Padding]::new(0)
-$header = New-Stack
+$header = New-Stack ([IcePack.Operations.RoundedSurface]::new())
+$header.FillStart = $theme.Hero
+$header.FillEnd = $theme.Surface
+$header.Outline = $theme.Border
 $header.ColumnCount = 3
 $header.ColumnStyles.Clear()
 [void]$header.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('AutoSize'))
@@ -237,8 +223,7 @@ $versionBadge = New-StatusPill (Get-IcePackReleaseLabel $releasePath) $theme.Acc
 $header.Controls.Add($mark, 0, 0)
 $header.Controls.Add($heading, 1, 0)
 $header.Controls.Add($versionBadge, 2, 0)
-$hero.Controls.Add($header)
-Add-Row $headerShell $hero
+Add-Row $headerShell $header
 Add-Row $layout $headerShell
 
 $scroll = [System.Windows.Forms.Panel]::new()
