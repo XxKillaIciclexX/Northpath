@@ -14,6 +14,7 @@ const companionSource = join(here, '..', 'companion');
 const releasePath = join(companionSource, 'src', 'icepack-release.json');
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
 const bundledCompanionDashboardHash = 'e708b3196be892a191bd2f964f31e1358b34075c10736b5f35b59c464547e3f1';
+const bundledCompanionCatalogHash = 'd7cb27a4491b5ad5d08ba531b1b198152ff05aac24478f1f84b7407e4ce446be';
 const bundledEngineDashboardHash = '847d9f1014035f503211f7262fdfc9b74da25f1ded15746a27ae02d158226fe3';
 const bundledEngineRulesHash = 'b26538a9b27513f6b91274a2ec75877605a7f61091d40c408d637061a33fff46';
 
@@ -43,6 +44,10 @@ async function stageFirstRun(staged, companion, engine, releaseBytes) {
   if (await sha256(dashboard) !== bundledCompanionDashboardHash) {
     throw new Error('The Companion ZIP dashboard does not match the supported v3.1 source bundle');
   }
+  const catalog = join(companion, 'src', 'catalog.json');
+  if (await sha256(catalog) !== bundledCompanionCatalogHash) {
+    throw new Error('The Companion ZIP catalog does not match the supported v3.1 source bundle');
+  }
   const rules = join(engine, 'icepack-custom-rules.mjs');
   if (await sha256(rules) !== bundledEngineRulesHash) {
     throw new Error('The ARK Engine ZIP custom rules do not match the supported v3.2 engine source bundle');
@@ -54,6 +59,7 @@ async function stageFirstRun(staged, companion, engine, releaseBytes) {
   await copyFile(join(here, 'engine-overlay', 'icepack-custom-rules.mjs'), rules);
   await copyFile(join(here, 'engine-overlay', 'public', 'index.html'), engineDashboard);
   await copyFile(join(companionSource, 'src', 'App.tsx'), dashboard);
+  await copyFile(join(companionSource, 'src', 'catalog.json'), catalog);
   await writeFile(join(companion, 'src', 'icepack-release.json'), releaseBytes);
   for (const name of ['bridge.mjs', 'draft-preview.mjs', 'sync.mjs']) {
     await copyFile(join(companionSource, 'agent-bridge', name), join(companion, 'agent-bridge', name));
