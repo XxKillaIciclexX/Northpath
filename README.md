@@ -49,3 +49,23 @@ node .\scripts\Check-IcePackRuntime.mjs --json
 A `source-prerequisites-pass` result means **the local source/dependency manifests are consistent**, not that a clean Windows PC can run the product. The standalone installer still needs dependable `npm ci` installation or a bundled runtime, supported Node version constraints for all packages, external ARK server onboarding, actual mod deployment, service installation, and publisher signing. For now, `npm ci` should be tested separately in an isolated copy, *not* by mutating the known-good deployment.
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
+
+## v3.5 Alpha — Side-by-side installation
+
+The v3.4 clean install and dashboard-to-engine check passed on Windows. The v3.5 installer uses those source ZIPs to create a persistent local preview installation. Use Node.js 22.12 or newer and npm.
+
+```powershell
+node .\scripts\Install-IcePackAlpha.mjs `
+  --companion "C:\path\to\companion-source.zip" --companion-sha256 "<trusted companion ZIP SHA-256>" `
+  --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
+```
+
+Use ZIP hashes received through a trusted channel. The installer checks both archives before extracting them, installs dependencies from both lockfiles, and builds the dashboard before publishing the new folder. Windows uses the built-in PowerShell archive cmdlet. The installer does not run the older PowerShell scripts bundled in the archive.
+
+The default destination is `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v3.5`. Use `--install-root` to choose another parent directory. The installer stops if the version folder already exists. Installation can run alongside the existing Companion. Stop the existing services through the Control Center before launching the preview so ports 3210, 3212, and 5173 are free.
+
+```powershell
+node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v3.5\Install-IcePackAlpha.mjs" --start
+```
+
+Open `http://127.0.0.1:5173/` after the dashboard proxy reports the ARK Engine online. Press Ctrl+C in the launcher window to stop the three preview services. This alpha validates the installed dashboard and local service connection. Pairing, importing an existing configuration, and live game connectivity are separate milestones.
