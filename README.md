@@ -224,4 +224,4 @@ Use `--repo` and `--engine` to inspect another checkout. The checker reports sou
 
 ## Next milestone
 
-After the v5.6 Windows layout check, v5.7 will bring the same typography, palette, and resizable layout to Update Manager. The acceptance check will cover package review, dry-run results, and access to history and rollback at normal and scaled Windows display settings.
+v5.7 prioritizes the ARK base-game and free-expansion catalog. The first step stages new creatures, items, and resources alongside the catalog already in Kit Editor. The next step uses an ASA DevKit inventory and checks access requirements per asset before expanding coverage. [Catalog Manager instructions](https://github.com/XxKillaIciclexX/ice-pack-ark/tree/development/icepack-catalog-manager)
