@@ -48,3 +48,27 @@ test('rejects unsupported exports and missing catalog items', () => {
   assert.throws(() => previewDashboardDraft({ draft: { ...draft, version: 2 }, gift }, catalog), /version 1/);
   assert.throws(() => previewDashboardDraft({ draft, gift }, { ...catalog, items: [] }), /Stone is not in the engine catalog/);
 });
+
+test('a supplied Kit Editor catalog resolves entries absent from the bundled catalog', () => {
+  const customDraft = structuredClone(draft);
+  customDraft.kits[0].entries[0].action.catalogId = 'CustomStone';
+  const provided = {
+    ...catalog,
+    schemaVersion: 2,
+    items: [{ id: 'CustomStone', name: 'Custom Stone' }],
+  };
+  assert.throws(() => previewDashboardDraft({ draft: customDraft, gift }, catalog), /CustomStone/);
+  const plan = previewDashboardDraft({ draft: customDraft, gift, catalog: provided }, catalog);
+  assert.equal(plan.catalogSource, 'provided');
+  assert.equal(plan.actions[0].itemId, 'CustomStone');
+  assert.equal(previewDashboardDraft({ draft, gift }, catalog).catalogSource, 'bundled');
+});
+
+test('a selected catalog is validated and never silently replaced by the bundled catalog', () => {
+  for (const invalid of [null, { ...catalog, schemaVersion: 1 }]) {
+    assert.throws(() => previewDashboardDraft({ draft, gift, catalog: invalid }, catalog), /version 2 ARK catalog/);
+  }
+  assert.throws(() => previewDashboardDraft({
+    draft, gift, catalog: { schemaVersion: 2, items: [], dinosaurs: [] },
+  }, catalog), /Stone is not in the engine catalog/);
+});

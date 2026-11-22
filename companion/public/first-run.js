@@ -4,12 +4,17 @@ const input = byId('token');
 const pair = byId('pair');
 const preview = byId('preview');
 let pairedToken = '';
+const maxDraftBytes = 400_000;
 
 async function post(path, token, body) {
+  const payload = JSON.stringify(body);
+  if (path === 'draft/preview' && new TextEncoder().encode(payload).length > maxDraftBytes) {
+    throw new Error('The draft and catalog exceed the combined 400 KB preview limit.');
+  }
   const response = await fetch(`/api/agent/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-icepack-sync-token': token },
-    body: JSON.stringify(body),
+    body: payload,
   });
   if (response.status === 401) throw new Error('Paste the token from the current launcher session.');
   const result = await response.json();
@@ -69,11 +74,19 @@ const draftFile = byId('draft-file');
 const draftGift = byId('draft-gift');
 const draftPreview = byId('draft-preview');
 const draftLoaded = byId('draft-loaded');
+const catalogFile = byId('draft-catalog');
+const resetCatalog = byId('reset-catalog');
+const catalogSource = byId('catalog-source');
 const draftStatus = byId('draft-status');
 const draftActions = byId('draft-actions');
 const draftError = byId('draft-error');
 let draft;
 let gifts = [];
+let catalog;
+
+function updateDraftPreviewButton() {
+  draftPreview.disabled = !draft || (catalogFile.files.length > 0 && !catalog);
+}
 
 function clearDraftResult() {
   draftStatus.textContent = '';
@@ -96,7 +109,7 @@ draftFile.addEventListener('change', async () => {
   pair.disabled = true;
   preview.disabled = true;
   try {
-    if (file.size > 400_000) throw new Error('Choose a Companion export under 400 KB.');
+    if (file.size > maxDraftBytes) throw new Error('Choose a Companion export under 400 KB.');
     const parsed = JSON.parse(await file.text());
     if (parsed?.version !== 1 || !Array.isArray(parsed.rules) || !Array.isArray(parsed.kits)) {
       throw new Error('Choose a version 1 JSON export from the Companion Dashboard.');
@@ -118,14 +131,55 @@ draftFile.addEventListener('change', async () => {
     });
     draftLoaded.textContent = `Loaded ${rules.length} enabled Gift Rules and ${draft.kits.length} Kits for preview.`;
     draftGift.disabled = false;
-    draftPreview.disabled = false;
   } catch (error) {
     draftError.textContent = error instanceof SyntaxError ? 'The file is not valid JSON.' : error.message;
   } finally {
+    updateDraftPreviewButton();
     draftControls.disabled = !pairedToken;
     pair.disabled = false;
     preview.disabled = !pairedToken;
   }
+});
+
+catalogFile.addEventListener('change', async () => {
+  catalog = undefined;
+  clearDraftResult();
+  updateDraftPreviewButton();
+  const file = catalogFile.files[0];
+  resetCatalog.hidden = !file;
+  if (!file) {
+    catalogSource.textContent = 'Using the bundled catalog.';
+    return;
+  }
+  draftControls.disabled = true;
+  pair.disabled = true;
+  preview.disabled = true;
+  try {
+    if (file.size > maxDraftBytes) throw new Error('Choose a catalog under 400 KB.');
+    const parsed = JSON.parse(await file.text());
+    if (parsed?.schemaVersion !== 2 || !Array.isArray(parsed.items) || !Array.isArray(parsed.dinosaurs)) {
+      throw new Error('Choose a version 2 ARK catalog exported by Kit Editor.');
+    }
+    catalog = parsed;
+    catalogSource.textContent = `Selected catalog: ${file.name}`;
+  } catch (error) {
+    catalogSource.textContent = 'The selected catalog could not be loaded.';
+    draftError.textContent = error instanceof SyntaxError ? 'The catalog file is not valid JSON.' : error.message;
+  } finally {
+    updateDraftPreviewButton();
+    draftControls.disabled = !pairedToken;
+    pair.disabled = false;
+    preview.disabled = !pairedToken;
+  }
+});
+
+resetCatalog.addEventListener('click', () => {
+  catalogFile.value = '';
+  catalog = undefined;
+  resetCatalog.hidden = true;
+  catalogSource.textContent = 'Using the bundled catalog.';
+  clearDraftResult();
+  updateDraftPreviewButton();
 });
 
 draftGift.addEventListener('change', clearDraftResult);
@@ -136,13 +190,14 @@ draftPreview.addEventListener('click', async () => {
   preview.disabled = true;
   try {
     const gift = gifts[Number(draftGift.value)];
-    const result = await post('draft/preview', pairedToken, { draft, gift });
+    const result = await post('draft/preview', pairedToken, { draft, gift, catalog });
     const { plan } = result;
     if (!plan.matched) {
       draftStatus.textContent = 'No enabled Gift Rule matched this gift.';
       return;
     }
-    draftStatus.textContent = `${plan.gift}: ${plan.actions.length} planned action(s). The draft was not applied.`;
+    const source = plan.catalogSource === 'provided' ? 'selected catalog' : 'bundled catalog';
+    draftStatus.textContent = `${plan.gift}: ${plan.actions.length} planned action(s) using the ${source}.`;
     for (const action of plan.actions) {
       const item = document.createElement('li');
       item.textContent = action.type === 'item'

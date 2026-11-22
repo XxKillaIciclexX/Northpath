@@ -51,11 +51,15 @@
     </section>
     <section>
       <h2>Preview your Gift Rules and Kits</h2>
-      <p class="intro">Choose a JSON file from your usual Companion Dashboard’s Export JSON button. This checks the draft against the bundled catalog and shows what a gift would trigger.</p>
+      <p class="intro">Choose a JSON file from your usual Companion Dashboard’s Export JSON button. Add your Kit Editor catalog if the draft uses entries that aren’t in the bundled catalog. Preview leaves your saved rules and engine configuration unchanged.</p>
       <fieldset id="draft-controls" disabled>
         <label for="draft-file">Companion export</label>
         <input id="draft-file" type="file" accept=".json,application/json">
         <p id="draft-loaded" role="status"></p>
+        <label for="draft-catalog">Kit Editor catalog (optional)</label>
+        <input id="draft-catalog" type="file" accept=".json,application/json">
+        <button id="reset-catalog" type="button" hidden>Use bundled catalog</button>
+        <p id="catalog-source" role="status">Using the bundled catalog.</p>
         <label for="draft-gift">Gift rule</label>
         <select id="draft-gift" disabled></select>
         <button id="draft-preview" type="button" disabled>Preview draft gift</button>

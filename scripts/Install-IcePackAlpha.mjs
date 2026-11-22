@@ -10,7 +10,7 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
-const version = 'v3.7';
+const version = 'v3.8';
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
 
 async function sha256(file) {
@@ -144,7 +144,7 @@ async function install(values) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '3.7-alpha',
+      version: '3.8-alpha',
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');
