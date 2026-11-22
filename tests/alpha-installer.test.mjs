@@ -37,7 +37,7 @@ test('a hash mismatch leaves no staged or installed files', async t => {
 
 test('the installer preserves an existing version folder', async t => {
   const { installRoot, run } = await fixture(t);
-  const installed = join(installRoot, 'v4.2');
+  const installed = join(installRoot, 'v4.3');
   const marker = join(installed, 'keep.txt');
   await mkdir(installed, { recursive: true });
   await writeFile(marker, 'existing install');
@@ -46,5 +46,5 @@ test('the installer preserves an existing version folder', async t => {
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stderr, /Installation already exists/);
   assert.equal(await readFile(marker, 'utf8'), 'existing install');
-  assert.deepEqual(await readdir(installRoot), ['v4.2']);
+  assert.deepEqual(await readdir(installRoot), ['v4.3']);
 });
