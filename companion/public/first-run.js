@@ -8,8 +8,8 @@ const maxDraftBytes = 400_000;
 
 async function post(path, token, body) {
   const payload = JSON.stringify(body);
-  if (path === 'draft/preview' && new TextEncoder().encode(payload).length > maxDraftBytes) {
-    throw new Error('The draft and catalog exceed the combined 400 KB preview limit.');
+  if (path.startsWith('draft/') && new TextEncoder().encode(payload).length > maxDraftBytes) {
+    throw new Error('The draft and catalog exceed the combined 400 KB limit.');
   }
   const response = await fetch(`/api/agent/${path}`, {
     method: 'POST',
@@ -30,6 +30,7 @@ form.addEventListener('submit', async (event) => {
   pairedToken = '';
   draftControls.disabled = true;
   clearDraftResult();
+  clearExport();
   byId('pair-status').textContent = '';
   byId('pair-error').textContent = '';
   byId('preview-status').textContent = '';
@@ -80,12 +81,29 @@ const catalogSource = byId('catalog-source');
 const draftStatus = byId('draft-status');
 const draftActions = byId('draft-actions');
 const draftError = byId('draft-error');
+const reviewExport = byId('review-export');
+const downloadExport = byId('download-export');
+const exportStatus = byId('export-status');
+const exportNotes = byId('export-notes');
+const exportError = byId('export-error');
 let draft;
 let gifts = [];
 let catalog;
+let reviewedConfig;
 
-function updateDraftPreviewButton() {
-  draftPreview.disabled = !draft || (catalogFile.files.length > 0 && !catalog);
+function updateDraftButtons() {
+  const unavailable = !draft || (catalogFile.files.length > 0 && !catalog);
+  draftPreview.disabled = unavailable || gifts.length === 0;
+  reviewExport.disabled = unavailable;
+}
+
+function clearExport() {
+  reviewedConfig = undefined;
+  downloadExport.disabled = true;
+  exportStatus.textContent = '';
+  exportNotes.replaceChildren();
+  exportNotes.hidden = true;
+  exportError.textContent = '';
 }
 
 function clearDraftResult() {
@@ -103,6 +121,8 @@ draftFile.addEventListener('change', async () => {
   draftPreview.disabled = true;
   draftLoaded.textContent = '';
   clearDraftResult();
+  clearExport();
+  updateDraftButtons();
   const file = draftFile.files[0];
   if (!file) return;
   draftControls.disabled = true;
@@ -120,7 +140,6 @@ draftFile.addEventListener('change', async () => {
     const rules = parsed.rules.filter((rule) =>
       rule?.enabled === true && typeof rule.giftName === 'string' && rule.giftName.trim()
     );
-    if (!rules.length) throw new Error('The export has no enabled Gift Rules.');
     // Omit the export's server name, player ID, and other dashboard settings.
     draft = { version: 1, rules: parsed.rules, kits: parsed.kits };
     gifts = rules.map((rule, index) => {
@@ -130,11 +149,11 @@ draftFile.addEventListener('change', async () => {
       return gift;
     });
     draftLoaded.textContent = `Loaded ${rules.length} enabled Gift Rules and ${draft.kits.length} Kits for preview.`;
-    draftGift.disabled = false;
+    draftGift.disabled = gifts.length === 0;
   } catch (error) {
     draftError.textContent = error instanceof SyntaxError ? 'The file is not valid JSON.' : error.message;
   } finally {
-    updateDraftPreviewButton();
+    updateDraftButtons();
     draftControls.disabled = !pairedToken;
     pair.disabled = false;
     preview.disabled = !pairedToken;
@@ -144,7 +163,8 @@ draftFile.addEventListener('change', async () => {
 catalogFile.addEventListener('change', async () => {
   catalog = undefined;
   clearDraftResult();
-  updateDraftPreviewButton();
+  clearExport();
+  updateDraftButtons();
   const file = catalogFile.files[0];
   resetCatalog.hidden = !file;
   if (!file) {
@@ -166,7 +186,7 @@ catalogFile.addEventListener('change', async () => {
     catalogSource.textContent = 'The selected catalog could not be loaded.';
     draftError.textContent = error instanceof SyntaxError ? 'The catalog file is not valid JSON.' : error.message;
   } finally {
-    updateDraftPreviewButton();
+    updateDraftButtons();
     draftControls.disabled = !pairedToken;
     pair.disabled = false;
     preview.disabled = !pairedToken;
@@ -179,7 +199,8 @@ resetCatalog.addEventListener('click', () => {
   resetCatalog.hidden = true;
   catalogSource.textContent = 'Using the bundled catalog.';
   clearDraftResult();
-  updateDraftPreviewButton();
+  clearExport();
+  updateDraftButtons();
 });
 
 draftGift.addEventListener('change', clearDraftResult);
@@ -213,4 +234,44 @@ draftPreview.addEventListener('click', async () => {
     pair.disabled = false;
     preview.disabled = !pairedToken;
   }
+});
+
+reviewExport.addEventListener('click', async () => {
+  clearExport();
+  draftControls.disabled = true;
+  pair.disabled = true;
+  preview.disabled = true;
+  try {
+    const { draftExport } = await post('draft/export', pairedToken, { draft, catalog });
+    const { config, catalogSource, warnings } = draftExport;
+    const source = catalogSource === 'provided' ? 'selected catalog' : 'bundled catalog';
+    const enabled = config.rules.filter(rule => rule.enabled).length;
+    exportStatus.textContent = `Version 2 draft ready. ${config.rules.length} rules (${enabled} enabled), ${config.kits.length} Kits, validated against the ${source}.`;
+    const cooldownNote = 'Rules use a 0-second cooldown because Dashboard exports do not supply an engine cooldown.';
+    for (const note of [cooldownNote, ...warnings]) {
+      const item = document.createElement('li');
+      item.textContent = note;
+      exportNotes.append(item);
+    }
+    exportNotes.hidden = false;
+    reviewedConfig = config;
+    downloadExport.disabled = false;
+  } catch (error) {
+    exportError.textContent = error.message;
+  } finally {
+    draftControls.disabled = !pairedToken;
+    pair.disabled = false;
+    preview.disabled = !pairedToken;
+  }
+});
+
+downloadExport.addEventListener('click', () => {
+  if (!reviewedConfig) return;
+  const file = new Blob([JSON.stringify(reviewedConfig, null, 2) + '\n'], { type: 'application/json' });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'icepack-engine-draft-v2.json';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });

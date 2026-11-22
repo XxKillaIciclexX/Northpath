@@ -63,10 +63,19 @@
         <label for="draft-gift">Gift rule</label>
         <select id="draft-gift" disabled></select>
         <button id="draft-preview" type="button" disabled>Preview draft gift</button>
+        <div class="draft-export">
+          <h3>Engine draft export</h3>
+          <p class="intro">Review the version 2 conversion before downloading it. The download contains rules and Kits, and is kept separate from your running configuration.</p>
+          <button id="review-export" type="button" disabled>Review engine draft</button>
+          <button id="download-export" type="button" disabled>Download engine draft</button>
+        </div>
       </fieldset>
       <p id="draft-status" role="status"></p>
       <ul id="draft-actions" hidden></ul>
       <p id="draft-error" role="alert"></p>
+      <p id="export-status" role="status"></p>
+      <ul id="export-notes" hidden></ul>
+      <p id="export-error" role="alert"></p>
     </section>
   </main>
 </body>

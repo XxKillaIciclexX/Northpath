@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { previewDashboardDraft } from '../draft-preview.mjs';
+import { exportDashboardDraft, previewDashboardDraft } from '../draft-preview.mjs';
 
 const catalog = {
   items: [{ id: 'Stone', name: 'Stone' }],
@@ -71,4 +71,28 @@ test('a selected catalog is validated and never silently replaced by the bundled
   assert.throws(() => previewDashboardDraft({
     draft, gift, catalog: { schemaVersion: 2, items: [], dinosaurs: [] },
   }, catalog), /Stone is not in the engine catalog/);
+});
+
+test('exports only engine rules and Kits, preserves disabled rules, and surfaces conversion warnings', () => {
+  const source = structuredClone(draft);
+  source.serverName = 'test server';
+  source.playerId = '123';
+  source.kits[0].entries[0].action.catalogId = 'Wood';
+  source.rules.push({ ...source.rules[0], id: 'disabled', giftId: 'other', giftName: 'Other Gift', enabled: false });
+  const selected = { ...catalog, schemaVersion: 2, items: [{ id: 'Wood', name: 'Wood' }] };
+  const result = exportDashboardDraft({ draft: source, catalog: selected }, catalog);
+  assert.equal(result.catalogSource, 'provided');
+  assert.deepEqual(Object.keys(result.config), ['schemaVersion', 'kits', 'rules']);
+  assert.equal(result.config.schemaVersion, 2);
+  assert.equal(result.config.kits[0].entries[0].itemId, 'Wood');
+  assert.equal(result.config.rules[0].reward.kitId, 'starter');
+  assert.equal(result.config.rules[1].enabled, false);
+  assert.equal(result.config.rules[0].cooldown, 0);
+  assert.match(result.warnings.join(' '), /only Stone/);
+});
+
+test('failed validation cannot produce a downloadable configuration', () => {
+  const invalid = structuredClone(draft);
+  invalid.rules[0].action.kitId = 'missing';
+  assert.throws(() => exportDashboardDraft({ draft: invalid }, catalog), /Missing Kit/);
 });
