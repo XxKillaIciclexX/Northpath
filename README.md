@@ -50,9 +50,9 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v4.3 Alpha — Update and restore the Control Center engine
+## v4.4 Alpha — Recent gift deliveries
 
-The v4.2 Windows checklist passed. v4.3 adds a two-file updater for bringing the verified engine changes into your regular Control Center installation.
+The v4.3 Windows updater checks passed. v4.4 adds recent delivery outcomes to the ARK Engine dashboard and can update an engine already running the v4.2 or v4.3 engine files.
 
 Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
@@ -64,14 +64,14 @@ node .\scripts\Install-IcePackAlpha.mjs `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.3` after the build. Use `--install-root` to select another parent directory. An existing v4.3 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.4` after the build. Use `--install-root` to select another parent directory. An existing v4.4 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.3 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.4 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.3\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.4\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
@@ -96,7 +96,7 @@ The download contains only the version 2 rules and Kits. Dashboard exports do no
 The rehearsal can run while your usual Companion is open. There is no need to start the alpha Dashboard. Use the same Kit Editor catalog you selected for the draft review, or omit `--catalog` if the review used the bundled catalog.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.3'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.4'
 node "$alpha\Test-IcePackEngineDraft.mjs" `
   --draft "$env:USERPROFILE\Downloads\icepack-engine-draft-v2.json" `
   --catalog "C:\path\to\ark-catalog-v2.json"
@@ -117,7 +117,7 @@ With the alpha services running, open `http://127.0.0.1:3210/` and find **Custom
 Run the dry run first. The updater discovers the engine path from Control Center settings. Use `--engine` with an explicit folder to test against a spare engine copy. The dry run prints the target and whether each of the two files needs an update.
 
 ```powershell
-$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.3\Update-IcePackEngine.mjs"
+$updater = "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.4\Update-IcePackEngine.mjs"
 node "$updater"
 ```
 
@@ -134,3 +134,5 @@ $backup = (Read-Host 'Backup folder printed by the updater').Trim('"')
 node "$updater" --restore "$backup"
 node "$updater" --restore "$backup" --apply
 ```
+
+The ARK Engine dashboard’s **Recent gift deliveries** section keeps the last 20 outcomes until restart. It distinguishes completed sends, partial sends stopped by the operator, RCON failures, cancellations before sending, and gifts that expired before sending. Preview events stay in the event log.

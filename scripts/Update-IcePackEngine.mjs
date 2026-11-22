@@ -11,16 +11,17 @@ const here = dirname(fileURLToPath(import.meta.url));
 const updates = [
   {
     path: 'icepack-custom-rules.mjs',
-    current: '1e45f4e5af341c493f94b3351b5f1672e0cfe914e145268cb6a9d6a82d03645f',
+    current: '93f509421899de3195c510e113713d8f480dad08494774daf7555368b5abecc6',
     original: [
       'b26538a9b27513f6b91274a2ec75877605a7f61091d40c408d637061a33fff46',
       '43b909e3bd02b22bac1ecef7f3adec2a97fc7ec2d457aa671d15c92ecfe9ad2d',
+      '1e45f4e5af341c493f94b3351b5f1672e0cfe914e145268cb6a9d6a82d03645f',
     ],
   },
   {
     path: 'public/index.html',
-    current: '1a2c0d9ee21742692c5eb3512ad44f83f3d250f1f2e686c36ed6749d7d95d63d',
-    original: ['847d9f1014035f503211f7262fdfc9b74da25f1ded15746a27ae02d158226fe3'],
+    current: 'e28241100f40d76a91493ca52ec66fa03e8970b405621902346167da59b1e44b',
+    original: ['847d9f1014035f503211f7262fdfc9b74da25f1ded15746a27ae02d158226fe3', '1a2c0d9ee21742692c5eb3512ad44f83f3d250f1f2e686c36ed6749d7d95d63d'],
   },
 ];
 
