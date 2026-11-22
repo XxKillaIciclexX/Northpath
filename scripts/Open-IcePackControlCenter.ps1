@@ -4,14 +4,19 @@
 param()
 $ErrorActionPreference = 'Stop'
 
-if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
-    # Windows Forms needs STA. Do not recurse: Windows PowerShell launched with -STA should always comply.
+if ($PSVersionTable.PSEdition -ne 'Desktop' -or [System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
+    # Use the same .NET Framework WinForms host as the installed shortcut.
     & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -ExecutionPolicy Bypass -File $PSCommandPath
     exit $LASTEXITCODE
 }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+if (-not ('IcePack.Operations.RoundedButton' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'IcePack-OperationsTheme.cs') -ReferencedAssemblies @(
+        'System.dll', 'System.Drawing.dll', 'System.Windows.Forms.dll'
+    )
+}
 . (Join-Path $PSScriptRoot 'Common.ps1')
 . (Join-Path $PSScriptRoot 'IcePack-Health.ps1')
 . (Join-Path $PSScriptRoot 'IcePack-Release.ps1')
@@ -28,13 +33,16 @@ $theme = @{
     Background = [System.Drawing.ColorTranslator]::FromHtml('#09111f')
     Surface    = [System.Drawing.ColorTranslator]::FromHtml('#101c2d')
     Border     = [System.Drawing.ColorTranslator]::FromHtml('#26374b')
+    Hero       = [System.Drawing.ColorTranslator]::FromHtml('#122b36')
     Foreground = [System.Drawing.ColorTranslator]::FromHtml('#e2e8f0')
     Title      = [System.Drawing.ColorTranslator]::FromHtml('#f8fafc')
     Muted      = [System.Drawing.ColorTranslator]::FromHtml('#94a3b8')
     Accent     = [System.Drawing.ColorTranslator]::FromHtml('#67e8f9')
-    Primary    = [System.Drawing.ColorTranslator]::FromHtml('#0e6477')
-    PrimaryHover = [System.Drawing.ColorTranslator]::FromHtml('#11758a')
-    PrimaryBorder = [System.Drawing.ColorTranslator]::FromHtml('#22a3bb')
+    Emerald    = [System.Drawing.ColorTranslator]::FromHtml('#10b981')
+    Cyan       = [System.Drawing.ColorTranslator]::FromHtml('#0891b2')
+    EmeraldHover = [System.Drawing.ColorTranslator]::FromHtml('#34d399')
+    CyanHover  = [System.Drawing.ColorTranslator]::FromHtml('#06b6d4')
+    OnGradient = [System.Drawing.ColorTranslator]::FromHtml('#061a24')
     Secondary  = [System.Drawing.ColorTranslator]::FromHtml('#17283a')
     Hover      = [System.Drawing.ColorTranslator]::FromHtml('#23374d')
     ButtonBorder = [System.Drawing.ColorTranslator]::FromHtml('#35495f')
@@ -46,6 +54,8 @@ $theme = @{
     Error      = [System.Drawing.ColorTranslator]::FromHtml('#fda4af')
 }
 $fontFamily = 'Segoe UI'
+$actionFont = [System.Drawing.Font]::new($fontFamily, 10, [System.Drawing.FontStyle]::Bold)
+$pillFont = [System.Drawing.Font]::new($fontFamily, 9, [System.Drawing.FontStyle]::Bold)
 $form = [System.Windows.Forms.Form]::new()
 $form.Text = 'Ice Pack Companion - Operations Center'
 $form.AutoScaleDimensions = [System.Drawing.SizeF]::new(96, 96)
@@ -89,17 +99,16 @@ function New-Text([string]$Text, [int]$Size, [bool]$Bold, [System.Drawing.Color]
 }
 
 function New-Card([System.Windows.Forms.TableLayoutPanel]$Stack, [string]$Title) {
-    $frame = [System.Windows.Forms.Panel]::new()
+    $frame = [IcePack.Operations.RoundedSurface]::new()
     $frame.Dock = 'Top'
     $frame.AutoSize = $true
     $frame.AutoSizeMode = 'GrowAndShrink'
-    $frame.BackColor = $theme.Border
-    $frame.Padding = [System.Windows.Forms.Padding]::new(1)
-    $frame.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 12)
+    $frame.FillStart = $frame.FillEnd = $theme.Surface
+    $frame.Outline = $theme.Border
+    $frame.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 14)
 
     $card = New-Stack
-    $card.BackColor = $theme.Surface
-    $card.Padding = [System.Windows.Forms.Padding]::new(16, 12, 16, 12)
+    $card.Padding = [System.Windows.Forms.Padding]::new(18, 14, 18, 15)
     Add-Row $card (New-Text $Title 13 $true $theme.Title)
     $frame.Controls.Add($card)
     Add-Row $Stack $frame
@@ -107,61 +116,83 @@ function New-Card([System.Windows.Forms.TableLayoutPanel]$Stack, [string]$Title)
 }
 
 function New-ActionButton([string]$Text, [string]$Variant = 'Secondary') {
-    $button = [System.Windows.Forms.Button]::new()
+    $button = [IcePack.Operations.RoundedButton]::new()
     $button.Text = $Text
-    $button.Dock = 'Fill'
+    $button.Font = $actionFont
     $button.AutoSize = $true
+    $button.AutoSizeMode = 'GrowAndShrink'
     $button.MinimumSize = [System.Drawing.Size]::new(0, 38)
-    $button.Padding = [System.Windows.Forms.Padding]::new(6, 3, 6, 3)
-    $button.FlatStyle = 'Flat'
-    $button.UseVisualStyleBackColor = $false
+    $button.Padding = [System.Windows.Forms.Padding]::new(11, 3, 11, 3)
     $button.Cursor = [System.Windows.Forms.Cursors]::Hand
     switch ($Variant) {
         'Primary' {
-            $button.BackColor = $theme.Primary
-            $button.ForeColor = $theme.Title
-            $button.FlatAppearance.BorderColor = $theme.PrimaryBorder
-            $button.FlatAppearance.MouseOverBackColor = $theme.PrimaryHover
+            $button.FillStart = $theme.Emerald
+            $button.FillEnd = $theme.Cyan
+            $button.HoverStart = $theme.EmeraldHover
+            $button.HoverEnd = $theme.CyanHover
+            $button.ForeColor = $theme.OnGradient
         }
         'Danger' {
-            $button.BackColor = $theme.Danger
+            $button.FillStart = $button.FillEnd = $theme.Danger
+            $button.HoverStart = $button.HoverEnd = $theme.DangerHover
             $button.ForeColor = $theme.Error
-            $button.FlatAppearance.BorderColor = $theme.DangerBorder
-            $button.FlatAppearance.MouseOverBackColor = $theme.DangerHover
+            $button.Outline = $theme.DangerBorder
         }
         default {
-            $button.BackColor = $theme.Secondary
+            $button.FillStart = $button.FillEnd = $theme.Secondary
+            $button.HoverStart = $button.HoverEnd = $theme.Hover
             $button.ForeColor = $theme.Foreground
-            $button.FlatAppearance.BorderColor = $theme.ButtonBorder
-            $button.FlatAppearance.MouseOverBackColor = $theme.Hover
+            $button.Outline = $theme.ButtonBorder
         }
     }
     return $button
 }
 
 function Add-ActionRow([System.Windows.Forms.TableLayoutPanel]$Stack, [System.Windows.Forms.Button[]]$Buttons) {
-    $row = New-Stack
-    $row.ColumnCount = $Buttons.Count
-    $row.ColumnStyles.Clear()
-    $columnWidth = 100 / $Buttons.Count
-    for ($i = 0; $i -lt $Buttons.Count; $i++) {
-        [void]$row.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', $columnWidth))
-        $left = if ($i -eq 0) { 0 } else { 8 }
-        $Buttons[$i].Margin = [System.Windows.Forms.Padding]::new($left, 6, 0, 0)
-        $row.Controls.Add($Buttons[$i], $i, 0)
+    $row = [System.Windows.Forms.FlowLayoutPanel]::new()
+    $row.Dock = 'Top'
+    $row.AutoSize = $true
+    $row.AutoSizeMode = 'GrowAndShrink'
+    $row.WrapContents = $true
+    $row.Margin = [System.Windows.Forms.Padding]::new(0)
+    foreach ($button in $Buttons) {
+        $button.Margin = [System.Windows.Forms.Padding]::new(0, 7, 8, 0)
+        $row.Controls.Add($button)
     }
     Add-Row $Stack $row
 }
 
+function New-StatusPill([string]$Text, [System.Drawing.Color]$Color) {
+    $pill = [IcePack.Operations.StatusPill]::new()
+    $pill.Text = $Text
+    $pill.AutoSize = $true
+    $pill.UseMnemonic = $false
+    $pill.Font = $pillFont
+    $pill.ForeColor = $Color
+    $pill.Margin = [System.Windows.Forms.Padding]::new(0)
+    $pill.Padding = [System.Windows.Forms.Padding]::new(9, 4, 9, 4)
+    $pill.Anchor = 'Right'
+    return $pill
+}
+
 function Add-ServiceRow([System.Windows.Forms.TableLayoutPanel]$Stack, [string]$Name, [int]$Port) {
     $row = New-Stack
-    $row.ColumnCount = 2
+    $row.ColumnCount = 3
+    $row.ColumnStyles.Clear()
+    [void]$row.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Absolute', 118))
+    [void]$row.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', 100))
     [void]$row.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('AutoSize'))
-    $nameLabel = New-Text "$Name  /  127.0.0.1:$Port" 10 $false $theme.Foreground
-    $status = New-Text 'Checking...' 10 $true $theme.Warning
-    $status.Anchor = 'Top, Right'
+    $row.Margin = [System.Windows.Forms.Padding]::new(0, 3, 0, 4)
+    $nameLabel = New-Text $Name 10 $true $theme.Foreground
+    $endpoint = New-Text "127.0.0.1:$Port" 9 $false $theme.Muted
+    foreach ($label in @($nameLabel, $endpoint)) {
+        $label.Anchor = 'Left'
+        $label.Margin = [System.Windows.Forms.Padding]::new(0)
+    }
+    $status = New-StatusPill 'Checking...' $theme.Warning
     $row.Controls.Add($nameLabel, 0, 0)
-    $row.Controls.Add($status, 1, 0)
+    $row.Controls.Add($endpoint, 1, 0)
+    $row.Controls.Add($status, 2, 0)
     Add-Row $Stack $row
     return $status
 }
@@ -170,21 +201,45 @@ $layout = New-Stack
 $layout.Dock = 'Fill'
 $layout.AutoSize = $false
 
+$headerShell = New-Stack
+$headerShell.Padding = [System.Windows.Forms.Padding]::new(20, 16, 20, 14)
+$hero = [IcePack.Operations.RoundedSurface]::new()
+$hero.Dock = 'Top'
+$hero.AutoSize = $true
+$hero.AutoSizeMode = 'GrowAndShrink'
+$hero.FillStart = $theme.Hero
+$hero.FillEnd = $theme.Surface
+$hero.Outline = $theme.Border
+$hero.Margin = [System.Windows.Forms.Padding]::new(0)
 $header = New-Stack
-$header.ColumnCount = 2
+$header.ColumnCount = 3
+$header.ColumnStyles.Clear()
 [void]$header.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('AutoSize'))
-$header.Padding = [System.Windows.Forms.Padding]::new(20, 14, 20, 10)
+[void]$header.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', 100))
+[void]$header.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('AutoSize'))
+$header.Padding = [System.Windows.Forms.Padding]::new(17, 14, 17, 14)
+$mark = [IcePack.Operations.BrandMark]::new()
+$mark.Size = [System.Drawing.Size]::new(44, 44)
+$mark.MinimumSize = $mark.Size
+$mark.Radius = 12
+$mark.FillStart = $theme.EmeraldHover
+$mark.FillEnd = $theme.CyanHover
+$mark.ForeColor = $theme.OnGradient
+$mark.Anchor = 'Left'
+$mark.Margin = [System.Windows.Forms.Padding]::new(0, 0, 13, 0)
 $heading = New-Stack
-Add-Row $heading (New-Text 'Ice Pack Companion' 21 $true $theme.Title)
-Add-Row $heading (New-Text 'Operations Center' 11 $false $theme.Muted)
+Add-Row $heading (New-Text 'Ice Pack Companion' 20 $true $theme.Title)
+$subtitle = New-Text 'Operations Center' 10 $false $theme.Muted
+$subtitle.Margin = [System.Windows.Forms.Padding]::new(0)
+Add-Row $heading $subtitle
 $releasePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'companion/src/icepack-release.json'
-$versionBadge = New-Text (Get-IcePackReleaseLabel $releasePath) 9 $true $theme.Accent
-$versionBadge.BackColor = $theme.Secondary
-$versionBadge.Padding = [System.Windows.Forms.Padding]::new(8, 4, 8, 4)
-$versionBadge.Anchor = 'Top, Right'
-$header.Controls.Add($heading, 0, 0)
-$header.Controls.Add($versionBadge, 1, 0)
-Add-Row $layout $header
+$versionBadge = New-StatusPill (Get-IcePackReleaseLabel $releasePath) $theme.Accent
+$header.Controls.Add($mark, 0, 0)
+$header.Controls.Add($heading, 1, 0)
+$header.Controls.Add($versionBadge, 2, 0)
+$hero.Controls.Add($header)
+Add-Row $headerShell $hero
+Add-Row $layout $headerShell
 
 $scroll = [System.Windows.Forms.Panel]::new()
 $scroll.Dock = 'Fill'
@@ -242,7 +297,6 @@ $folderButton = New-ActionButton 'Open project folder'
 Add-ActionRow $tools @($startButton, $folderButton)
 
 $footer = New-Stack
-$footer.BackColor = $theme.Surface
 $footer.Padding = [System.Windows.Forms.Padding]::new(20, 7, 20, 2)
 $statusLabel = New-Text 'Checking local services...' 9 $false $theme.Muted
 $statusLabel.Dock = 'Fill'

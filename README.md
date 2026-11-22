@@ -2,7 +2,7 @@
 
 ## v5.6 Alpha — Operations Center refresh
 
-The Windows Operations Center now uses the Companion dashboard's slate and cyan palette, with a resizable, scrollable layout. **Local services** brings managed start, stop, dashboard, diagnostics, and logs together. Preflight, bridge pairing, configuration protection, updates and inventory, and legacy startup each have their own sections.
+The Windows Operations Center uses the Companion dashboard's rounded cards, status pills, and emerald-to-cyan accents. Buttons fit their labels and wrap as the window narrows. **Local services** brings managed start, stop, dashboard, diagnostics, and logs together.
 
 The Operations Center badge, dashboard footer, and installation report use the release label from `companion/src/icepack-release.json`. The report shows tracked update package history separately.
 
@@ -14,7 +14,7 @@ git pull --ff-only origin development
 powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\scripts\Open-IcePackControlCenter.ps1
 ```
 
-Your existing Windows shortcut opens the same script. Check that **v5.6 Alpha** appears in the header and in the opened dashboard. Shrink the Operations Center window and scroll to **Updates and inventory**. Verify **View installation report** and **Version / baseline status** both open their own windows. Then check **Refresh status**, **Run preflight**, and your normal managed start and stop controls.
+Your existing Windows shortcut opens the same script. Check the rounded service cards, gradient **Start Companion** button, and visible focus outline when you tab between actions. Shrink the window and scroll to **Updates and inventory**. Verify **View installation report** and **Version / baseline status** both open their own windows. Then check **Refresh status**, **Run preflight**, and your normal managed start and stop controls.
 
 ### Run the pre-Live readiness report (introduced in v5.5)
 

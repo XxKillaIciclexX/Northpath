@@ -23,13 +23,13 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {$OutputDirectory=Join-Path 
 $dest=[IO.Path]::GetFullPath($OutputDirectory)
 if ($dest.TrimEnd('\') -eq $repo.TrimEnd('\') -or $dest.StartsWith($repo.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) {throw 'Output directory must be outside the repository.'}
 # Only known source paths. No .env, user data, backups, node_modules, .git, or credentials.
-$required=@('companion/package.json','companion/vite.config.ts','companion/index.html','companion/src/App.tsx','companion/src/main.tsx','companion/src/icepack-release.json','companion/agent-bridge/bridge.mjs','scripts/Open-IcePackControlCenter.ps1','scripts/IcePack-Release.ps1','scripts/Start-IcePackCompanionManaged.ps1','scripts/Stop-IcePackCompanionManaged.ps1')
+$required=@('companion/package.json','companion/vite.config.ts','companion/index.html','companion/src/App.tsx','companion/src/main.tsx','companion/src/icepack-release.json','companion/agent-bridge/bridge.mjs','scripts/Open-IcePackControlCenter.ps1','scripts/IcePack-Release.ps1','scripts/IcePack-OperationsTheme.cs','scripts/Start-IcePackCompanionManaged.ps1','scripts/Stop-IcePackCompanionManaged.ps1')
 $selected=New-Object 'System.Collections.Generic.List[string]'
 foreach($rel in $required){
   $p=Join-Path $repo ($rel.Replace('/','\'))
   if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {throw "Required application file missing: $rel"}
 }
-$fixed=@('companion/package.json','companion/package-lock.json','companion/vite.config.ts','companion/tsconfig.json','companion/tailwind.config.js','companion/postcss.config.js','companion/index.html')
+$fixed=@('companion/package.json','companion/package-lock.json','companion/vite.config.ts','companion/tsconfig.json','companion/tailwind.config.js','companion/postcss.config.js','companion/index.html','scripts/IcePack-OperationsTheme.cs')
 foreach($rel in $fixed){if(Test-Path -LiteralPath (Join-Path $repo ($rel.Replace('/','\'))) -PathType Leaf){$selected.Add($rel)}}
 $directories=@(
   @{path='companion/src';extensions=@('.tsx','.ts','.css','.json','.mjs','.mts')},

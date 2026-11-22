@@ -32,6 +32,13 @@ test('operations center preserves protected startup and recovery controls',()=>{
   assert.match(ui,/Get-IcePackHealth/);
   assert.match(ui,/Run preflight/);
 });
+test('rounded Operations Center buttons retain native button behavior and ship in the source bundle', () => {
+  const theme = fs.readFileSync(path.join(base, 'IcePack-OperationsTheme.cs'), 'utf8');
+  assert.match(ui, /Add-Type -Path \(Join-Path \$PSScriptRoot 'IcePack-OperationsTheme\.cs'\)/);
+  assert.match(ui, /\[IcePack\.Operations\.RoundedButton\]::new\(\)/);
+  assert.match(theme, /class RoundedButton\s*:\s*Button\b/);
+  assert.match(builder, /\$fixed=.*'scripts\/IcePack-OperationsTheme\.cs'/);
+});
 test('operations center, dashboard, and inventory share the packaged release metadata', () => {
   for (const source of [ui, inventory]) {
     assert.match(source, /Get-IcePackReleaseLabel/);
