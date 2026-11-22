@@ -10,7 +10,7 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
-const version = 'v4.6';
+const version = 'v4.7';
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
 const bundledEngineDashboardHash = '847d9f1014035f503211f7262fdfc9b74da25f1ded15746a27ae02d158226fe3';
 const bundledEngineRulesHash = 'b26538a9b27513f6b91274a2ec75877605a7f61091d40c408d637061a33fff46';
@@ -157,7 +157,7 @@ async function install(values) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '4.6-alpha',
+      version: '4.7-alpha',
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');
