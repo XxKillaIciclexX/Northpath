@@ -10,18 +10,58 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
+const version = 'v3.6';
+const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
+
+async function sha256(file) {
+  const sha = createHash('sha256');
+  for await (const chunk of createReadStream(file)) sha.update(chunk);
+  return sha.digest('hex');
+}
 
 async function verifyArchive(source, copy, expected, label) {
   if (!/^[a-f0-9]{64}$/i.test(expected ?? '')) {
     throw new Error(`Provide the verified SHA-256 for the ${label} ZIP`);
   }
   await copyFile(source, copy);
-  const sha = createHash('sha256');
-  for await (const chunk of createReadStream(copy)) sha.update(chunk);
-  const hash = sha.digest('hex');
+  const hash = await sha256(copy);
   if (hash !== expected.toLowerCase()) throw new Error(`${label} ZIP SHA-256 mismatch`);
   console.log(`PASS ${label} ZIP SHA-256`);
   return hash;
+}
+
+async function stageFirstRun(staged, companion, engine) {
+  const bridge = join(companion, 'agent-bridge', 'bridge.mjs');
+  if (await sha256(bridge) !== bundledBridgeHash) {
+    throw new Error('The Companion ZIP bridge does not match the supported v3.1 source bundle');
+  }
+  const source = join(here, '..', 'companion');
+  await copyFile(join(source, 'agent-bridge', 'bridge.mjs'), bridge);
+  const publicDir = join(companion, 'public');
+  await mkdir(publicDir, { recursive: true });
+  for (const name of ['first-run.html', 'first-run.js']) {
+    await copyFile(join(source, 'public', name), join(publicDir, name));
+  }
+
+  const previewRules = join(staged, 'preview-rules');
+  await mkdir(previewRules);
+  const writeSample = (file, data) => writeFile(file, JSON.stringify(data, null, 2) + '\n', { flag: 'wx' });
+  await writeSample(join(previewRules, 'ark-catalog-v2.json'), {
+    schemaVersion: 2,
+    dinosaurs: [],
+    items: [{ id: 'Stone', name: 'Stone' }],
+  });
+  await writeSample(join(previewRules, 'streamer-config-v2.json'), {
+    schemaVersion: 2,
+    kits: [],
+    rules: [{
+      id: 'alpha-heart-me',
+      giftName: 'Heart Me',
+      reward: { type: 'item', itemId: 'Stone', quantity: 25, announcement: false },
+    }],
+  });
+  // The engine's preview planner requires a numeric target. This placeholder is used only in the isolated installation.
+  await writeSample(join(engine, 'rules-v06.json'), { playerId: '1', rules: [] });
 }
 
 function extract(archive, destination) {
@@ -67,11 +107,11 @@ async function install(values) {
     throw new Error('Provide --companion <ZIP>, --companion-sha256 <hash>, --engine <ZIP>, --engine-sha256 <hash>, and --install-root <folder> if LOCALAPPDATA is unavailable');
   }
   const parent = resolve(installRoot);
-  const destination = join(parent, 'v3.5');
+  const destination = join(parent, version);
   await assertAvailable(destination);
   await mkdir(parent, { recursive: true });
 
-  const scratch = await mkdtemp(join(parent, '.v3.5-staging-'));
+  const scratch = await mkdtemp(join(parent, `.${version}-staging-`));
   try {
     const appZip = join(scratch, 'companion.zip');
     const engineZip = join(scratch, 'engine.zip');
@@ -88,9 +128,11 @@ async function install(values) {
     const engine = join(staged, 'engine');
     await rename(join(appSource, 'companion'), companion);
     await rename(join(engineSource, 'engine'), engine);
+    await stageFirstRun(staged, companion, engine);
     installPackages(companion, engine, scratch);
     for (const file of [
       join(companion, 'dist', 'index.html'),
+      join(companion, 'dist', 'first-run.html'),
       join(companion, 'agent-bridge', 'bridge.mjs'),
       join(engine, 'server.mjs'),
     ]) {
@@ -101,13 +143,13 @@ async function install(values) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '3.5-alpha',
+      version: '3.6-alpha',
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');
 
     signal.throwIfAborted();
-    const lock = join(parent, '.v3.5-publish-lock');
+    const lock = join(parent, `.${version}-publish-lock`);
     await mkdir(lock);
     try {
       await assertAvailable(destination);
@@ -118,7 +160,7 @@ async function install(values) {
   } finally {
     await rm(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
   }
-  console.log(`PASS installed Ice Pack Companion v3.5 Alpha at ${destination}`);
+  console.log(`PASS installed Ice Pack Companion ${version} Alpha at ${destination}`);
   console.log(`Start local preview: node "${join(destination, 'Install-IcePackAlpha.mjs')}" --start`);
 }
 

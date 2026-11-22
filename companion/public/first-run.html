@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Ice Pack Companion · First run</title>
+  <style>
+    body { margin: 0; background: #0b1627; color: #edf4fb; font: 1rem/1.6 system-ui, sans-serif; }
+    main { max-width: 34rem; margin: 12vh auto; padding: 0 1.25rem; }
+    h1 { line-height: 1.16; font-size: clamp(2rem, 6vw, 2.75rem); margin: .4rem 0 1rem; }
+    .app { font-weight: 700; color: #9be4f5; margin: 0; }
+    .intro { color: #b7c6d8; }
+    section { margin-top: 1.5rem; padding: 1.5rem; border: 1px solid #334860; border-radius: .9rem; background: #112238; }
+    h2 { margin: 0 0 .7rem; font-size: 1.15rem; }
+    label { display: block; margin-bottom: .35rem; }
+    input, button { font: inherit; border-radius: .45rem; padding: .55rem .8rem; }
+    input { width: 100%; box-sizing: border-box; background: #0b1627; color: inherit; border: 1px solid #68809d; }
+    button { margin-top: .8rem; background: #9be4f5; color: #092134; font-weight: 700; border: 0; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    :focus-visible { outline: 3px solid #99d7ff; outline-offset: 4px; }
+    [role="status"] { color: #a7f0cd; margin-bottom: 0; }
+    [role="alert"] { color: #ffb9bb; margin-bottom: 0; }
+    small { color: #b7c6d8; }
+  </style>
+  <script type="module" src="/first-run.js"></script>
+</head>
+<body>
+  <main>
+    <p class="app">Ice Pack Companion</p>
+    <h1>Pair your local preview</h1>
+    <p class="intro">Copy the current session token from the window running Ice Pack Companion. Then run a sample Heart Me gift through the local engine.</p>
+    <section>
+      <h2>Local Bridge</h2>
+      <form id="pair-form">
+        <label for="token">Pairing token</label>
+        <input id="token" type="password" autocomplete="off" spellcheck="false" required>
+        <button id="pair" type="submit">Pair Dashboard</button>
+      </form>
+      <p id="pair-status" role="status"></p>
+      <p id="pair-error" role="alert"></p>
+    </section>
+    <section>
+      <h2>Sample gift</h2>
+      <small>Heart Me → 25 Stone. The engine runs in Preview mode.</small><br>
+      <button id="preview" type="button" disabled>Run Heart Me Preview</button>
+      <p id="preview-status" role="status"></p>
+      <p id="preview-error" role="alert"></p>
+    </section>
+  </main>
+</body>
+</html>

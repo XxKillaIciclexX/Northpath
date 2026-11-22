@@ -126,7 +126,7 @@ export function handleInterruption() {
   return interruption.signal;
 }
 
-async function launch(services, dashboard, checkProxy, keepRunning = false) {
+async function launch(services, dashboard, checkProxy, onReady) {
   const children = [];
   try {
     for (const service of services) {
@@ -150,8 +150,9 @@ async function launch(services, dashboard, checkProxy, keepRunning = false) {
       throw new Error('A service stopped before the end of the startup check');
     }
     interruption.signal.throwIfAborted();
-    if (keepRunning) {
-      console.log(`Dashboard: ${dashboard.url.href} | Press Ctrl+C here to stop.`);
+    if (onReady) {
+      await onReady();
+      interruption.signal.throwIfAborted();
       const stopped = once(interruption.signal, 'abort');
       const exited = children.map(({ closed, label }) => closed.then(() => label));
       const result = await Promise.race([stopped, ...exited]);
@@ -167,14 +168,44 @@ function pairingEnvironment() {
   return { ...env, ICEPACK_BRIDGE_PAIRING_TOKEN: randomBytes(24).toString('hex') };
 }
 
+async function prepareSample(engineUrl) {
+  const origin = engineUrl.origin;
+  const post = async (endpoint, body) => {
+    const response = await fetch(new URL(endpoint, origin), {
+      method: 'POST',
+      headers: { Origin: origin, 'x-ice-pack': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      redirect: 'error',
+      signal: AbortSignal.timeout(3000),
+    });
+    const data = await response.json();
+    if (!response.ok || data.ok !== true) throw new Error(`Could not prepare sample preview: ${data.error ?? response.status}`);
+    return data.customRules;
+  };
+  const loaded = await post('/custom-rules-reload', {});
+  if (!loaded.loaded || loaded.ruleCount !== 1 || loaded.mode !== 'off') {
+    throw new Error('Expected one sample rule with the engine off');
+  }
+  const preview = await post('/custom-rules-mode', { mode: 'preview' });
+  if (preview.mode !== 'preview') throw new Error('Engine did not enter Preview mode');
+}
+
 export function launchInstalled(root) {
   const companion = join(root, 'companion');
-  const dashboard = service(companion, 'node_modules/vite/bin/vite.js', 'http://127.0.0.1:5173/', 'Dashboard',
-    ['preview', '--host', '127.0.0.1', '--port', '5173', '--strictPort']);
+  const dashboard = service(companion, 'node_modules/vite/bin/vite.js', 'http://127.0.0.1:5174/first-run.html', 'Dashboard',
+    ['preview', '--host', '127.0.0.1', '--port', '5174', '--strictPort']);
   const bridge = service(companion, 'agent-bridge/bridge.mjs', 'http://127.0.0.1:3212/status', 'Local Bridge');
-  bridge.environment = pairingEnvironment();
+  const pairing = pairingEnvironment();
+  bridge.environment = { ...pairing, ICEPACK_ALPHA_PREVIEW: '1' };
   const engine = service(join(root, 'engine'), 'server.mjs', 'http://127.0.0.1:3210/state', 'ARK Engine');
-  return launch([engine, bridge, dashboard], dashboard, true, true);
+  engine.environment = { ...env, ICEPACK_KIT_DIR: join(root, 'preview-rules') };
+  return launch([engine, bridge, dashboard], dashboard, true, async () => {
+    await prepareSample(engine.url);
+    console.log('PASS sample Heart Me rule loaded in Preview mode');
+    console.log(`First-run Dashboard: ${dashboard.url.href}`);
+    console.log(`Pairing token (private, this session only): ${pairing.ICEPACK_BRIDGE_PAIRING_TOKEN}`);
+    console.log('Press Ctrl+C here to stop.');
+  });
 }
 
 async function main() {

@@ -50,22 +50,35 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v3.5 Alpha — Side-by-side installation
+## v3.6 Alpha — First-run pairing and Heart Me Preview
 
-The v3.4 clean install and dashboard-to-engine check passed on Windows. The v3.5 installer uses those source ZIPs to create a persistent local preview installation. Use Node.js 22.12 or newer and npm.
+Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
 ```powershell
+node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs
+
 node .\scripts\Install-IcePackAlpha.mjs `
   --companion "C:\path\to\companion-source.zip" --companion-sha256 "<trusted companion ZIP SHA-256>" `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-Use ZIP hashes received through a trusted channel. The installer checks both archives before extracting them, installs dependencies from both lockfiles, and builds the dashboard before publishing the new folder. Windows uses the built-in PowerShell archive cmdlet. The installer does not run the older PowerShell scripts bundled in the archive.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v3.6` after the build. Use `--install-root` to select another parent directory. An existing v3.6 installation is preserved.
 
-The default destination is `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v3.5`. Use `--install-root` to choose another parent directory. The installer stops if the version folder already exists. Installation can run alongside the existing Companion. Stop the existing services through the Control Center before launching the preview so ports 3210, 3212, and 5173 are free.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v3.6 Alpha`.
+2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
+3. Start the installed launcher.
 
-```powershell
-node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v3.5\Install-IcePackAlpha.mjs" --start
-```
+   ```powershell
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v3.6\Install-IcePackAlpha.mjs" --start
+   ```
 
-Open `http://127.0.0.1:5173/` after the dashboard proxy reports the ARK Engine online. Press Ctrl+C in the launcher window to stop the three preview services. This alpha validates the installed dashboard and local service connection. Pairing, importing an existing configuration, and live game connectivity are separate milestones.
+4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
+5. Click **Run Heart Me Preview**. Expect **The engine preview planned 25 Stone. No game command was sent.**
+6. Press Ctrl+C in the launcher. Confirm Windows has released the three ports.
+
+   ```powershell
+   Get-NetTCPConnection -State Listen -LocalPort 3210,3212,5174 -ErrorAction SilentlyContinue |
+       Select-Object LocalAddress, LocalPort, OwningProcess
+   ```
+
+The sample setup uses its own rule, catalog and placeholder target. It starts in the engine's Preview mode, with live RCON settings absent. The token is generated per launch, kept in memory by the pairing page, and should stay private. A restart requires a new token.

@@ -18,9 +18,12 @@ const KIT_DIR=process.env.ICEPACK_KIT_DIR ? path.resolve(process.env.ICEPACK_KIT
 // Managed Windows startup supplies a fresh random token through the process environment.
 // Manual bridge startup retains the original terminal pairing workflow.
 const managedToken=process.env.ICEPACK_BRIDGE_PAIRING_TOKEN;
+const standalonePreview=Boolean(managedToken)&&process.env.ICEPACK_ALPHA_PREVIEW==='1';
 if(managedToken!==undefined&&!/^[0-9a-f]{48}$/.test(managedToken))throw Error('Invalid managed bridge pairing token');
 const TOKEN=managedToken??crypto.randomBytes(24).toString('hex');
-const permittedOrigins=new Set(['http://127.0.0.1:5173','http://localhost:5173']);
+const permittedOrigins=new Set(standalonePreview
+  ? ['http://127.0.0.1:5174']
+  : ['http://127.0.0.1:5173','http://localhost:5173']);
 const previews=new Map();
 let controlling=false;
 let applying=false;
@@ -68,11 +71,15 @@ const server=http.createServer(async(req,res)=>{
   if(!['127.0.0.1:3212','localhost:3212'].includes(req.headers.host))return json(403,{error:'Invalid host'});
   if(origin&&!permittedOrigins.has(origin))return json(403,{error:'Allowed only from local dashboard'});
   if(req.method==='GET'&&req.url==='/status'){try{return json(200,await engineState());}catch(e){return json(503,{online:true,engineOnline:false,engineStatus:'Local engine unavailable',error:String(e.message).slice(0,120)});}}
-  if(!['/sync/preview','/sync/apply','/sync/compare','/sync/drift','/simulate/preview','/control','/recovery/list','/recovery/compare','/recovery/preview','/recovery/restore','/recovery/audit','/target/read','/target/save'].includes(req.url)||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
+  const endpoints=standalonePreview
+    ? ['/pairing/check','/simulate/preview']
+    : ['/sync/preview','/sync/apply','/sync/compare','/sync/drift','/simulate/preview','/control','/recovery/list','/recovery/compare','/recovery/preview','/recovery/restore','/recovery/audit','/target/read','/target/save'];
+  if(!endpoints.includes(req.url)||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
   // No cross-origin browser access: requests through Vite's same-origin proxy include Origin on POST.
   if(!permittedOrigins.has(origin))return json(403,{error:'A local dashboard Origin is required'});
   const submitted=String(req.headers['x-icepack-sync-token']??'');
-  if(submitted.length!==TOKEN.length||!crypto.timingSafeEqual(Buffer.from(submitted),Buffer.from(TOKEN)))return json(401,{error:'Enter the pairing token printed in the bridge terminal'});
+  if(!/^[a-f0-9]{48}$/.test(submitted)||!crypto.timingSafeEqual(Buffer.from(submitted),Buffer.from(TOKEN)))return json(401,{error:'Enter the pairing token from the current launcher session'});
+  if(req.url==='/pairing/check')return json(200,{ok:true});
   if(req.url==='/target/read') {
     const r=await fetch(`${ENGINE_URL}/state`,{signal:AbortSignal.timeout(2500)});
     if(!r.ok)throw Error(`Engine state HTTP ${r.status}`);
@@ -146,9 +153,17 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.url==='/simulate/preview'){
     const gift=validateGiftRequest(await readJsonBody(req));
+    if(standalonePreview&&(gift.id!==''||gift.name!=='Heart Me'))return json(400,{error:'Choose the sample Heart Me preview'});
     assertPreviewOnly(await engineState());
     // Engine endpoint also enforces preview mode; never call /bridge/gift or an RCON endpoint.
-    await simulateEngineGift(gift);
+    const result=await simulateEngineGift(gift);
+    if(standalonePreview){
+      const record=result.customRules?.history?.[0];
+      if(record?.gift!==gift.name||record.ruleId!=='alpha-heart-me'||record.status!=='preview'||record.commands?.length!==1){
+        throw Error('The engine did not plan the sample Heart Me reward');
+      }
+      return json(200,{ok:true,gift:gift.name,previewOnly:true,message:'The engine preview planned 25 Stone. No game command was sent.'});
+    }
     return json(200,{ok:true,gift:gift.name,previewOnly:true,message:'Preview sent to engine. Check Recent engine activity for commands or rejection.'});
   }
   if(req.url==='/control') {
@@ -240,7 +255,8 @@ const server=http.createServer(async(req,res)=>{
 });
 server.listen(PORT,HOST,()=>{
  console.log(`Ice Pack local agent bridge: http://${HOST}:${PORT}/status`);
- if(managedToken){console.log('Pairing token: use Copy bridge pairing token in the Windows Control Center.');}
+ if(standalonePreview){console.log('Standalone pairing and Heart Me preview enabled.');}
+ else if(managedToken){console.log('Pairing token: use Copy bridge pairing token in the Windows Control Center.');}
  else{console.log('Sync token for dashboard (keep private): '+TOKEN);}
  console.log('Kit Editor directory: '+(KIT_DIR??'NOT SET — sync disabled'));
  console.log('Local-only: NEVER expose port 3212 through port forwarding or cloud hosting.');
