@@ -37,7 +37,7 @@ export async function rehearseEngineDraft(root, { draft, catalog, prefs }) {
   });
 }
 
-export async function rehearseEngineConfiguration(root, { config, catalog, catalogSource, preferences }) {
+export async function rehearseEngineConfiguration(root, { config, catalog, catalogSource, preferences }, engineDirectory = join(root, 'engine')) {
   requireEngineDraft(config);
   if (catalogSource === 'selected' && catalog?.schemaVersion !== 2) {
     throw new Error('Choose a version 2 Kit Editor catalog.');
@@ -45,7 +45,7 @@ export async function rehearseEngineConfiguration(root, { config, catalog, catal
   if (preferences !== undefined && (!Array.isArray(preferences?.enabledPacks) || preferences.enabledPacks.some(pack => typeof pack !== 'string'))) {
     throw new Error('Content preferences must contain an enabledPacks array of pack IDs.');
   }
-  const engineModule = name => import(pathToFileURL(join(root, 'engine', name)).href);
+  const engineModule = name => import(pathToFileURL(join(engineDirectory, name)).href);
   const [{ loadSavedRules, buildPlanCommands }, { planGift }] = await Promise.all([
     engineModule('icepack-custom-rules.mjs'),
     engineModule('icepack-config-engine.mjs'),

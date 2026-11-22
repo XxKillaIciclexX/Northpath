@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { once } from 'node:events';
 import { mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseArgs } from 'node:util';
+import { parseArgs, parseEnv } from 'node:util';
 import { readJsonWithBytes, rehearseEngineConfiguration } from './Test-IcePackEngineDraft.mjs';
 
 const rulesName = 'streamer-config-v2.json';
@@ -98,15 +100,17 @@ async function requireSpare(spare, migration) {
   }
 }
 
-async function verifySpare(spare, migration, restore) {
+async function verifyKit(kit, migration, restore, regular) {
   const { receipt, staged } = migration;
-  const context = await readContext(spare, receipt);
-  const current = await read(spare, rulesName);
+  const context = await readContext(kit, receipt);
+  const current = await read(kit, rulesName);
   const currentHash = sha256(current.bytes);
   const expected = restore ? receipt.files[rulesName] : receipt.baselineSha256;
   const desired = restore ? receipt.baselineSha256 : receipt.files[rulesName];
   if (currentHash !== expected && currentHash !== desired) {
-    throw new Error('Spare rules changed outside the migration. Create a fresh spare copy before proceeding.');
+    throw new Error(regular
+      ? 'Regular rules changed outside this migration. Review the current file and stage a new package.'
+      : 'Spare rules changed outside the migration. Create a fresh spare copy before proceeding.');
   }
   return { current, currentHash, desired, context, candidate: staged[rulesName] };
 }
@@ -121,32 +125,34 @@ async function replaceFile(path, bytes) {
   }
 }
 
-async function changeSpare(spare, migration, restore, apply, engineRoot) {
-  await requireSpare(spare, migration);
-  const lock = join(spare, '.icepack-migration.lock');
+async function changeKit(kit, migration, { restore, apply, engineRoot, engineDirectory, regular = false }) {
+  const targetName = regular ? 'regular' : 'spare';
+  const engineName = regular ? 'Control Center engine' : 'Bundled engine';
+  const backupFile = regular ? `.icepack-migration-backup-${migration.receiptHash}.json` : backupName;
+  const lock = join(kit, '.icepack-migration.lock');
   if (apply) await mkdir(lock);
   try {
-    const { current, currentHash, desired, context, candidate } = await verifySpare(spare, migration, restore);
+    const { current, currentHash, desired, context, candidate } = await verifyKit(kit, migration, restore, regular);
     if (currentHash === desired) {
-      console.log(restore ? 'PASS Spare rules already match the original bytes.' : 'PASS Spare rules already match the staged draft.');
+      console.log(`PASS Rules already match the ${restore ? 'original bytes' : 'staged draft'}.`);
       return;
     }
-    const backupPath = join(spare, backupName);
+    const backupPath = join(kit, backupFile);
     let replacement = candidate.bytes;
     if (restore) {
-      replacement = (await read(spare, backupName)).bytes;
+      replacement = (await read(kit, backupFile)).bytes;
       if (sha256(replacement) !== desired) throw new Error('Backup hash differs from the original rules. Restore stopped.');
     } else {
       const report = await rehearseEngineConfiguration(engineRoot, {
         config: candidate.value, catalog: context.catalog.value, catalogSource: 'selected', preferences: context.prefs?.value,
-      });
+      }, engineDirectory);
       const blocked = report.results.find(row => row.blocked !== undefined);
-      if (blocked) throw new Error(`Bundled engine blocked ${blocked.gift}: ${blocked.blocked}`);
+      if (blocked) throw new Error(`${engineName} blocked ${blocked.gift}: ${blocked.blocked}`);
     }
 
-    console.log(`Verified package and spare baseline: ${spare}`);
+    console.log(`Verified package and ${targetName} baseline: ${kit}`);
     if (!apply) {
-      console.log(`Dry run complete. Use ${restore ? '--restore --apply' : '--apply'} to change only the spare rules file.`);
+      console.log(`Dry run complete. Use ${restore ? '--restore --apply' : '--apply'} to change only the ${targetName} rules file.`);
       return;
     }
     if (!restore) {
@@ -155,24 +161,24 @@ async function changeSpare(spare, migration, restore, apply, engineRoot) {
       } catch (error) {
         if (error.code !== 'EEXIST') throw error;
       }
-      if (sha256((await read(spare, backupName)).bytes) !== migration.receipt.baselineSha256) {
+      if (sha256((await read(kit, backupFile)).bytes) !== migration.receipt.baselineSha256) {
         throw new Error('Backup hash does not match the reviewed baseline. Apply stopped.');
       }
       console.log(`Backup: ${backupPath}`);
     }
 
-    const target = join(spare, rulesName);
-    await readContext(spare, migration.receipt);
-    if (!(await readFile(target)).equals(current.bytes)) throw new Error('Spare rules changed during verification.');
+    const target = join(kit, rulesName);
+    await readContext(kit, migration.receipt);
+    if (!(await readFile(target)).equals(current.bytes)) throw new Error('Rules changed during verification.');
     let replaced = false;
     try {
       await replaceFile(target, replacement);
       replaced = true;
-      if (sha256(await readFile(target)) !== desired) throw new Error('Spare rules failed byte verification.');
+      if (sha256(await readFile(target)) !== desired) throw new Error('Rules failed byte verification.');
       if (!restore) {
-        const { loadSavedRules } = await import('./engine/icepack-custom-rules.mjs');
-        const { config } = loadSavedRules(spare);
-        console.log(`PASS Bundled engine loaded ${config.rules.length} rules and ${config.kits.length} Kits from the spare folder.`);
+        const { loadSavedRules } = await import(pathToFileURL(join(engineDirectory, 'icepack-custom-rules.mjs')).href);
+        const { config } = loadSavedRules(kit);
+        console.log(`PASS ${engineName} loaded ${config.rules.length} rules and ${config.kits.length} Kits from the ${targetName} folder.`);
       }
     } catch (error) {
       if (replaced) {
@@ -182,39 +188,111 @@ async function changeSpare(spare, migration, restore, apply, engineRoot) {
         } catch (rollbackError) {
           throw new Error(`${error.message} Automatic rollback failed: ${rollbackError.message}. Backup: ${backupPath}`);
         }
-        throw new Error(`${error.message} Previous spare rules restored.`);
+        throw new Error(`${error.message} Previous ${targetName} rules restored.`);
       }
       throw error;
     }
-    console.log(restore ? 'PASS Original spare rules restored byte for byte.' : 'PASS Applied and verified spare rules.');
+    console.log(restore ? `PASS Original ${targetName} rules restored byte for byte.` : `PASS Applied and verified ${targetName} rules.`);
   } finally {
     if (apply) await rm(lock, { recursive: true, force: true });
+  }
+}
+
+async function regularPaths() {
+  const appData = process.env.LOCALAPPDATA;
+  if (!appData) throw new Error('Run regular migration from the Windows user session that runs Control Center.');
+  let settings = {};
+  try {
+    settings = (await read(join(appData, 'IcePackCompanion'), 'settings.json')).value;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const configured = value => typeof value === 'string' && value.trim();
+  const engine = await realpath(configured(settings?.enginePath) || 'C:\\IcePackARK\\ice-pack-ark');
+  const defaultKit = join(engine, 'icepack-catalog-manager');
+  const kit = await realpath(configured(settings?.kitDir) || defaultKit);
+  // Read only the path setting used by the engine launcher. Do not log or export .env values.
+  let envFile = {};
+  try {
+    envFile = parseEnv(await readFile(join(engine, '.env'), 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const engineKit = configured(process.env.ICEPACK_KIT_DIR ?? envFile.ICEPACK_KIT_DIR);
+  const actualKit = await realpath(engineKit ? resolve(engine, engineKit) : defaultKit);
+  if (kit !== actualKit) {
+    throw new Error('Control Center and ARK Engine point to different Kit Editor folders. Align their paths before applying.');
+  }
+  return { kit, engine };
+}
+
+async function withRegularPortsReserved(action) {
+  const kitPort = Number(process.env.KIT_EDITOR_PORT || 3211);
+  if (!Number.isInteger(kitPort) || kitPort < 1024 || kitPort > 65535) {
+    throw new Error('Invalid KIT_EDITOR_PORT.');
+  }
+  const reserved = [];
+  try {
+    for (const port of new Set([3210, 3211, 3212, 5173, kitPort])) {
+      const server = createServer(socket => socket.destroy());
+      server.listen({ host: '127.0.0.1', port, exclusive: true });
+      try {
+        await once(server, 'listening');
+      } catch (error) {
+        if (error.code === 'EADDRINUSE') {
+          throw new Error(`Port ${port} is busy. Stop Companion and close Kit Editor before applying or restoring.`);
+        }
+        throw error;
+      }
+      reserved.push(server);
+    }
+    await action();
+  } finally {
+    await Promise.all(reserved.map(server => new Promise(done => server.close(done))));
   }
 }
 
 async function main() {
   const { values } = parseArgs({
     options: {
-      package: { type: 'string' }, spare: { type: 'string' }, 'create-from': { type: 'string' },
+      package: { type: 'string' }, spare: { type: 'string' }, regular: { type: 'boolean' }, 'create-from': { type: 'string' },
       apply: { type: 'boolean' }, restore: { type: 'boolean' }, help: { type: 'boolean' },
     },
   });
   if (values.help) {
     console.log('Apply-IcePackMigration.mjs --package <staged folder> --spare <spare folder> [--create-from <Kit Editor folder> | [--restore] [--apply]]');
+    console.log('Apply-IcePackMigration.mjs --package <staged folder> --regular [--restore] [--apply]');
     return;
   }
-  if (!values.package || !values.spare) throw new Error('Provide --package and --spare. Run --help for details.');
-  if (values['create-from'] && (values.apply || values.restore)) throw new Error('Create the spare in a separate command.');
+  if (!values.package || Boolean(values.regular) === Boolean(values.spare)) {
+    throw new Error('Provide --package and either --spare or --regular. Run --help for details.');
+  }
+  if (values['create-from'] && (values.regular || values.apply || values.restore)) {
+    throw new Error('Create the spare in a separate command.');
+  }
   const packageRoot = await realpath(values.package);
   const migration = await readMigrationPackage(packageRoot);
   if (values['create-from']) {
     await createSpare(values['create-from'], values.spare, packageRoot, migration);
     return;
   }
+  const engineRoot = dirname(fileURLToPath(import.meta.url));
+  if (values.regular) {
+    const { kit, engine } = await regularPaths();
+    if (isInside(packageRoot, kit) || isInside(kit, packageRoot)) {
+      throw new Error('The staged package must be outside the regular Kit Editor folder.');
+    }
+    console.log(`Target Kit Editor: ${kit}`);
+    console.log(`Control Center engine: ${engine}`);
+    const run = () => changeKit(kit, migration, { ...values, engineRoot, engineDirectory: engine });
+    if (values.apply) await withRegularPortsReserved(run);
+    else await run();
+    return;
+  }
   const spare = await realpath(values.spare);
   if (isInside(packageRoot, spare)) throw new Error('Select a separate spare folder.');
-  const engineRoot = dirname(fileURLToPath(import.meta.url));
-  await changeSpare(spare, migration, values.restore, values.apply, engineRoot);
+  await requireSpare(spare, migration);
+  await changeKit(spare, migration, { ...values, engineRoot, engineDirectory: join(engineRoot, 'engine') });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

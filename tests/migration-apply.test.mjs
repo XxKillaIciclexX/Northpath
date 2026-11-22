@@ -52,3 +52,21 @@ test('apply refuses an unmarked folder without leaving a lock or backup', async 
   });
   assert.deepEqual(await readdir(target), [rulesName]);
 });
+
+test('regular migration refuses a Kit Editor path that differs from the engine path', async t => {
+  const { root, staged } = await fixture(t);
+  const appData = join(root, 'LocalAppData');
+  const settings = join(appData, 'IcePackCompanion');
+  const engine = join(root, 'regular engine');
+  const defaultKit = join(engine, 'icepack-catalog-manager');
+  const otherKit = join(root, 'different Kit Editor');
+  await mkdir(defaultKit, { recursive: true });
+  await mkdir(otherKit);
+  await mkdir(settings, { recursive: true });
+  await writeFile(join(settings, 'settings.json'), JSON.stringify({enginePath:engine,kitDir:otherKit}));
+  const env = { ...process.env, LOCALAPPDATA: appData, ICEPACK_KIT_DIR: defaultKit };
+  await assert.rejects(exec(process.execPath, [script, '--package', staged, '--regular', '--apply'], {env}), {
+    stderr: /point to different Kit Editor folders/,
+  });
+  assert.deepEqual(await readdir(otherKit), []);
+});
