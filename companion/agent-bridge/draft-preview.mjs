@@ -8,7 +8,7 @@ function convertDraft(input, bundledCatalog) {
     throw new Error('Choose a version 2 ARK catalog exported by Kit Editor.');
   }
   const catalog = validateArkCatalog(hasCatalog ? input.catalog : bundledCatalog);
-  const { config, warnings } = convertDashboard(input?.draft, catalog);
+  const { config, warnings } = convertDashboard(input?.draft, catalog, { multipleDinosaurs: true });
   return { config, warnings, catalog, catalogSource: hasCatalog ? 'provided' : 'bundled' };
 }
 

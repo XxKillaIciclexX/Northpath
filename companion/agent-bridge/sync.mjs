@@ -20,7 +20,7 @@ function stableId(id,prefix,index){
   const x=String(id??'');
   return /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,119}$/.test(x)&&!['constructor','prototype','__proto__'].includes(x)?x:`${prefix}-${index}`;
 }
-export function convertDashboard(input, catalog) {
+export function convertDashboard(input, catalog, { multipleDinosaurs = false } = {}) {
   if(!input || typeof input!=='object' || input.version!==1 || !Array.isArray(input.rules)|| !Array.isArray(input.kits)) throw Error('Expected dashboard configuration version 1');
   if(input.rules.length>500||input.kits.length>200)throw Error('Too many rules or kits');
   const dinosaurIds=new Set(catalog.dinosaurs.map(x=>x.id));
@@ -56,9 +56,11 @@ export function convertDashboard(input, catalog) {
   const liveDinos=new Set(['Dodo','Raptor','Rex']);
   for(const rule of cfg.rules.filter(r=>r.enabled)) {
     const actions=rule.reward.type==='kit'?cfg.kits.find(k=>k.id===rule.reward.kitId)?.entries??[]:[rule.reward];
-    if(actions.some(a=>a.type==='dinosaur'&&(!liveDinos.has(a.creatureId)||a.quantity!==1||a.status!=='wild')))
+    if(actions.some(a=>a.type==='dinosaur'&&(!liveDinos.has(a.creatureId)||(!multipleDinosaurs&&a.quantity!==1)||a.status!=='wild')))
       warnings.push(`${rule.giftName??rule.giftId}: creature or spawn options not yet approved for live ARK execution`);
-    if(actions.filter(a=>a.type==='dinosaur').length>1) warnings.push(`${rule.giftName??rule.giftId}: multiple dinosaurs per gift cannot execute live yet`);
+    if(!multipleDinosaurs && actions.filter(a=>a.type==='dinosaur').length>1) warnings.push(`${rule.giftName??rule.giftId}: multiple dinosaurs per gift cannot execute live yet`);
+    if(multipleDinosaurs && actions.reduce((count,a)=>count+(a.type==='dinosaur'?a.quantity:1),0)>8)
+      warnings.push(`${rule.giftName??rule.giftId}: exceeds the engine limit of 8 commands per gift`);
     if(actions.some(a=>a.type==='item'&&a.itemId!=='Stone')) warnings.push(`${rule.giftName??rule.giftId}: only Stone is currently approved for live item delivery`);
     if(actions.some(a=>{const id=a.type==='dinosaur'?a.creatureId:a.type==='item'?a.itemId:null;const entry=id&&(a.type==='dinosaur'?catalog.dinosaurs:catalog.items).find(e=>e.id===id);return entry && (entry.contentPack!=='base-game'||!entry.enabled);}))warnings.push(`${rule.giftName??rule.giftId}: selected content pack/entry is not currently available for live execution`);
   }

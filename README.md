@@ -50,9 +50,9 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v4.0 Alpha — Rehearse an engine draft offline
+## v4.1 Alpha — Multiple dinosaurs per gift
 
-The v3.9 Windows checklist confirmed engine draft review, download, and shutdown.
+The v4.0 Windows rehearsal identified a one-dinosaur limit on Rose. The v4.1 installer stages an updated ARK Engine custom-rules module in the alpha folder, so offline rehearsal accepts higher quantities for supported wild dinosaurs.
 
 Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
@@ -64,14 +64,14 @@ node .\scripts\Install-IcePackAlpha.mjs `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.0` after the build. Use `--install-root` to select another parent directory. An existing v4.0 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.1` after the build. Use `--install-root` to select another parent directory. An existing v4.1 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.0 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.1 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.0\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.1\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
@@ -96,7 +96,7 @@ The download contains only the version 2 rules and Kits. Dashboard exports do no
 The rehearsal can run while your usual Companion is open. There is no need to start the alpha Dashboard. Use the same Kit Editor catalog you selected for the draft review, or omit `--catalog` if the review used the bundled catalog.
 
 ```powershell
-$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.0'
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.1'
 node "$alpha\Test-IcePackEngineDraft.mjs" `
   --draft "$env:USERPROFILE\Downloads\icepack-engine-draft-v2.json" `
   --catalog "C:\path\to\ark-catalog-v2.json"
@@ -105,3 +105,5 @@ node "$alpha\Test-IcePackEngineDraft.mjs" `
 Optionally pass `--content-prefs` with your Kit Editor's `content-prefs.json` to use its enabled content packs. Otherwise the rehearsal uses catalog defaults. The bundled Engine reads isolated copies from a temporary folder and attempts to prepare each enabled rule. The report counts prepared commands, lists the engine's reason for each blocked rule, and skips disabled rules. The report does not print command bodies or verify live delivery. No services start. The temporary folder is removed before the report prints.
 
 Exit codes are `0` when all enabled rules can prepare commands, `2` when one or more are blocked, and `1` when the files cannot be loaded or the rehearsal cannot run.
+
+For a Rose rule that requests two supported wild dinosaurs, rerun the rehearsal on the same version 2 draft. Expect `PREPARED Rose: 2 command(s)`. Each dinosaur consumes one command slot. Each item action consumes one slot regardless of item quantity. The engine accepts up to eight commands per gift, including all Kit entries. The live custom-rules lane waits at least six seconds after each dinosaur RCON send completes before sending the next dinosaur. Stop cancels any remaining spawns waiting in that lane. Use one spawn path at a time when testing with the ASA mod.

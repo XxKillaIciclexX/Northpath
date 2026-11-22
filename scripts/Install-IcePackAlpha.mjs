@@ -10,8 +10,9 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
-const version = 'v4.0';
+const version = 'v4.1';
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
+const bundledEngineRulesHash = 'b26538a9b27513f6b91274a2ec75877605a7f61091d40c408d637061a33fff46';
 
 async function sha256(file) {
   const sha = createHash('sha256');
@@ -35,9 +36,15 @@ async function stageFirstRun(staged, companion, engine) {
   if (await sha256(bridge) !== bundledBridgeHash) {
     throw new Error('The Companion ZIP bridge does not match the supported v3.1 source bundle');
   }
+  const rules = join(engine, 'icepack-custom-rules.mjs');
+  if (await sha256(rules) !== bundledEngineRulesHash) {
+    throw new Error('The ARK Engine ZIP custom rules do not match the supported v3.2 engine source bundle');
+  }
+  await copyFile(join(here, 'engine-overlay', 'icepack-custom-rules.mjs'), rules);
   const source = join(here, '..', 'companion');
-  await copyFile(join(source, 'agent-bridge', 'bridge.mjs'), bridge);
-  await copyFile(join(source, 'agent-bridge', 'draft-preview.mjs'), join(companion, 'agent-bridge', 'draft-preview.mjs'));
+  for (const name of ['bridge.mjs', 'draft-preview.mjs', 'sync.mjs']) {
+    await copyFile(join(source, 'agent-bridge', name), join(companion, 'agent-bridge', name));
+  }
   const publicDir = join(companion, 'public');
   await mkdir(publicDir, { recursive: true });
   for (const name of ['first-run.html', 'first-run.js']) {
@@ -144,7 +151,7 @@ async function install(values) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '4.0-alpha',
+      version: '4.1-alpha',
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');

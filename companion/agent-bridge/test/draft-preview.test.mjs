@@ -96,3 +96,14 @@ test('failed validation cannot produce a downloadable configuration', () => {
   invalid.rules[0].action.kitId = 'missing';
   assert.throws(() => exportDashboardDraft({ draft: invalid }, catalog), /Missing Kit/);
 });
+
+test('engine draft review supports multiple dinosaurs and warns above the command cap', () => {
+  const source = structuredClone(draft);
+  source.kits[0].entries[1].action.quantity = 2;
+  const supported = exportDashboardDraft({ draft: source }, catalog);
+  assert.equal(supported.config.kits[0].entries[1].quantity, 2);
+  assert.deepEqual(supported.warnings, []);
+  source.kits[0].entries[1].action.quantity = 8;
+  const overLimit = exportDashboardDraft({ draft: source }, catalog);
+  assert.match(overLimit.warnings.join(' '), /limit of 8 commands/);
+});
