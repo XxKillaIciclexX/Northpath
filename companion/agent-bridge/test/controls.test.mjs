@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateControl,activityCategory} from '../controls.mjs';
+const state={engineOnline:true,customRulesLoaded:true,customRulesMode:'off',giftRconMode:'off',armState:false,pending:0,customQueued:0,customInflight:false};
+test('preview starts only when engine is safe',()=>assert.equal(validateControl('start-preview',state),'start-preview'));
+test('start preview refuses armed legacy lane',()=>assert.throws(()=>validateControl('start-preview',{...state,armState:true}),/Stop live/));
+test('start preview refuses live custom rules',()=>assert.throws(()=>validateControl('start-preview',{...state,customRulesMode:'live'}),/Stop live/));
+test('start preview refuses queued work',()=>assert.throws(()=>validateControl('start-preview',{...state,customQueued:1}),/pending/));
+test('stop preview rejects live lane',()=>assert.throws(()=>validateControl('stop-preview',{...state,customRulesMode:'live'}),/Emergency/));
+test('bridge can never set live',()=>assert.throws(()=>validateControl('live',state),/Unknown/));
+test('emergency stop remains available while live',()=>assert.equal(validateControl('emergency-stop',{...state,customRulesMode:'live'}),'emergency-stop'));
+test('activity filters categorize important logs',()=>{assert.equal(activityCategory('CUSTOM RULE BLOCKED demo'), 'errors');assert.equal(activityCategory('RCON command sent'), 'rcon');assert.equal(activityCategory('CUSTOM PREVIEW example'), 'previews');assert.equal(activityCategory('Custom gift queued'), 'gifts');});

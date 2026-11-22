@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {convertDashboard,getCatalog,hashConfig,safeToApply,atomicApply} from '../sync.mjs';
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'northpath-sync-'));
+const catalog={schemaVersion:2,packs:[{id:'base-game',name:'Base',premium:false,enabledByDefault:true}],dinosaurs:[{id:'Dodo',name:'Dodo',category:'Herbivores',contentPack:'base-game',tags:[]}],items:[{id:'Stone',name:'Stone',category:'Resources',contentPack:'base-game',tags:[]}]};
+fs.writeFileSync(path.join(dir,'ark-catalog-v2.json'),JSON.stringify(catalog));
+const a=(type,catalogId)=>({type,catalogId,quantity:1,level:25,tamed:false,quality:0,kitId:'',announcement:''});
+const draft={version:1,rules:[{id:'test-1',giftName:'Rose',giftId:'',enabled:true,action:{...a('kit',''),kitId:'my-kit'}}],kits:[{id:'my-kit',name:'Starter',entries:[{id:'1',action:a('item','Stone')},{id:'2',action:a('dinosaur','Dodo')}]}],serverName:'My Server',playerId:'',preferredRegion:'US'};
+test('v1 converter validates v2 mixed Kit against engine catalog',()=>{const {config,warnings}=convertDashboard(draft,getCatalog(dir));assert.equal(config.rules[0].reward.type,'kit');assert.equal(config.kits[0].entries.length,2);assert.ok(/^[a-f0-9]{64}$/.test(hashConfig(config)));assert.equal(warnings.length,0);});
+test('rejects unsupported quality and announcements',()=>{assert.throws(()=>convertDashboard({...draft,kits:[{...draft.kits[0],entries:[{id:'1',action:{...a('item','Stone'),quality:5}}]}]},getCatalog(dir)),/quality/);assert.throws(()=>convertDashboard({...draft,rules:[{...draft.rules[0],action:{...a('item','Stone'),announcement:'test'}}]},getCatalog(dir)),/announcement/);});
+test('refuses live engine',()=>{assert.throws(()=>safeToApply({engineOnline:true,armState:false,giftRconMode:'off',customRulesMode:'live',pending:0}),/Stop all live/);assert.doesNotThrow(()=>safeToApply({engineOnline:true,armState:false,giftRconMode:'off',customRulesMode:'preview',pending:0,customRulesLoaded:true}));});
+test('backup on apply and rollback on failed reload',async()=>{const file=path.join(dir,'streamer-config-v2.json');fs.writeFileSync(file,JSON.stringify({old:true}));const {config}=convertDashboard(draft,getCatalog(dir));const result=await atomicApply(dir,config,async()=>{});assert.ok(fs.existsSync(result.backup));assert.equal(JSON.parse(fs.readFileSync(file)).rules.length,1);await assert.rejects(()=>atomicApply(dir,{schemaVersion:2,rules:[],kits:[]},async()=>{if(JSON.parse(fs.readFileSync(file)).rules?.length===0)throw Error('rejected');}),/restored/);assert.equal(JSON.parse(fs.readFileSync(file)).rules.length,1);});

@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+const root=path.resolve(import.meta.dirname,'..','scripts');
+const builder=fs.readFileSync(path.join(root,'New-IcePackReleaseBundle.ps1'),'utf8');
+const verifier=fs.readFileSync(path.join(root,'Test-IcePackReleaseBundle.ps1'),'utf8');
+test('release is dry-run by default',()=>{assert.match(builder,/\[switch\]\$Build/);assert.match(builder,/if\(-not \$Build\)/);});
+test('bundle source is allowlisted and sensitive folders excluded',()=>{assert.match(builder,/\$directories=@\(/);assert.match(builder,/node_modules\|\\\.git/);assert.match(builder,/\.env/);});
+test('manifest has hashes and does not claim signed release',()=>{assert.match(builder,/Get-FileHash/);assert.match(builder,/releaseVersionVerified=\$false/);});
+test('builder verifies staging copies before zip',()=>{assert.match(builder,/Copy verification failed/);assert.match(builder,/CreateFromDirectory/);});
+test('verifier validates SHA256 and disallows extra entries',()=>{assert.match(verifier,/SHA-256 mismatch/);assert.match(verifier,/Unexpected file in bundle/);});
+test('verifier rejects unsafe and duplicate ZIP entries',()=>{assert.match(verifier,/Unsafe ZIP path/);assert.match(verifier,/Duplicate ZIP entry/);});

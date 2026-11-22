@@ -1,32 +1,51 @@
-# Northpath 2.0 — homepage milestone
+# Ice Pack Companion v3.3 Alpha — Runtime Readiness
 
-This ZIP contains **three complete replacement files**, not a diff:
+This release adds a **read-only Node.js runtime/dependency preflight** to the existing Northpath installation. It does not replace the engine, Control Center, bridge, dashboard, or any configuration files.
 
-- `src/App.tsx`
-- `src/index.css`
-- `index.html`
+## Install
 
-Copy them into the matching locations in your existing Northpath project, on the `development` branch. Do not delete any other files. This replaces the coming-soon gateway with a public landing page and makes no backend or login claims.
+Extract the ZIP into a temporary location, then copy these **new** files into `D:\Github\XxKillaIciclexX\Northpath\`:
 
-```powershell
-git switch development
-npm run typecheck
-npm run lint
-npm run build
-npm audit
-npm run dev
-```
+- `scripts\Check-IcePackRuntime.mjs`
+- `tests\runtime-readiness.test.mjs`
 
-Visit the Vite local address shown by `npm run dev`, normally `http://localhost:5173/`, and test desktop/mobile navigation and email links.
+No existing files are replaced. The original ARK engine stays at `C:\IcePackARK\ice-pack-ark`.
 
-The Ice Pack Companion dashboard shown on the hero is an **illustration using example data**, not connected to a server. No authentication, database, newsletter forms, or server credentials are included.
+## Run
 
-When satisfied:
+From PowerShell:
 
 ```powershell
-git add src/App.tsx src/index.css index.html
-git commit -m "Build Northpath 2.0 landing page and Ice Pack Companion showcase"
-git push origin development
+cd D:\Github\XxKillaIciclexX\Northpath
+node --test .\tests\runtime-readiness.test.mjs
+node .\scripts\Check-IcePackRuntime.mjs
 ```
 
-Keep the `main` branch and Bolt production deployment unchanged until review.
+To inspect another location:
+
+```powershell
+node .\scripts\Check-IcePackRuntime.mjs --repo "D:\Github\XxKillaIciclexX\Northpath" --engine "C:\IcePackARK\ice-pack-ark"
+```
+
+Optional machine-readable output (no configuration contents included):
+
+```powershell
+node .\scripts\Check-IcePackRuntime.mjs --json
+```
+
+## What is checked
+
+- Node.js version 20+ (this is a minimum preliminary requirement, not a complete dependency compatibility guarantee).
+- Presence of the actual dashboard and engine entry/source files.
+- Presence, readability, and root dependency consistency of **both** `package.json` and `package-lock.json`.
+- npm lockfile format (v2 or newer) for both components.
+- Whether `node_modules` is present (not a validation of installed modules).
+- External requirements **not verified**: compatible dedicated ARK server, installed IcePackCompanion ASA mod, Streamer.bot/TikTok integration, RCON authentication and networking.
+
+**No writes** and **no connections**. Does not read `.env`, `rules-v06.json`, Kit data, installed Companion settings, user IDs, pairing tokens, or backups. No installation or RCON actions are performed.
+
+## Important limitations / what's next
+
+A `source-prerequisites-pass` result means **the local source/dependency manifests are consistent**, not that a clean Windows PC can run the product. The standalone installer still needs dependable `npm ci` installation or a bundled runtime, supported Node version constraints for all packages, external ARK server onboarding, actual mod deployment, service installation, and publisher signing. For now, `npm ci` should be tested separately in an isolated copy, *not* by mutating the known-good deployment.
+
+Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.

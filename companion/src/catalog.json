@@ -1,0 +1,1775 @@
+{
+  "schemaVersion": 2,
+  "packs": [
+    {
+      "id": "base-game",
+      "name": "Base Game + Free Expansions",
+      "premium": false,
+      "enabledByDefault": true
+    },
+    {
+      "id": "fantastic-tames",
+      "name": "Fantastic Tames",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "tides-of-fortune",
+      "name": "Tides of Fortune",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "bobs-tall-tales",
+      "name": "Bob's Tall Tales",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "lost-colony",
+      "name": "Lost Colony",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "other-dlc",
+      "name": "Other Paid DLC",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "modded",
+      "name": "Modded Content",
+      "premium": false,
+      "enabledByDefault": false
+    }
+  ],
+  "dinosaurs": [
+    {
+      "id": "Dodo",
+      "name": "Dodo",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dodo/Dodo_Character_BP.Dodo_Character_BP_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Raptor",
+      "name": "Raptor",
+      "blueprint": "/Game/PrimalEarth/Dinos/Raptor/Raptor_Character_BP.Raptor_Character_BP_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Rex",
+      "name": "Rex",
+      "blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Tank",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Carno",
+      "name": "Carnotaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Carno/Carno_Character_BP.Carno_Character_BP_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Dilo",
+      "name": "Dilophosaur",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dilo/Dilo_Character_BP.Dilo_Character_BP_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Argentavis",
+      "name": "Argentavis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Argentavis/Argent_Character_BP.Argent_Character_BP_C",
+      "source": "wiki-reference-unverified-in-ASA-DevKit",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Utility",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Ankylosaurus",
+      "name": "Ankylosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Ankylo/Ankylo_Character_BP.Ankylo_Character_BP_C",
+      "source": "wiki-reference-unverified-in-ASA-DevKit",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Gatherer",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Parasaur",
+      "name": "Parasaur",
+      "blueprint": "/Game/PrimalEarth/Dinos/Para/Para_Character_BP.Para_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Triceratops",
+      "name": "Triceratops",
+      "blueprint": "/Game/PrimalEarth/Dinos/Trike/Trike_Character_BP.Trike_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Stegosaurus",
+      "name": "Stegosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Stego/Stego_Character_BP.Stego_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Doedicurus",
+      "name": "Doedicurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Doedicurus/Doed_Character_BP.Doed_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Gatherer",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Pteranodon",
+      "name": "Pteranodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Ptero/Ptero_Character_BP.Ptero_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Allosaurus",
+      "name": "Allosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Allosaurus/Allo_Character_BP.Allo_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Sabertooth",
+      "name": "Sabertooth",
+      "blueprint": "/Game/PrimalEarth/Dinos/Saber/Saber_Character_BP.Saber_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Mammoth",
+      "name": "Mammoth",
+      "blueprint": "/Game/PrimalEarth/Dinos/Mammoth/Mammoth_Character_BP.Mammoth_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Gatherer",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Spinosaurus",
+      "name": "Spinosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Spino/Spino_Character_BP.Spino_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS",
+        "Aquatic"
+      ]
+    },
+    {
+      "id": "Castoroides",
+      "name": "Castoroides",
+      "blueprint": "/Game/PrimalEarth/Dinos/Beaver/Beaver_Character_BP.Beaver_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Gatherer",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Achatina",
+      "name": "Achatina",
+      "blueprint": "/Game/PrimalEarth/Dinos/Achatina/Achatina_Character_BP.Achatina_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Baryonyx",
+      "name": "Baryonyx",
+      "blueprint": "/Game/PrimalEarth/Dinos/Baryonyx/Baryonyx_Character_BP.Baryonyx_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Iguanodon",
+      "name": "Iguanodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Iguanodon/Iguanodon_Character_BP.Iguanodon_Character_BP_C",
+      "source": "ark-wiki.gg-reference-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport"
+      ]
+    },
+    {
+      "id": "Araneo",
+      "name": "Araneo",
+      "blueprint": "/Game/PrimalEarth/Dinos/Spider/SpiderS_Character_BP.SpiderS_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Archaeopteryx",
+      "name": "Archaeopteryx",
+      "blueprint": "/Game/PrimalEarth/Dinos/Archa/Archa_Character_BP.Archa_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Flier",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Arthropluera",
+      "name": "Arthropluera",
+      "blueprint": "/Game/PrimalEarth/Dinos/Arthro/Arthro_Character_BP.Arthro_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Beelzebufo",
+      "name": "Beelzebufo",
+      "blueprint": "/Game/PrimalEarth/Dinos/Toad/Toad_Character_BP.Toad_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Utility",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Brontosaurus",
+      "name": "Brontosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Sauropod/Sauropod_Character_BP.Sauropod_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Carbonemys",
+      "name": "Carbonemys",
+      "blueprint": "/Game/PrimalEarth/Dinos/Turtle/Turtle_Character_BP.Turtle_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank"
+      ]
+    },
+    {
+      "id": "Chalicotherium",
+      "name": "Chalicotherium",
+      "blueprint": "/Game/PrimalEarth/Dinos/Chalico/Chalico_Character_BP.Chalico_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Compy",
+      "name": "Compy",
+      "blueprint": "/Game/PrimalEarth/Dinos/Compy/Compy_Character_BP.Compy_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Daeodon",
+      "name": "Daeodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Daeodon/Daeodon_Character_BP.Daeodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Dimetrodon",
+      "name": "Dimetrodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dimetrodon/Dimetrodon_Character_BP.Dimetrodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Dimorphodon",
+      "name": "Dimorphodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dimorphodon/Dimorph_Character_BP.Dimorph_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Diplocaulus",
+      "name": "Diplocaulus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Diplocaulus/Diplocaulus_Character_BP.Diplocaulus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Diplodocus",
+      "name": "Diplodocus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Diplodocus/Diplodocus_Character_BP.Diplodocus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport"
+      ]
+    },
+    {
+      "id": "Direbear",
+      "name": "Dire Bear",
+      "blueprint": "/Game/PrimalEarth/Dinos/Direbear/Direbear_Character_BP.Direbear_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility",
+        "Gatherer",
+        "Tank"
+      ]
+    },
+    {
+      "id": "Direwolf",
+      "name": "Direwolf",
+      "blueprint": "/Game/PrimalEarth/Dinos/Direwolf/Direwolf_Character_BP.Direwolf_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "DungBeetle",
+      "name": "Dung Beetle",
+      "blueprint": "/Game/PrimalEarth/Dinos/DungBeetle/DungBeetle_Character_BP.DungBeetle_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Equus",
+      "name": "Equus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Equus/Equus_Character_BP.Equus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Gallimimus",
+      "name": "Gallimimus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Galli/Galli_Character_BP.Galli_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport"
+      ]
+    },
+    {
+      "id": "Giganotosaurus",
+      "name": "Giganotosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Gigant/Gigant_Character_BP.Gigant_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Tank",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Gigantopithecus",
+      "name": "Gigantopithecus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Bigfoot/Bigfoot_Character_BP.Bigfoot_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Hesperornis",
+      "name": "Hesperornis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Hesperornis/Hesperornis_Character_BP.Hesperornis_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Hyaenodon",
+      "name": "Hyaenodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Hyaenodon/Hyaenodon_Character_BP.Hyaenodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Ichthyornis",
+      "name": "Ichthyornis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Ichthyornis/Ichthyornis_Character_BP.Ichthyornis_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Jerboa",
+      "name": "Jerboa",
+      "blueprint": "/Game/PrimalEarth/Dinos/Jerboa/Jerboa_Character_BP.Jerboa_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Kairuku",
+      "name": "Kairuku",
+      "blueprint": "/Game/PrimalEarth/Dinos/Kairuku/Kairuku_Character_BP.Kairuku_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Kaprosuchus",
+      "name": "Kaprosuchus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Kaprosuchus/Kaprosuchus_Character_BP.Kaprosuchus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Kentrosaurus",
+      "name": "Kentrosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Kentro/Kentro_Character_BP.Kentro_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank"
+      ]
+    },
+    {
+      "id": "Lystrosaurus",
+      "name": "Lystrosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Lystro/Lystro_Character_BP.Lystro_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Megalania",
+      "name": "Megalania",
+      "blueprint": "/Game/PrimalEarth/Dinos/Megalania/Megalania_Character_BP.Megalania_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Megaloceros",
+      "name": "Megaloceros",
+      "blueprint": "/Game/PrimalEarth/Dinos/Stag/Stag_Character_BP.Stag_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport"
+      ]
+    },
+    {
+      "id": "Megalosaurus",
+      "name": "Megalosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP.Megalosaurus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Megatherium",
+      "name": "Megatherium",
+      "blueprint": "/Game/PrimalEarth/Dinos/Megatherium/Megatherium_Character_BP.Megatherium_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Tank",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Mesopithecus",
+      "name": "Mesopithecus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Monkey/Monkey_Character_BP.Monkey_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Microraptor",
+      "name": "Microraptor",
+      "blueprint": "/Game/PrimalEarth/Dinos/Microraptor/Microraptor_Character_BP.Microraptor_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Support"
+      ]
+    },
+    {
+      "id": "Moschops",
+      "name": "Moschops",
+      "blueprint": "/Game/PrimalEarth/Dinos/Moschops/Moschops_Character_BP.Moschops_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Gatherer",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Onyc",
+      "name": "Onyc",
+      "blueprint": "/Game/PrimalEarth/Dinos/Bat/Bat_Character_BP.Bat_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Otter",
+      "name": "Otter",
+      "blueprint": "/Game/PrimalEarth/Dinos/Otter/Otter_Character_BP.Otter_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Support",
+        "Aquatic"
+      ]
+    },
+    {
+      "id": "Oviraptor",
+      "name": "Oviraptor",
+      "blueprint": "/Game/PrimalEarth/Dinos/Oviraptor/Oviraptor_Character_BP.Oviraptor_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Ovis",
+      "name": "Ovis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Sheep/Sheep_Character_BP.Sheep_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Pachy",
+      "name": "Pachy",
+      "blueprint": "/Game/PrimalEarth/Dinos/Pachy/Pachy_Character_BP.Pachy_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank"
+      ]
+    },
+    {
+      "id": "Pachyrhinosaurus",
+      "name": "Pachyrhinosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Pachyrhino/Pachyrhino_Character_BP.Pachyrhino_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Paraceratherium",
+      "name": "Paraceratherium",
+      "blueprint": "/Game/PrimalEarth/Dinos/Paracer/Paracer_Character_BP.Paracer_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Pegomastax",
+      "name": "Pegomastax",
+      "blueprint": "/Game/PrimalEarth/Dinos/Pegomastax/Pegomastax_Character_BP.Pegomastax_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Pelagornis",
+      "name": "Pelagornis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Pela/Pela_Character_BP.Pela_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Aquatic"
+      ]
+    },
+    {
+      "id": "Phiomia",
+      "name": "Phiomia",
+      "blueprint": "/Game/PrimalEarth/Dinos/Phiomia/Phiomia_Character_BP.Phiomia_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Procoptodon",
+      "name": "Procoptodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Procoptodon/Procoptodon_Character_BP.Procoptodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport"
+      ]
+    },
+    {
+      "id": "Pulmonoscorpius",
+      "name": "Pulmonoscorpius",
+      "blueprint": "/Game/PrimalEarth/Dinos/Scorpion/Scorpion_Character_BP.Scorpion_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Purlovia",
+      "name": "Purlovia",
+      "blueprint": "/Game/PrimalEarth/Dinos/Purlovia/Purlovia_Character_BP.Purlovia_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Quetzal",
+      "name": "Quetzal",
+      "blueprint": "/Game/PrimalEarth/Dinos/Quetz/Quetz_Character_BP.Quetz_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Sarco",
+      "name": "Sarcosuchus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Sarco/Sarco_Character_BP.Sarco_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Tank"
+      ]
+    },
+    {
+      "id": "Tapejara",
+      "name": "Tapejara",
+      "blueprint": "/Game/PrimalEarth/Dinos/Tapejara/Tapejara_Character_BP.Tapejara_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Transport"
+      ]
+    },
+    {
+      "id": "TerrorBird",
+      "name": "Terror Bird",
+      "blueprint": "/Game/PrimalEarth/Dinos/TerrorBird/TerrorBird_Character_BP.TerrorBird_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Therizinosaurus",
+      "name": "Therizinosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Therizino/Therizino_Character_BP.Therizino_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "DPS",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Thylacoleo",
+      "name": "Thylacoleo",
+      "blueprint": "/Game/PrimalEarth/Dinos/Thylacoleo/Thylacoleo_Character_BP.Thylacoleo_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Titanoboa",
+      "name": "Titanoboa",
+      "blueprint": "/Game/PrimalEarth/Dinos/BoaFrill/BoaFrill_Character_BP.BoaFrill_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Titanomyrma",
+      "name": "Titanomyrma",
+      "blueprint": "/Game/PrimalEarth/Dinos/Ant/Ant_Character_BP.Ant_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Trilobite",
+      "name": "Trilobite",
+      "blueprint": "/Game/PrimalEarth/Dinos/Trilobite/Trilobite_Character_BP.Trilobite_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Aquatic",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Troodon",
+      "name": "Troodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Troodon/Troodon_Character_BP.Troodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Tusoteuthis",
+      "name": "Tusoteuthis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Tusoteuthis/Tusoteuthis_Character_BP.Tusoteuthis_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Tank"
+      ]
+    },
+    {
+      "id": "WoollyRhino",
+      "name": "Woolly Rhinoceros",
+      "blueprint": "/Game/PrimalEarth/Dinos/Rhino/Rhino_Character_BP.Rhino_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Tank",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Anglerfish",
+      "name": "Anglerfish",
+      "blueprint": "/Game/PrimalEarth/Dinos/Angler/Angler_Character_BP.Angler_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Basilosaurus",
+      "name": "Basilosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Basilosaurus/Basilosaurus_Character_BP.Basilosaurus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Tank"
+      ]
+    },
+    {
+      "id": "Cnidaria",
+      "name": "Cnidaria",
+      "blueprint": "/Game/PrimalEarth/Dinos/Cnidaria/Cnidaria_Character_BP.Cnidaria_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Support"
+      ]
+    },
+    {
+      "id": "Coelacanth",
+      "name": "Coelacanth",
+      "blueprint": "/Game/PrimalEarth/Dinos/Coel/Coel_Character_BP.Coel_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic"
+      ]
+    },
+    {
+      "id": "Dunkleosteus",
+      "name": "Dunkleosteus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dunkle/Dunkle_Character_BP.Dunkle_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Electrophorus",
+      "name": "Electrophorus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Eel/Eel_Character_BP.Eel_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Support"
+      ]
+    },
+    {
+      "id": "Ichthyosaurus",
+      "name": "Ichthyosaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dolphin/Dolphin_Character_BP.Dolphin_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Leedsichthys",
+      "name": "Leedsichthys",
+      "blueprint": "/Game/PrimalEarth/Dinos/Leedsichthys/Leedsichthys_Character_BP.Leedsichthys_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Tank"
+      ]
+    },
+    {
+      "id": "Liopleurodon",
+      "name": "Liopleurodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Liopleurodon/Liopleurodon_Character_BP.Liopleurodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Manta",
+      "name": "Manta",
+      "blueprint": "/Game/PrimalEarth/Dinos/Manta/Manta_Character_BP.Manta_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Megalodon",
+      "name": "Megalodon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Megalodon/Megalodon_Character_BP.Megalodon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Mosasaurus",
+      "name": "Mosasaurus",
+      "blueprint": "/Game/PrimalEarth/Dinos/Mosa/Mosa_Character_BP.Mosa_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Tank"
+      ]
+    },
+    {
+      "id": "Piranha",
+      "name": "Piranha",
+      "blueprint": "/Game/PrimalEarth/Dinos/Piranha/Piranha_Character_BP.Piranha_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Plesiosaur",
+      "name": "Plesiosaur",
+      "blueprint": "/Game/PrimalEarth/Dinos/Plesiosaur/Plesiosaur_Character_BP.Plesiosaur_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic",
+        "Transport"
+      ]
+    },
+    {
+      "id": "SabertoothSalmon",
+      "name": "Sabertooth Salmon",
+      "blueprint": "/Game/PrimalEarth/Dinos/Salmon/Salmon_Character_BP.Salmon_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Aquatic"
+      ]
+    },
+    {
+      "id": "Ammonite",
+      "name": "Ammonite",
+      "blueprint": "/Game/PrimalEarth/Dinos/Ammonite/Ammonite_Character_BP.Ammonite_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Aquatic"
+      ]
+    },
+    {
+      "id": "Deathworm",
+      "name": "Deathworm",
+      "blueprint": "/Game/PrimalEarth/Dinos/Deathworm/Deathworm_Character_BP.Deathworm_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    },
+    {
+      "id": "Lymantria",
+      "name": "Lymantria",
+      "blueprint": "/Game/PrimalEarth/Dinos/Moth/Moth_Character_BP.Moth_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Flier",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Mantis",
+      "name": "Mantis",
+      "blueprint": "/Game/PrimalEarth/Dinos/Mantis/Mantis_Character_BP.Mantis_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Morellatops",
+      "name": "Morellatops",
+      "blueprint": "/Game/PrimalEarth/Dinos/Camelsaurus/Camelsaurus_Character_BP.Camelsaurus_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport",
+        "Utility"
+      ]
+    },
+    {
+      "id": "Phoenix",
+      "name": "Phoenix",
+      "blueprint": "/Game/PrimalEarth/Dinos/Phoenix/Phoenix_Character_BP.Phoenix_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Flier",
+        "Utility"
+      ]
+    },
+    {
+      "id": "RockGolem",
+      "name": "Rock Golem",
+      "blueprint": "/Game/PrimalEarth/Dinos/RockGolem/RockGolem_Character_BP.RockGolem_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Tank",
+        "DPS"
+      ]
+    },
+    {
+      "id": "ThornyDragon",
+      "name": "Thorny Dragon",
+      "blueprint": "/Game/PrimalEarth/Dinos/SpineyLizard/SpineyLizard_Character_BP.SpineyLizard_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility",
+        "Gatherer"
+      ]
+    },
+    {
+      "id": "Vulture",
+      "name": "Vulture",
+      "blueprint": "/Game/PrimalEarth/Dinos/Vulture/Vulture_Character_BP.Vulture_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Utility"
+      ]
+    },
+    {
+      "id": "WyvernFire",
+      "name": "Fire Wyvern",
+      "blueprint": "/Game/PrimalEarth/Dinos/Wyvern/Wyvern_Character_BP_Fire.Wyvern_Character_BP_Fire_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "DPS"
+      ]
+    },
+    {
+      "id": "WyvernLightning",
+      "name": "Lightning Wyvern",
+      "blueprint": "/Game/PrimalEarth/Dinos/Wyvern/Wyvern_Character_BP_Lightning.Wyvern_Character_BP_Lightning_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "DPS"
+      ]
+    },
+    {
+      "id": "WyvernPoison",
+      "name": "Poison Wyvern",
+      "blueprint": "/Game/PrimalEarth/Dinos/Wyvern/Wyvern_Character_BP_Poison.Wyvern_Character_BP_Poison_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Basilisk",
+      "name": "Basilisk",
+      "blueprint": "/Game/PrimalEarth/Dinos/Basilisk/Basilisk_Character_BP.Basilisk_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Tank",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Bulbdog",
+      "name": "Bulbdog",
+      "blueprint": "/Game/PrimalEarth/Dinos/LanternPug/LanternPug_Character_BP.LanternPug_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Featherlight",
+      "name": "Featherlight",
+      "blueprint": "/Game/PrimalEarth/Dinos/LanternBird/LanternBird_Character_BP.LanternBird_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Flier",
+        "Support"
+      ]
+    },
+    {
+      "id": "Glowtail",
+      "name": "Glowtail",
+      "blueprint": "/Game/PrimalEarth/Dinos/LanternLizard/LanternLizard_Character_BP.LanternLizard_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Karkinos",
+      "name": "Karkinos",
+      "blueprint": "/Game/PrimalEarth/Dinos/MegaCrab/MegaCrab_Character_BP.MegaCrab_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Aquatic",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Ravager",
+      "name": "Ravager",
+      "blueprint": "/Game/PrimalEarth/Dinos/CaveWolf/CaveWolf_Character_BP.CaveWolf_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Transport",
+        "DPS"
+      ]
+    },
+    {
+      "id": "RockDrake",
+      "name": "Rock Drake",
+      "blueprint": "/Game/PrimalEarth/Dinos/RockDrake/RockDrake_Character_BP.RockDrake_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS",
+        "Transport"
+      ]
+    },
+    {
+      "id": "RollRat",
+      "name": "Roll Rat",
+      "blueprint": "/Game/PrimalEarth/Dinos/MoleRat/MoleRat_Character_BP.MoleRat_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Utility",
+        "Transport"
+      ]
+    },
+    {
+      "id": "Shinehorn",
+      "name": "Shinehorn",
+      "blueprint": "/Game/PrimalEarth/Dinos/LanternGoat/LanternGoat_Character_BP.LanternGoat_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Support"
+      ]
+    },
+    {
+      "id": "Reaper",
+      "name": "Reaper King",
+      "blueprint": "/Game/PrimalEarth/Dinos/Xenomorph/Xenomorph_Character_BP_Male.Xenomorph_Character_BP_Male_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Tank",
+        "DPS"
+      ]
+    },
+    {
+      "id": "Enforcer",
+      "name": "Enforcer",
+      "blueprint": "/Game/PrimalEarth/Dinos/Enforcer/Enforcer_Character_BP.Enforcer_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Gacha",
+      "name": "Gacha",
+      "blueprint": "/Game/PrimalEarth/Dinos/Gacha/Gacha_Character_BP.Gacha_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "id": "Gasbags",
+      "name": "Gasbags",
+      "blueprint": "/Game/PrimalEarth/Dinos/GasBags/GasBags_Character_BP.GasBags_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Herbivores",
+      "tags": [
+        "Transport"
+      ]
+    },
+    {
+      "id": "Managarmr",
+      "name": "Managarmr",
+      "blueprint": "/Game/PrimalEarth/Dinos/IceJumper/IceJumper_Character_BP.IceJumper_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS",
+        "Transport"
+      ]
+    },
+    {
+      "id": "SnowOwl",
+      "name": "Snow Owl",
+      "blueprint": "/Game/PrimalEarth/Dinos/Owl/Owl_Character_BP.Owl_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "Flier",
+        "Support"
+      ]
+    },
+    {
+      "id": "Velonasaur",
+      "name": "Velonasaur",
+      "blueprint": "/Game/PrimalEarth/Dinos/Spindles/Spindles_Character_BP.Spindles_Character_BP_C",
+      "source": "candidate-path-inferred-not-DevKit-verified",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Carnivores",
+      "tags": [
+        "DPS"
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "Stone",
+      "name": "Stone",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Resources",
+      "tags": [
+        "Raw Materials"
+      ]
+    },
+    {
+      "id": "Wood",
+      "name": "Wood",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Resources",
+      "tags": [
+        "Raw Materials"
+      ]
+    },
+    {
+      "id": "Thatch",
+      "name": "Thatch",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Thatch.PrimalItemResource_Thatch_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Resources",
+      "tags": [
+        "Raw Materials"
+      ]
+    },
+    {
+      "id": "Fiber",
+      "name": "Fiber",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Fiber.PrimalItemResource_Fiber_C",
+      "source": "legacy-inferred",
+      "contentPack": "base-game",
+      "verified": false,
+      "enabled": true,
+      "category": "Resources",
+      "tags": [
+        "Raw Materials"
+      ]
+    }
+  ]
+}

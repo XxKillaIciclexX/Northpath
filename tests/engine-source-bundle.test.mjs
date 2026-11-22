@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const b=readFileSync(new URL('../scripts/New-IcePackEngineSourceBundle.ps1',import.meta.url),'utf8');
+const v=readFileSync(new URL('../scripts/Test-IcePackEngineSourceBundle.ps1',import.meta.url),'utf8');
+test('dry run is default; creation is explicit',()=>{assert.match(b,/\[switch\]\$Build/);assert.match(b,/if\(-not \$Build\)/);});
+test('requires known engine entrypoints',()=>{for(const file of ['server.mjs','engine.mjs','icepack-custom-rules.mjs','icepack-gift-rcon.mjs','icepack-spawn-rcon.mjs'])assert.ok(b.includes(file));});
+test('does not collect runtime JSON or credentials',()=>{assert.match(b,/rules-v06\.json/);assert.match(b,/catalog\.json/);assert.match(b,/\.env/);assert.match(b,/node_modules/);assert.match(b,/\$file\.Extension -ceq '\.mjs'/);});
+test('build requires npm lock and validates copied hashes',()=>{assert.match(b,/if\(-not \$lockExists\)/);assert.match(b,/Source changed during snapshot/);assert.match(b,/Copy hash mismatch/);});
+test('manifest identifies source snapshot, not signed release',()=>{assert.match(b,/engine-source-snapshot/);assert.match(b,/releaseVersionVerified=\$false/);});
+test('verifier canonicalizes ZIP names and rejects duplicates',()=>{assert.match(v,/FullName\.Replace/);assert.match(v,/Duplicate ZIP entry/);assert.match(v,/Unsafe ZIP entry/);});
+test('verifier checks hashes, lengths and rejects extras',()=>{assert.match(v,/SHA-256 mismatch/);assert.match(v,/File length mismatch/);assert.match(v,/Unexpected ZIP entry/);});
