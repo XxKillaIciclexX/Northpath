@@ -50,28 +50,28 @@ A `source-prerequisites-pass` result means **the local source/dependency manifes
 
 Test results in the packaging environment: 8 tests passed, 0 failed. Runtime check on Windows must be verified by the user.
 
-## v3.9 Alpha — Review and download an engine draft
+## v4.0 Alpha — Rehearse an engine draft offline
 
-The v3.8 Windows check confirmed preview with the selected Kit Editor catalog.
+The v3.9 Windows checklist confirmed engine draft review, download, and shutdown.
 
 Use Node.js 22.12 or newer and the same verified v3.1 Companion and v3.2 ARK Engine source ZIPs from the v3.4 and v3.5 tests. From the Northpath checkout in PowerShell:
 
 ```powershell
-node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs
+node --test .\tests\alpha-installer.test.mjs .\tests\runtime-readiness.test.mjs .\tests\engine-draft-rehearsal.test.mjs .\companion\agent-bridge\test\preview-safety.test.mjs .\companion\agent-bridge\test\draft-preview.test.mjs
 
 node .\scripts\Install-IcePackAlpha.mjs `
   --companion "C:\path\to\companion-source.zip" --companion-sha256 "<trusted companion ZIP SHA-256>" `
   --engine "C:\path\to\engine-source.zip" --engine-sha256 "<trusted engine ZIP SHA-256>"
 ```
 
-The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v3.9` after the build. Use `--install-root` to select another parent directory. An existing v3.9 installation is preserved.
+The installer checks both ZIPs before extraction, stages the updated Bridge and pairing page, installs dependencies from both lockfiles, and builds the Dashboard. It publishes to `%LOCALAPPDATA%\IcePackCompanion\alpha-installs\v4.0` after the build. Use `--install-root` to select another parent directory. An existing v4.0 installation is preserved.
 
-1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v3.9 Alpha`.
+1. Wait for both ZIP hash checks and `PASS installed Ice Pack Companion v4.0 Alpha`.
 2. Stop your usual Companion through the Control Center so ports 3210 and 3212 are free. Leave port 5174 free for the new Dashboard.
 3. Start the installed launcher.
 
    ```powershell
-   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v3.9\Install-IcePackAlpha.mjs" --start
+   node "$env:LOCALAPPDATA\IcePackCompanion\alpha-installs\v4.0\Install-IcePackAlpha.mjs" --start
    ```
 
 4. Open `http://127.0.0.1:5174/first-run.html`. Paste the token from this launcher window into **Pairing token**, then click **Pair Dashboard**. The page should say **Dashboard paired for this session**.
@@ -90,3 +90,18 @@ The sample setup uses its own rule, catalog and placeholder target. It starts in
 The draft preview defaults to the bundled catalog. A selected Kit Editor catalog replaces it for that preview, and **Use bundled catalog** resets the selection. The combined request has a 400 KB limit. It returns a plan and leaves the engine's loaded rules, files, and modes alone. If validation rejects a missing catalog entry or an unsupported action setting, the page displays the reason without applying the draft.
 
 The download contains only the version 2 rules and Kits. Dashboard exports do not provide engine cooldowns, so the conversion uses 0 seconds. Warnings describe current engine compatibility limits. The export workflow does not apply the file or reload the engine.
+
+### Run a rehearsal on a downloaded draft
+
+The rehearsal can run while your usual Companion is open. There is no need to start the alpha Dashboard. Use the same Kit Editor catalog you selected for the draft review, or omit `--catalog` if the review used the bundled catalog.
+
+```powershell
+$alpha = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\alpha-installs\v4.0'
+node "$alpha\Test-IcePackEngineDraft.mjs" `
+  --draft "$env:USERPROFILE\Downloads\icepack-engine-draft-v2.json" `
+  --catalog "C:\path\to\ark-catalog-v2.json"
+```
+
+Optionally pass `--content-prefs` with your Kit Editor's `content-prefs.json` to use its enabled content packs. Otherwise the rehearsal uses catalog defaults. The bundled Engine reads isolated copies from a temporary folder and attempts to prepare each enabled rule. The report counts prepared commands, lists the engine's reason for each blocked rule, and skips disabled rules. The report does not print command bodies or verify live delivery. No services start. The temporary folder is removed before the report prints.
+
+Exit codes are `0` when all enabled rules can prepare commands, `2` when one or more are blocked, and `1` when the files cannot be loaded or the rehearsal cannot run.

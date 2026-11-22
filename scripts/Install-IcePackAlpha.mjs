@@ -10,7 +10,7 @@ import { handleInterruption, installPackages, launchInstalled } from './Test-Ice
 const here = dirname(fileURLToPath(import.meta.url));
 const windows = process.platform === 'win32';
 const signal = handleInterruption();
-const version = 'v3.9';
+const version = 'v4.0';
 const bundledBridgeHash = 'd5e01c01ae423f58541024114a30ffb6c1c104c216e1965c6db62df13bb4720e';
 
 async function sha256(file) {
@@ -140,11 +140,11 @@ async function install(values) {
       if (!(await lstat(file)).isFile()) throw new Error(`Expected installation file: ${file}`);
     }
 
-    for (const name of ['Install-IcePackAlpha.mjs', 'Test-IcePackCleanInstall.mjs']) {
+    for (const name of ['Install-IcePackAlpha.mjs', 'Test-IcePackCleanInstall.mjs', 'Test-IcePackEngineDraft.mjs']) {
       await copyFile(join(here, name), join(staged, name));
     }
     await writeFile(join(staged, 'alpha-install.json'), JSON.stringify({
-      version: '3.9-alpha',
+      version: '4.0-alpha',
       companionSha256: companionHash,
       engineSha256: engineHash,
     }, null, 2) + '\n');
