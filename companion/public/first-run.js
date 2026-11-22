@@ -87,6 +87,11 @@ const rehearseExport = byId('rehearse-export');
 const rehearsalStatus = byId('rehearsal-status');
 const rehearsalRules = byId('rehearsal-rules');
 const rehearsalError = byId('rehearsal-error');
+const currentConfig = byId('current-config');
+const compareExport = byId('compare-export');
+const comparisonStatus = byId('comparison-status');
+const comparisonChanges = byId('comparison-changes');
+const comparisonError = byId('comparison-error');
 const exportStatus = byId('export-status');
 const exportNotes = byId('export-notes');
 const exportError = byId('export-error');
@@ -106,6 +111,8 @@ function clearExport() {
   downloadExport.disabled = true;
   rehearseExport.disabled = true;
   clearRehearsal();
+  compareExport.disabled = true;
+  clearComparison();
   exportStatus.textContent = '';
   exportNotes.replaceChildren();
   exportNotes.hidden = true;
@@ -117,6 +124,13 @@ function clearRehearsal() {
   rehearsalError.textContent = '';
   rehearsalRules.replaceChildren();
   rehearsalRules.hidden = true;
+}
+
+function clearComparison() {
+  comparisonStatus.textContent = '';
+  comparisonError.textContent = '';
+  comparisonChanges.replaceChildren();
+  comparisonChanges.hidden = true;
 }
 
 function clearDraftResult() {
@@ -270,6 +284,7 @@ reviewExport.addEventListener('click', async () => {
     reviewedConfig = config;
     downloadExport.disabled = false;
     rehearseExport.disabled = false;
+    compareExport.disabled = currentConfig.files.length === 0;
   } catch (error) {
     exportError.textContent = error.message;
   } finally {
@@ -301,6 +316,49 @@ rehearseExport.addEventListener('click', async () => {
     rehearsalRules.hidden = report.results.length === 0;
   } catch (error) {
     rehearsalError.textContent = error.message;
+  } finally {
+    draftControls.disabled = !pairedToken;
+    pair.disabled = false;
+    preview.disabled = !pairedToken;
+  }
+});
+
+currentConfig.addEventListener('change', () => {
+  clearComparison();
+  compareExport.disabled = !reviewedConfig || currentConfig.files.length === 0;
+});
+
+compareExport.addEventListener('click', async () => {
+  clearComparison();
+  draftControls.disabled = true;
+  pair.disabled = true;
+  preview.disabled = true;
+  try {
+    const file = currentConfig.files[0];
+    if (file.size > maxDraftBytes) throw new Error('Choose a current configuration under 400 KB.');
+    const current = JSON.parse(await file.text());
+    const {comparison}=await post('draft/compare',pairedToken,{
+      current: { schemaVersion: current?.schemaVersion, rules: current?.rules, kits: current?.kits },
+      config: reviewedConfig, catalog,
+    });
+    const groups = [['Rule', comparison.rules], ['Kit', comparison.kits]];
+    const changes = groups.flatMap(([kind, group]) => group.changes.map(change => ({ kind, ...change })));
+    const totals = ['added', 'changed', 'removed']
+      .map(status => `${changes.filter(change => change.status === status).length} ${status}`)
+      .join(', ');
+    const source = comparison.catalogSource === 'provided' ? 'selected catalog' : 'bundled catalog';
+    comparisonStatus.textContent =
+      `Compared using the ${source}: ${totals}, ${comparison.rules.unchanged + comparison.kits.unchanged} unchanged. No files changed.`;
+    for (const change of changes) {
+      const item = document.createElement('li');
+      const fields = change.fields ? ` (${change.fields.join(', ')})` : '';
+      item.textContent = `${change.kind} ${change.label} [${change.id}]: ${change.status}${fields}`;
+      comparisonChanges.append(item);
+    }
+    comparisonChanges.hidden = changes.length === 0;
+  } catch (error) {
+    comparisonError.textContent = error instanceof SyntaxError
+      ? 'The current Kit Editor file is not valid JSON.' : error.message;
   } finally {
     draftControls.disabled = !pairedToken;
     pair.disabled = false;

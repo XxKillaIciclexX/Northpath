@@ -14,7 +14,7 @@ import {appendAudit,readAudit,newOperationId} from './audit.mjs';
 import {assessDrift} from './drift.mjs';
 import {validateTargetId,getEngineTarget,assertTargetSaveSafe} from './target.mjs';
 import net from 'node:net';
-import { exportDashboardDraft, previewDashboardDraft } from './draft-preview.mjs';
+import { compareEngineDraft, exportDashboardDraft, previewDashboardDraft } from './draft-preview.mjs';
 const HOST='127.0.0.1',PORT=3212, ENGINE_URL='http://127.0.0.1:3210';
 const KIT_DIR=process.env.ICEPACK_KIT_DIR ? path.resolve(process.env.ICEPACK_KIT_DIR) : null;
 // Managed Windows startup supplies a fresh random token through the process environment.
@@ -77,7 +77,7 @@ const server=http.createServer(async(req,res)=>{
   if(origin&&!permittedOrigins.has(origin))return json(403,{error:'Allowed only from local dashboard'});
   if(req.method==='GET'&&req.url==='/status'){try{return json(200,await engineState());}catch(e){return json(503,{online:true,engineOnline:false,engineStatus:'Local engine unavailable',error:String(e.message).slice(0,120)});}}
   const endpoints=standalonePreview
-    ? ['/pairing/check','/simulate/preview','/draft/preview','/draft/export','/draft/rehearse']
+    ? ['/pairing/check','/simulate/preview','/draft/preview','/draft/export','/draft/rehearse','/draft/compare']
     : ['/sync/preview','/sync/apply','/sync/compare','/sync/drift','/simulate/preview','/control','/recovery/list','/recovery/compare','/recovery/preview','/recovery/restore','/recovery/audit','/target/read','/target/save'];
   if(!endpoints.includes(req.url)||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
   // No cross-origin browser access: requests through Vite's same-origin proxy include Origin on POST.
@@ -102,6 +102,10 @@ const server=http.createServer(async(req,res)=>{
       catalogSource:catalog===undefined?'bundled':'selected',
     });
     return json(200,{ok:true,report});
+  }
+  if(req.url==='/draft/compare'){
+    const comparison=compareEngineDraft(await readJsonBody(req),draftCatalog);
+    return json(200,{ok:true,comparison});
   }
   if(req.url==='/target/read') {
     const r=await fetch(`${ENGINE_URL}/state`,{signal:AbortSignal.timeout(2500)});

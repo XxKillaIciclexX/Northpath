@@ -69,6 +69,11 @@
           <button id="review-export" type="button" disabled>Review engine draft</button>
           <button id="rehearse-export" type="button" disabled>Rehearse engine draft</button>
           <button id="download-export" type="button" disabled>Download engine draft</button>
+          <h3>Compare with Kit Editor</h3>
+          <p class="intro">Choose your current streamer-config-v2.json to check what the reviewed draft would change. Rules and Kits are matched by ID.</p>
+          <label for="current-config">Current Kit Editor configuration</label>
+          <input id="current-config" type="file" accept=".json,application/json">
+          <button id="compare-export" type="button" disabled>Compare with current file</button>
         </div>
       </fieldset>
       <p id="draft-status" role="status"></p>
@@ -80,6 +85,9 @@
       <p id="rehearsal-status" role="status"></p>
       <ul id="rehearsal-rules" hidden></ul>
       <p id="rehearsal-error" role="alert"></p>
+      <p id="comparison-status" role="status"></p>
+      <ul id="comparison-changes" hidden></ul>
+      <p id="comparison-error" role="alert"></p>
     </section>
   </main>
 </body>

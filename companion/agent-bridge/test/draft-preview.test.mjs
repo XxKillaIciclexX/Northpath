@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { exportDashboardDraft, previewDashboardDraft } from '../draft-preview.mjs';
+import { compareEngineDraft, exportDashboardDraft, previewDashboardDraft } from '../draft-preview.mjs';
 
 const catalog = {
   items: [{ id: 'Stone', name: 'Stone' }],
@@ -106,4 +106,44 @@ test('engine draft review supports multiple dinosaurs and warns above the comman
   source.kits[0].entries[1].action.quantity = 8;
   const overLimit = exportDashboardDraft({ draft: source }, catalog);
   assert.match(overLimit.warnings.join(' '), /limit of 8 commands/);
+});
+
+test('migration comparison identifies additions, removals and changed rule and Kit fields by ID', () => {
+  const { config } = exportDashboardDraft({ draft }, catalog);
+  const current = structuredClone(config);
+  current.rules[0].cooldown = 30;
+  current.rules.push({ ...current.rules[0], id: 'retired', giftId: '50', giftName: 'Retired' });
+  current.kits[0].entries.reverse();
+  const candidate = structuredClone(config);
+  candidate.rules.push({ ...candidate.rules[0], id: 'new-rule', giftId: '51', giftName: 'New Gift' });
+  const original = structuredClone({ current, config: candidate });
+  const result = compareEngineDraft({ current, config: candidate }, catalog);
+  assert.deepEqual(result.rules.changes, [
+    { id: 'kit-rule', label: 'Example Gift', status: 'changed', fields: ['cooldown'] },
+    { id: 'new-rule', label: 'New Gift', status: 'added' },
+    { id: 'retired', label: 'Retired', status: 'removed' },
+  ]);
+  assert.deepEqual(result.kits.changes, [
+    { id: 'starter', label: 'Starter Kit', status: 'changed', fields: ['entries or entry order'] },
+  ]);
+  assert.deepEqual({ current, config: candidate }, original);
+});
+
+test('comparison ignores top-level rule order and uses engine defaults', () => {
+  const { config } = exportDashboardDraft({ draft }, catalog);
+  config.rules.push({ ...config.rules[0], id: 'second', giftId: '43', giftName: 'Second' });
+  const current = structuredClone(config);
+  delete current.rules[0].cooldown;
+  current.rules.reverse();
+  assert.deepEqual(compareEngineDraft({ current, config }, catalog), {
+    catalogSource: 'bundled',
+    rules: { changes: [], unchanged: 2 },
+    kits: { changes: [], unchanged: 1 },
+  });
+});
+
+test('comparison identifies which file fails validation', () => {
+  const { config } = exportDashboardDraft({ draft }, catalog);
+  assert.throws(() => compareEngineDraft({ current: {}, config }, catalog), /Current Kit Editor file:.*schemaVersion/);
+  assert.throws(() => compareEngineDraft({ current: config, config: {} }, catalog), /Reviewed draft:.*schemaVersion/);
 });
