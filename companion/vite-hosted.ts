@@ -3,22 +3,31 @@ import { normalizePath, type Plugin } from 'vite';
 
 export const companionIndex = fileURLToPath(new URL('./index.html', import.meta.url));
 
-export function hostedCompanion(): Plugin {
+export function hostedCompanion(accountOrigin?: string): Plugin {
+  let building = false;
   return {
     name: 'hosted-companion',
+    configResolved: config => { building = config.command === 'build'; },
     config: () => ({
       define: { 'import.meta.env.VITE_COMPANION_HOSTED': JSON.stringify('true') },
       resolve: {
         alias: { './catalog.json': fileURLToPath(new URL('./src/reviewed-catalog.json', import.meta.url)) },
+        dedupe: ['react', 'react-dom'],
       },
     }),
-    transformIndexHtml(_html, context) {
-      if (!context.bundle || normalizePath(context.filename) !== normalizePath(companionIndex)) return;
-      return [{
-        tag: 'meta',
-        attrs: { 'http-equiv': 'Content-Security-Policy', content: "connect-src 'none'" },
-        injectTo: 'head-prepend',
-      }];
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html, context) {
+        if (normalizePath(context.filename) !== normalizePath(companionIndex)) return;
+        return {
+          html: accountOrigin ? html.replace('src="./src/main.tsx"', 'src="/src/companion-account-entry.tsx"') : html,
+          tags: building ? [{
+            tag: 'meta',
+            attrs: { 'http-equiv': 'Content-Security-Policy', content: `connect-src ${accountOrigin ?? "'none'"}` },
+            injectTo: 'head-prepend',
+          }] : [],
+        };
+      },
     },
   };
 }

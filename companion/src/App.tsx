@@ -27,6 +27,17 @@ type GiftRule = { id: string; giftName: string; giftId: string; enabled: boolean
 type KitEntry = { id: string; action: Action };
 type Kit = { id: string; name: string; description: string; entries: KitEntry[] };
 type Config = { version: 1; rules: GiftRule[]; kits: Kit[]; serverName: string; playerId: string; preferredRegion: string };
+export type AccountDraft = Pick<Config, 'version' | 'rules' | 'kits'>;
+export type AccountDraftPanelProps = {
+  draft: AccountDraft;
+  validateDraft: (value: unknown) => value is AccountDraft;
+  loadDraft: (draft: AccountDraft) => void;
+};
+type AppProps = {
+  accountId?: string;
+  accountControl?: ReactNode;
+  renderAccountDrafts?: (props: AccountDraftPanelProps) => ReactNode;
+};
 type Page = 'overview' | 'rules' | 'kits' | 'catalog' | 'connections' | 'recovery' | 'settings';
 type AgentStatus = {
   online: boolean;
@@ -78,11 +89,10 @@ const initial: Config = {
   ] }],
 };
 
-function validConfig(x: unknown): x is Config {
+function validDraft(x: unknown): x is AccountDraft {
   if (!x || typeof x !== 'object') return false;
   const d = x as Record<string, unknown>;
   if (d.version !== 1 || !Array.isArray(d.rules) || !Array.isArray(d.kits) || d.rules.length > 500 || d.kits.length > 200) return false;
-  if (typeof d.serverName !== 'string' || typeof d.playerId !== 'string' || typeof d.preferredRegion !== 'string') return false;
   const validAction = (a: unknown, allowKit: boolean): a is Action => {
     if (!a || typeof a !== 'object') return false;
     const z = a as Record<string, unknown>;
@@ -108,9 +118,15 @@ function validConfig(x: unknown): x is Config {
     });
   });
 }
-function loadConfig(): Config {
+function validConfig(x: unknown): x is Config {
+  if (!validDraft(x)) return false;
+  const config = x as AccountDraft & Partial<Config>;
+  return typeof config.serverName === 'string' && typeof config.playerId === 'string' && typeof config.preferredRegion === 'string';
+}
+
+function loadConfig(storageKey: string): Config {
   try {
-    const str = localStorage.getItem(STORAGE_KEY);
+    const str = localStorage.getItem(storageKey);
     if (str) { const data: unknown = JSON.parse(str); if (validConfig(data)) return data; }
   } catch { /* use fresh local sample */ }
   return initial;
@@ -180,8 +196,9 @@ function ActionEditor({ value, onChange, kits, allowKit = true }: { value: Actio
   </div>;
 }
 
-function App() {
-  const [config, setConfig] = useState<Config>(loadConfig);
+function App({ accountId, accountControl, renderAccountDrafts }: AppProps) {
+  const storageKey = accountId ? `${STORAGE_KEY}.account.${accountId}` : STORAGE_KEY;
+  const [config, setConfig] = useState(() => loadConfig(storageKey));
   const [page, setPage] = useState<Page>('overview');
   const [menuOpen, setMenuOpen] = useState(false);
   const [ruleOpen, setRuleOpen] = useState<string | null>(null);
@@ -284,7 +301,7 @@ function App() {
   }, []);
   const update = (patch: Partial<Config>) => { setCompareResult(null); setSyncPreview(null); setConfig(prev => ({ ...prev, ...patch })); };
   const changePage = (p: Page) => { setPage(p); setMenuOpen(false); setNotice(''); };
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch { /* local storage may be blocked */ } }, [config]);
+  useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(config)); } catch { /* local storage may be blocked */ } }, [config, storageKey]);
   const ruleCount = config.rules.filter(r => r.enabled).length;
   const activeKits = config.kits.length;
   const entries = browseableCatalog[kind];
@@ -358,7 +375,7 @@ function App() {
       <div className="mt-auto space-y-4"><div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4"><div className="mb-2 flex items-center gap-2 text-xs font-bold text-amber-300"><ShieldAlert size={16}/> {localServicesEnabled ? 'Prototype mode' : 'Hosted preview'}</div><p className="text-xs leading-5 text-slate-400">{localServicesEnabled ? 'Browser-saved configuration. Live activity is read-only; configuration sync requires a pairing token. No cloud account yet.' : 'Drafts are saved in this browser. Use the Windows Companion for in-game delivery.'}</p></div><div className="border-t border-slate-800 pt-4 text-xs text-slate-500">A <span className="font-semibold text-slate-300">Northpath</span> product <span className="float-right text-cyan-300">{releaseLabel}</span></div></div>
     </aside>
     <div className="min-w-0 flex-1">
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#203249] bg-[#09111f]/95 px-5 backdrop-blur md:px-8"><div className="flex items-center gap-3"><button className="text-slate-300 lg:hidden" aria-label="Open navigation" onClick={() => setMenuOpen(true)}><Menu size={22}/></button><span className="hidden text-sm text-slate-500 sm:block">Workspace</span><ChevronRight className="hidden text-slate-600 sm:block" size={15}/><span className="text-sm font-semibold text-white">{selectedPage}</span></div><div className="flex items-center gap-3"><span className="hidden items-center gap-2 rounded-full border border-amber-600/25 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300 sm:inline-flex">{agent ? <ShieldCheck size={13}/> : <WifiOff size={13}/>} {localServicesEnabled ? (agent ? 'Local engine detected' : 'Offline prototype') : 'Hosted preview'}</span><span className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-xs font-bold text-cyan-300">IP</span></div></header>
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#203249] bg-[#09111f]/95 px-5 backdrop-blur md:px-8"><div className="flex items-center gap-3"><button className="text-slate-300 lg:hidden" aria-label="Open navigation" onClick={() => setMenuOpen(true)}><Menu size={22}/></button><span className="hidden text-sm text-slate-500 sm:block">Workspace</span><ChevronRight className="hidden text-slate-600 sm:block" size={15}/><span className="text-sm font-semibold text-white">{selectedPage}</span></div><div className="flex items-center gap-3"><span className="hidden items-center gap-2 rounded-full border border-amber-600/25 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300 sm:inline-flex">{agent ? <ShieldCheck size={13}/> : <WifiOff size={13}/>} {localServicesEnabled ? (agent ? 'Local engine detected' : 'Offline prototype') : 'Hosted preview'}</span>{accountControl ?? <span className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-xs font-bold text-cyan-300">IP</span>}</div></header>
       <main className="mx-auto max-w-[1440px] px-5 py-8 md:px-8 md:py-10">
         {notice && <div role="status" className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-200"><span>{notice}</span><button aria-label="Dismiss" onClick={() => setNotice('')}><X size={17}/></button></div>}
         {page === 'overview' && <>
@@ -553,6 +570,16 @@ function App() {
         {localServicesEnabled && page === 'recovery' && <RecoveryPanel syncToken={syncToken} />}
         {page === 'settings' && <>
           <SectionTitle title="Settings" subtitle="Manage local workspace details and your configuration backup."/>
+          {renderAccountDrafts && <Card className="mb-6">{renderAccountDrafts({
+            draft: { version: config.version, rules: config.rules, kits: config.kits },
+            validateDraft: validDraft,
+            loadDraft: ({ rules, kits }) => {
+              update({ rules, kits });
+              setRuleOpen(null);
+              setKitOpen(null);
+              setPreviews([]);
+            },
+          })}</Card>}
           <div className="grid gap-6 xl:grid-cols-2"><Card><h2 className="mb-5 font-semibold text-white">Workspace preferences</h2><div className="space-y-4"><div><Label>Server nickname</Label><input className="field" maxLength={100} value={config.serverName} onChange={e => update({ serverName: e.target.value })}/></div>{localServicesEnabled && <div><Label>Player targeting</Label><p className="text-sm text-slate-300">The authoritative Specimen Implant ID is now managed under <strong>Connections → Engine Player Target</strong>. This browser-only workspace field is not used to target live ARK rewards.</p></div>}<div><Label>Preferred gift region</Label><select className="field" value={config.preferredRegion} onChange={e => update({ preferredRegion: e.target.value })}><option value="US">United States</option><option value="GB">United Kingdom</option><option value="CA">Canada</option><option value="Other">Other / undecided</option></select></div></div></Card><Card><h2 className="mb-2 font-semibold text-white">Configuration backup</h2><p className="mb-5 text-sm text-slate-400">Rules and kits live in this browser's local storage. Export JSON before clearing browser data or switching devices.</p><div className="flex flex-wrap gap-3"><button className="btn btn-primary" onClick={exportConfig}><Download size={16}/> Export JSON</button><button className="btn btn-ghost" onClick={() => fileRef.current?.click()}><Upload size={16}/> Import JSON</button><input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={importConfig}/></div><div className="mt-6 border-t border-slate-700 pt-5"><h3 className="mb-2 text-sm font-medium text-slate-200">Restore starter examples</h3><p className="mb-3 text-xs text-slate-500">Resets local kits and rules. Export first if you want to keep your work.</p><button className="btn btn-danger" onClick={() => { if (window.confirm('Replace all local settings with starter examples?')) { setSyncPreview(null); setCompareResult(null); setConfig(initial); setPreviews([]); setNotice('Starter configuration restored.'); } }}><RotateCcw size={16}/> Reset local data</button></div></Card></div>
         </>}
       </main>

@@ -26,7 +26,7 @@ The hosted catalog snapshot is the Kit Editor baseline merged with Batches 04, 0
 
 In the existing Northpath Bolt project, select `development` and open `/companion/` in Preview. When ready, publish the root project. Its `dist` contains both the homepage and `companion/index.html`. Verify `https://northpath.ai/companion` by opening it directly and reloading it over HTTPS. [Bolt publishing](https://support.bolt.new/bolt-cloud/hosting/publish)
 
-The streamer pilot adds signed-in drafts and a Windows installer. The hosted preview uses a static build. It omits the local pairing screen and engine controls and blocks browser connections from the dashboard to the engine.
+The hosted dashboard supports [account drafts](supabase/README.md#7-save-companion-drafts-to-streamer-accounts) after the Supabase migration and build setting are in place. Engine controls and the pairing screen are available through the Windows dashboard. The streamer pilot also needs the Windows installer.
 
 ## v5.6 Alpha — Operations Center refresh
 

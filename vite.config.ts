@@ -28,6 +28,7 @@ function isPublicSupabaseKey(key: string) {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', 'VITE_SUPABASE_');
   const url = env.VITE_SUPABASE_URL?.trim();
+  const project = url && URL.canParse(url) ? new URL(url) : null;
   const publicKeys = ['VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_ANON_KEY'];
   const configuredKeys = publicKeys.filter(name => env[name]?.trim());
   if (env.VITE_SUPABASE_SECRET_KEY?.trim() || env.VITE_SUPABASE_SERVICE_ROLE_KEY?.trim()) {
@@ -39,7 +40,6 @@ export default defineConfig(({ mode }) => {
     }
   }
   if (url || configuredKeys.length) {
-    const project = url && URL.canParse(url) ? new URL(url) : null;
     const isLoopback = project?.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(project.hostname);
     if (!project || (!isLoopback && project.protocol !== 'https:') || project.origin + '/' !== project.href) {
       throw new Error('Set VITE_SUPABASE_URL to the Supabase Project URL.');
@@ -48,9 +48,10 @@ export default defineConfig(({ mode }) => {
       throw new Error('Supabase public key is missing. Set VITE_SUPABASE_PUBLISHABLE_KEY in .env.local, or VITE_SUPABASE_ANON_KEY for a legacy anon key.');
     }
   }
+  const accountOrigin = env.VITE_SUPABASE_COMPANION_DRAFTS_ENABLED === 'true' ? project?.origin : undefined;
 
   return {
-    plugins: [react(), hostedCompanion(), {
+    plugins: [react(), hostedCompanion(accountOrigin), {
       name: 'companion-route',
       configureServer: server => { server.middlewares.use(serveCompanion); },
       configurePreviewServer: server => { server.middlewares.use(serveCompanion); },
