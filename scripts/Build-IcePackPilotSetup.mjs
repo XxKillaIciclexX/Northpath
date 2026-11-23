@@ -109,7 +109,7 @@ async function build(values, nsisRoot) {
     const setup = join(scratch, artifact);
     const define = (name, value) => `${windows ? '/D' : '-D'}${name}=${value}`;
     const compilerOptions = nsisRoot ? { env: { ...process.env, NSISDIR: nsisRoot } } : {};
-    run(values.makensis ?? 'makensis', [windows ? '/WX' : '-WX', define('PILOT_VERSION', version), define('PAYLOAD_DIR', payload),
+    run(values.makensis ?? 'makensis', [windows ? '/WX' : '-WX', define('PILOT_VERSION', version), define('PAYLOAD_FILES', join(payload, '*')),
       define('SETUP_FILE', setup), join(here, 'windows', 'IcePackPilotSetup.nsi')], compilerOptions);
     const digest = await sha256(setup);
     const output = resolve(values.out);

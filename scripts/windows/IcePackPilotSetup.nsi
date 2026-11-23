@@ -50,7 +50,7 @@ Section "Install Pilot"
   CreateDirectory "$0"
   SetOutPath "$0"
   ClearErrors
-  File /r "${PAYLOAD_DIR}/*"
+  File /r "${PAYLOAD_FILES}"
   IfErrors cleanup
   WriteUninstaller "$0\Uninstall.exe"
   IfErrors cleanup
