@@ -48,10 +48,15 @@ export default defineConfig(({ mode }) => {
       throw new Error('Supabase public key is missing. Set VITE_SUPABASE_PUBLISHABLE_KEY in .env.local, or VITE_SUPABASE_ANON_KEY for a legacy anon key.');
     }
   }
-  const accountOrigin = env.VITE_SUPABASE_COMPANION_DRAFTS_ENABLED === 'true' ? project?.origin : undefined;
+  const linkEnabled = env.VITE_SUPABASE_COMPANION_LINK_ENABLED === 'true';
+  const accountOrigin = linkEnabled || env.VITE_SUPABASE_COMPANION_DRAFTS_ENABLED === 'true' ? project?.origin : undefined;
+  const agentConfig = linkEnabled && project && configuredKeys.length ? {
+    supabaseUrl: project.origin,
+    publishableKey: env[configuredKeys[0]].trim(),
+  } : undefined;
 
   return {
-    plugins: [react(), hostedCompanion(accountOrigin), {
+    plugins: [react(), hostedCompanion(accountOrigin, agentConfig), {
       name: 'companion-route',
       configureServer: server => { server.middlewares.use(serveCompanion); },
       configurePreviewServer: server => { server.middlewares.use(serveCompanion); },

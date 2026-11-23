@@ -170,3 +170,12 @@ If mail is missing, check **Logs Explorer → Auth** in Supabase at the time of 
 4. To bring over a draft saved as a guest, choose **Settings → Export JSON** before signing in. After signing in, choose **Import JSON**, review the draft, then **Save to account**. Account saves include Gift Rules and Kits. The browser workspace keeps server preferences and the player target outside the account draft.
 
 Run the migration in the production Supabase project before enabling the flag for a published build. When the preview and live site use the same Supabase project, the migration only needs to run once.
+
+## 8. Connect the Windows Companion to the website
+
+1. In the Supabase project used by Northpath, run [the Companion device migration](migrations/20261123000300_create_companion_devices.sql) once in **SQL Editor**.
+2. In the existing Northpath Bolt project on `development`, set `VITE_SUPABASE_COMPANION_LINK_ENABLED=true` alongside the current Supabase settings. Restart the preview and open **Connections**. Verify that it offers **Website pairing code** after sign-in, then publish when ready. The published Windows pilot reads its connection settings from `https://northpath.ai/companion-agent.json`.
+3. Pull `development` on Windows and rebuild with `node .\scripts\Build-IcePackPilotSetup.mjs --local --out "$env:USERPROFILE\Downloads\IcePackCompanionPilot-Website"`. Close and uninstall the older pilot before installing the rebuilt setup. Launch **Ice Pack Companion Pilot 5.6** from Start.
+4. Sign in to [Northpath Companion](https://northpath.ai/companion#connections) and paste the **Website pairing code** printed by the Windows launcher. Click **Pair Windows app**, wait for **Preview ready**, then click **Run Heart Me Preview**. Expect **The engine planned 25 Stone** in the website. Stop the Windows app and confirm the site reports **Windows app offline** within about 30 seconds. **Disconnect** removes this app from your account.
+
+The Windows app checks in over HTTPS and runs the sample preview locally. The website receives connection status and the result of that sample. The pilot still needs a separate test-server pass for live gift delivery.

@@ -3,11 +3,14 @@ import { normalizePath, type Plugin } from 'vite';
 
 export const companionIndex = fileURLToPath(new URL('./index.html', import.meta.url));
 
-export function hostedCompanion(accountOrigin?: string): Plugin {
+export function hostedCompanion(accountOrigin?: string, agentConfig?: { supabaseUrl: string; publishableKey: string }): Plugin {
   let building = false;
   return {
     name: 'hosted-companion',
     configResolved: config => { building = config.command === 'build'; },
+    generateBundle() {
+      if (agentConfig) this.emitFile({ type: 'asset', fileName: 'companion-agent.json', source: JSON.stringify(agentConfig) });
+    },
     config: () => ({
       define: { 'import.meta.env.VITE_COMPANION_HOSTED': JSON.stringify('true') },
       resolve: {

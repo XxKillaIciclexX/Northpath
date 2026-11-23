@@ -87,7 +87,7 @@ async function build(values, nsisRoot) {
       '--engine', resolve(values.engine), '--engine-sha256', hashes.engine]);
     const installed = join(alphaRoot, `v${version}`);
     await copyEntries(installed, payload, ['Test-IcePackCleanInstall.mjs', 'Test-IcePackEngineDraft.mjs', 'preview-rules', 'alpha-install.json']);
-    await copyFile(join(here, 'windows', 'Start-IcePackPilot.mjs'), join(payload, 'Start-IcePackPilot.mjs'));
+    await copyEntries(join(here, 'windows'), payload, ['Start-IcePackPilot.mjs', 'WebsiteConnection.mjs']);
 
     const companion = join(payload, 'companion');
     const engine = join(payload, 'engine');

@@ -10,6 +10,8 @@
     main { max-width: 34rem; margin: 12vh auto; padding: 0 1.25rem; }
     h1 { line-height: 1.16; font-size: clamp(2rem, 6vw, 2.75rem); margin: .4rem 0 1rem; }
     .app { font-weight: 700; color: #9be4f5; margin: 0; }
+    nav { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin: .65rem 0 1.25rem; }
+    nav a { color: #9be4f5; text-underline-offset: .2em; }
     .intro { color: #b7c6d8; }
     section { margin-top: 1.5rem; padding: 1.5rem; border: 1px solid #334860; border-radius: .9rem; background: #112238; }
     h2 { margin: 0 0 .7rem; font-size: 1.15rem; }
@@ -30,10 +32,14 @@
 <body>
   <main>
     <p class="app">Ice Pack Companion</p>
+    <nav aria-label="Local dashboard navigation">
+      <a href="/">Dashboard</a>
+      <a href="#connections" aria-current="location">Connections</a>
+    </nav>
     <h1>Pair your local preview</h1>
     <p class="intro">Copy the current session token from the window running Ice Pack Companion. Then run a sample Heart Me gift through the local engine.</p>
-    <section>
-      <h2>Local Bridge</h2>
+    <section id="connections" aria-labelledby="connections-title">
+      <h2 id="connections-title">Connections</h2>
       <form id="pair-form">
         <label for="token">Pairing token</label>
         <input id="token" type="password" autocomplete="off" spellcheck="false" required>

@@ -2,12 +2,15 @@ import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Session } from '@supabase/supabase-js';
 import App, { type AccountDraft, type AccountDraftPanelProps } from '../companion/src/App';
+import CompanionConnections from './components/CompanionConnections';
 import WebsiteAccount from './components/WebsiteAccount';
 import { websiteAuth } from './lib/website-auth';
 import '../companion/src/index.css';
 
 type Client = NonNullable<typeof websiteAuth>;
 type DraftOperation = 'load' | 'save';
+const accountDraftsEnabled = import.meta.env.VITE_SUPABASE_COMPANION_DRAFTS_ENABLED === 'true';
+const websiteLinkEnabled = import.meta.env.VITE_SUPABASE_COMPANION_LINK_ENABLED === 'true';
 const conflictMessage = 'The saved draft changed during this save. Load the latest draft before trying again.';
 
 function accountCopy({ rules, kits }: AccountDraft): AccountDraft {
@@ -100,10 +103,12 @@ function AccountWorkspace({ client }: { client: Client }) {
 
   if (session === undefined) return <p role="status" className="p-8">Opening your Companion workspace…</p>;
   return <App key={session?.user.id ?? 'guest'} accountId={session?.user.id} accountControl={<WebsiteAccount />}
-    renderAccountDrafts={props => session ? <AccountDrafts {...props} client={client} user={session.user} /> : <>
+    connectionsPanel={websiteLinkEnabled ? (session ? <CompanionConnections client={client} userId={session.user.id} /> :
+      <p className="text-sm text-slate-300">Sign in to connect your Windows Companion.</p>) : undefined}
+    renderAccountDrafts={accountDraftsEnabled ? (props => session ? <AccountDrafts {...props} client={client} user={session.user} /> : <>
       <h2 className="font-semibold text-white">Account draft</h2>
       <p className="mt-2 text-sm text-slate-300">Sign in to save Gift Rules and Kits to your Northpath account.</p>
-    </>}
+    </>) : undefined}
   />;
 }
 

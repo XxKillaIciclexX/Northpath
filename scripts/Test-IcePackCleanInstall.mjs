@@ -190,7 +190,7 @@ async function prepareSample(engineUrl) {
   if (preview.mode !== 'preview') throw new Error('Engine did not enter Preview mode');
 }
 
-export function launchInstalled(root, { pilot = false } = {}) {
+export function launchInstalled(root, { pilot = false, websiteConnection = null } = {}) {
   const companion = join(root, 'companion');
   const port = pilot ? '5176' : '5174';
   const dashboard = service(companion, 'node_modules/vite/bin/vite.js', `http://127.0.0.1:${port}/first-run.html`, 'Dashboard',
@@ -200,21 +200,28 @@ export function launchInstalled(root, { pilot = false } = {}) {
   bridge.environment = { ...pairing, ICEPACK_ALPHA_PREVIEW: pilot ? 'pilot' : '1' };
   const engine = service(join(root, 'engine'), 'server.mjs', 'http://127.0.0.1:3210/state', 'ARK Engine');
   engine.environment = { ...env, ICEPACK_KIT_DIR: join(root, 'preview-rules') };
+  let disconnectWebsite;
   return launch([engine, bridge, dashboard], dashboard, true, async () => {
     await prepareSample(engine.url);
     console.log('PASS sample Heart Me rule loaded in Preview mode');
-    console.log(`First-run Dashboard: ${dashboard.url.href}`);
-    console.log(`Pairing token (private, this session only): ${pairing.ICEPACK_BRIDGE_PAIRING_TOKEN}`);
+    const destination = websiteConnection ? 'https://northpath.ai/companion#connections' : dashboard.url.href;
+    if (websiteConnection) {
+      disconnectWebsite = websiteConnection({ dashboardUrl: dashboard.url, localToken: pairing.ICEPACK_BRIDGE_PAIRING_TOKEN });
+      console.log(`Northpath Connections: ${destination}`);
+    } else {
+      console.log(`First-run Dashboard: ${dashboard.url.href}`);
+      console.log(`Pairing token (private, this session only): ${pairing.ICEPACK_BRIDGE_PAIRING_TOKEN}`);
+    }
     console.log('Press Ctrl+C here to stop.');
     if (pilot && windows) {
-      const browser = spawn(join(process.env.SystemRoot ?? 'C:\\Windows', 'explorer.exe'), [dashboard.url.href], {
+      const browser = spawn(join(process.env.SystemRoot ?? 'C:\\Windows', 'explorer.exe'), [destination], {
         detached: true,
         stdio: 'ignore',
       });
-      browser.on('error', () => console.log('Open the First-run Dashboard URL in your browser.'));
+      browser.on('error', () => console.log('Open the dashboard URL shown in this launcher.'));
       browser.unref();
     }
-  });
+  }).finally(() => disconnectWebsite?.());
 }
 
 async function main() {
