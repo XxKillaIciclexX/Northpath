@@ -190,13 +190,14 @@ async function prepareSample(engineUrl) {
   if (preview.mode !== 'preview') throw new Error('Engine did not enter Preview mode');
 }
 
-export function launchInstalled(root) {
+export function launchInstalled(root, { pilot = false } = {}) {
   const companion = join(root, 'companion');
-  const dashboard = service(companion, 'node_modules/vite/bin/vite.js', 'http://127.0.0.1:5174/first-run.html', 'Dashboard',
-    ['preview', '--host', '127.0.0.1', '--port', '5174', '--strictPort']);
+  const port = pilot ? '5176' : '5174';
+  const dashboard = service(companion, 'node_modules/vite/bin/vite.js', `http://127.0.0.1:${port}/first-run.html`, 'Dashboard',
+    ['preview', '--host', '127.0.0.1', '--port', port, '--strictPort']);
   const bridge = service(companion, 'agent-bridge/bridge.mjs', 'http://127.0.0.1:3212/status', 'Local Bridge');
   const pairing = pairingEnvironment();
-  bridge.environment = { ...pairing, ICEPACK_ALPHA_PREVIEW: '1' };
+  bridge.environment = { ...pairing, ICEPACK_ALPHA_PREVIEW: pilot ? 'pilot' : '1' };
   const engine = service(join(root, 'engine'), 'server.mjs', 'http://127.0.0.1:3210/state', 'ARK Engine');
   engine.environment = { ...env, ICEPACK_KIT_DIR: join(root, 'preview-rules') };
   return launch([engine, bridge, dashboard], dashboard, true, async () => {
@@ -205,6 +206,14 @@ export function launchInstalled(root) {
     console.log(`First-run Dashboard: ${dashboard.url.href}`);
     console.log(`Pairing token (private, this session only): ${pairing.ICEPACK_BRIDGE_PAIRING_TOKEN}`);
     console.log('Press Ctrl+C here to stop.');
+    if (pilot && windows) {
+      const browser = spawn(join(process.env.SystemRoot ?? 'C:\\Windows', 'explorer.exe'), [dashboard.url.href], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      browser.on('error', () => console.log('Open the First-run Dashboard URL in your browser.'));
+      browser.unref();
+    }
   });
 }
 

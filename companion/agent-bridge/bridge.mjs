@@ -20,11 +20,12 @@ const KIT_DIR=process.env.ICEPACK_KIT_DIR ? path.resolve(process.env.ICEPACK_KIT
 // Managed Windows startup supplies a fresh random token through the process environment.
 // Manual bridge startup retains the original terminal pairing workflow.
 const managedToken=process.env.ICEPACK_BRIDGE_PAIRING_TOKEN;
-const standalonePreview=Boolean(managedToken)&&process.env.ICEPACK_ALPHA_PREVIEW==='1';
+const previewMode=process.env.ICEPACK_ALPHA_PREVIEW;
+const standalonePreview=Boolean(managedToken)&&['1','pilot'].includes(previewMode);
 if(managedToken!==undefined&&!/^[0-9a-f]{48}$/.test(managedToken))throw Error('Invalid managed bridge pairing token');
 const TOKEN=managedToken??crypto.randomBytes(24).toString('hex');
 const permittedOrigins=new Set(standalonePreview
-  ? ['http://127.0.0.1:5174']
+  ? [previewMode==='pilot' ? 'http://127.0.0.1:5176' : 'http://127.0.0.1:5174']
   : ['http://127.0.0.1:5173','http://localhost:5173']);
 const draftCatalog=standalonePreview
   ? JSON.parse(fs.readFileSync(new URL('../src/catalog.json',import.meta.url),'utf8'))

@@ -28,6 +28,29 @@ In the existing Northpath Bolt project, select `development` and open `/companio
 
 The hosted dashboard supports [account drafts](supabase/README.md#7-save-companion-drafts-to-streamer-accounts) after the Supabase migration and build setting are in place. Engine controls and the pairing screen are available through the Windows dashboard. The streamer pilot also needs the Windows installer.
 
+## Windows pilot setup
+
+`IcePackCompanionPilot-5.6-win-x64-Setup.exe` installs the Windows preview for the current user under `%LOCALAPPDATA%\IcePackCompanionPilot\v5.6`. It includes Node.js and uses a separate Start menu shortcut. Use the unsigned setup and its SHA-256 file for the internal clean-PC test.
+
+1. On Windows x64, verify the setup hash with `Get-FileHash -Algorithm SHA256 .\IcePackCompanionPilot-5.6-win-x64-Setup.exe`, then run setup. Open **Ice Pack Companion Pilot 5.6** from Start. Keep the launcher window open. If the browser stays closed, open `http://127.0.0.1:5176/first-run.html`.
+2. Copy the pairing token from that launcher window. Click **Pair Dashboard**, then **Run Heart Me Preview**. Expect a plan for **25 Stone**. The pilot starts with sample rules in Preview mode.
+3. Export a Gift Rule or Kit draft from `https://northpath.ai/companion`. Open it under **Preview your Gift Rules and Kits** in the pilot and review a rule. The installer includes the reviewed catalog, so you can use the bundled catalog for these drafts.
+4. Press **Ctrl+C** in the launcher window and check that `Get-NetTCPConnection -State Listen -LocalPort 3210,3212,5176 -ErrorAction SilentlyContinue` returns no listeners from the pilot. Remove **Ice Pack Companion Pilot 5.6** in **Settings → Apps → Installed apps** and verify its Start menu shortcut is gone.
+
+To build the setup from `development`, use Node.js 22.12 or newer and NSIS 3. Use the verified Companion and engine source ZIPs from the alpha installation. Download the Windows x64 `node.exe` and license for Node.js 24.22.3. The builder checks all four files and writes setup plus the SHA-256 file to a directory you choose. [Node.js Windows binary](https://nodejs.org/dist/v24.22.3/win-x64/node.exe) · [Node.js license file](https://raw.githubusercontent.com/nodejs/node/v24.22.3/LICENSE) · [NSIS](https://nsis.sourceforge.io/Download)
+
+```powershell
+node .\scripts\Build-IcePackPilotSetup.mjs `
+  --companion "C:\path\to\companion-source.zip" `
+  --engine "C:\path\to\engine-source.zip" `
+  --node "C:\path\to\node.exe" `
+  --node-license "C:\path\to\LICENSE" `
+  --makensis "C:\Program Files (x86)\NSIS\makensis.exe" `
+  --out "C:\path\to\pilot-build"
+```
+
+The next pilot step is verifying setup, first launch, and uninstall on a clean Windows PC. Test live delivery separately with server credentials and the ASA mod configured.
+
 ## v5.6 Alpha — Operations Center refresh
 
 The Windows Operations Center uses the Companion dashboard's rounded cards, status pills, and emerald-to-cyan accents. Buttons fit their labels and wrap as the window narrows. **Local services** brings managed start, stop, dashboard, diagnostics, and logs together.
