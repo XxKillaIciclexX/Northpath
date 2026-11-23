@@ -108,7 +108,25 @@ If you want Bolt to manage the project connection directly, configure it for **N
 
 **Create an account** uses Supabase's **Confirm signup** email. **Invite user** in the Supabase dashboard uses its separate invitation email. An already confirmed address can receive the same generic signup response because Supabase masks whether an account exists. For a quick test with the built-in mail service, use **Forgot password** on an existing test user whose address is also a member of your Supabase organization. The built-in service sends only to team addresses and is limited to two auth emails per hour. [Supabase Auth mail](https://supabase.com/docs/guides/auth/auth-smtp) · [Signup API](https://supabase.com/docs/reference/javascript/auth-signup)
 
-Set up custom SMTP to send confirmations and password resets to external testers. Use your existing SMTP provider if you have one. For Resend, follow these steps.
+Set up custom SMTP to send confirmations and password resets to external testers.
+
+### Google Workspace SMTP
+
+1. Sign in to the Google account for your Workspace Gmail mailbox. Enable **2-Step Verification** if needed, then create an **App password** named `Northpath Supabase`. [Google App Passwords](https://myaccount.google.com/apppasswords) · [Google setup instructions](https://support.google.com/accounts/answer/185833)
+2. In **Supabase → Authentication → Emails → SMTP Settings**, turn on **Custom SMTP**. Use the same primary mailbox address for both the sender and the SMTP username. `hello@northpath.ai` is an example if it is the address you sign in with. Enter the new app password in the SMTP password field and save.
+
+   | Field | Google Workspace value |
+   | --- | --- |
+   | Sender name | `Northpath` |
+   | Sender email | Full primary Workspace mailbox address |
+   | Host | `smtp.gmail.com` |
+   | Port | `465` (SSL/TLS) |
+   | Username | Full primary Workspace mailbox address |
+   | Password | The Google app password for that mailbox |
+
+   Keep the app password in Supabase. If **App Passwords** is unavailable for the mailbox, check with your Workspace admin or use the Resend option below. [Google Workspace SMTP](https://knowledge.workspace.google.com/admin/gmail/send-email-from-a-printer-scanner-or-app) · [Supabase SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp#how-to-set-up-a-custom-smtp-server)
+
+### Resend SMTP
 
 1. In **Resend → Domains**, add a sending domain you own, such as `notify.northpath.ai`. Add the DNS records Resend provides and wait for the domain to show **Verified**. Create an API key with sending access for that domain. [Resend domain setup](https://resend.com/docs/dashboard/domains/introduction) · [Resend SMTP settings](https://resend.com/docs/send-with-smtp)
 2. In **Supabase → Authentication → Emails → SMTP Settings**, enable **Custom SMTP**. Use the settings below and save.
@@ -123,5 +141,9 @@ Set up custom SMTP to send confirmations and password resets to external testers
    | Password | The Resend sending API key |
 
    Use a sender email on the domain you verified. Keep the sending key in Supabase's SMTP password field. Keep email confirmation enabled in the email provider settings. [Supabase SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp#how-to-set-up-a-custom-smtp-server)
-3. With the Northpath preview running at `http://localhost:5175`, choose **Create an account** using an address that has never been used in this Auth project. Open the confirmation link in the same browser profile. Expect **Your account** in Northpath and a confirmed email in **Authentication → Users**. Then test **Forgot password**, change the password from the email link, sign out, and sign in with the new password.
-4. If mail is missing, check **Logs Explorer → Auth** in Supabase at the time of the request. For Resend also check **Emails** for delivery, bounce, or rejection status. If mail arrives but the callback fails, check the exact redirect URLs under **URL Configuration** and turn off click tracking for the authentication sender if it is enabled. [Troubleshoot Auth mail](https://supabase.com/kb/troubleshooting/not-receiving-auth-emails-from-the-supabase-project-OFSNzw) · [Email link handling](https://supabase.com/docs/guides/deployment/going-into-prod#email-link-validity)
+
+### Verify delivery
+
+Keep email confirmation enabled in the email provider settings. With the Northpath preview running at `http://localhost:5175`, choose **Create an account** with a new address. Open the confirmation link in the same browser profile. Expect **Your account** in Northpath and a confirmed email in **Authentication → Users**. Then test **Forgot password**, change the password from the email link, sign out, and sign in with the new password.
+
+If mail is missing, check **Logs Explorer → Auth** in Supabase at the time of the request. For Resend also check **Emails** for delivery, bounce, or rejection status. If mail arrives but the callback fails, check the exact redirect URLs under **URL Configuration** and turn off click tracking for the authentication sender if it is enabled. [Troubleshoot Auth mail](https://supabase.com/kb/troubleshooting/not-receiving-auth-emails-from-the-supabase-project-OFSNzw) · [Email link handling](https://supabase.com/docs/guides/deployment/going-into-prod#email-link-validity)
