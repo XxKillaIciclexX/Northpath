@@ -2,6 +2,24 @@
 
 For the Northpath website accounts, see the [Supabase database setup guide](supabase/README.md).
 
+## Hosted Companion preview
+
+The hosted dashboard lets streamers edit Gift Rules and Kits, browse the bundled preview catalog, and simulate gifts in the browser. Drafts are saved in that browser. **Settings → Export JSON** downloads a draft that the Windows dashboard can open with **Settings → Import JSON**. Use the Windows app for engine preview, server configuration, and in-game delivery.
+
+From the Northpath checkout on `development`, build and serve the hosted preview:
+
+```powershell
+npm --prefix companion ci
+npm --prefix companion run build:hosted
+npm --prefix companion run preview:hosted -- --port 4173 --strictPort
+```
+
+Open `http://127.0.0.1:4173`. Edit a Gift Rule, create a Kit, and refresh to check that both changes persist. Run **Browser preview** from Overview and export the edited draft. Check that the navigation offers Gift Rules, Kit Builder, ARK Catalog, and Settings.
+
+To stage it on a separate Netlify site, use branch `development`, base directory `companion`, build command `npm run build:hosted`, and publish directory `dist-hosted`. Use Node.js 22.12 or later on a supported release line. After the preview check passes over HTTPS, attach `companion.northpath.ai` to that site and use the DNS record Netlify provides. [Netlify monorepos](https://docs.netlify.com/build/configure-builds/monorepos/) · [Netlify custom domains](https://docs.netlify.com/manage/domains/configure-domains/bring-a-domain-to-netlify/)
+
+The streamer pilot adds signed-in drafts, the reviewed Kit Editor catalog, and a Windows installer. The hosted preview uses a static build. It omits the local pairing screen and engine controls and blocks browser connections from the dashboard to the engine.
+
 ## v5.6 Alpha — Operations Center refresh
 
 The Windows Operations Center uses the Companion dashboard's rounded cards, status pills, and emerald-to-cyan accents. Buttons fit their labels and wrap as the window narrows. **Local services** brings managed start, stop, dashboard, diagnostics, and logs together.
