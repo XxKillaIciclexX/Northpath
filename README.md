@@ -51,6 +51,20 @@ node .\scripts\Build-IcePackPilotSetup.mjs `
 
 The next pilot step is verifying setup, first launch, and uninstall on a clean Windows PC. Test live delivery separately with server credentials and the ASA mod configured.
 
+### Build locally if the pilot download is unavailable
+
+From your Northpath checkout on Windows, run the following in PowerShell with Node.js 22.12 or newer.
+
+```powershell
+git switch development
+git pull --ff-only origin development
+node .\scripts\Build-IcePackPilotSetup.mjs --local
+```
+
+The command uses the two verified source ZIPs in `%LOCALAPPDATA%\IcePackCompanion\releases`. It downloads and verifies the pinned Node.js runtime, its license, and the portable NSIS compiler, then builds the installer locally. The installer and its checksum appear in `%USERPROFILE%\Downloads\IcePackCompanionPilot`.
+
+If the source ZIPs are elsewhere, pass their full paths with `--companion` and `--engine`. To write to a different folder, pass `--out` with its full path.
+
 ## v5.6 Alpha — Operations Center refresh
 
 The Windows Operations Center uses the Companion dashboard's rounded cards, status pills, and emerald-to-cyan accents. Buttons fit their labels and wrap as the window narrows. **Local services** brings managed start, stop, dashboard, diagnostics, and logs together.
