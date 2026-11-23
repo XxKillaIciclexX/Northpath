@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
   if (mode === 'hosted') {
@@ -13,6 +14,10 @@ export default defineConfig(({ mode }) => {
         }],
         apply: 'build',
       }],
+      // Use the reviewed Kit Editor snapshot for the hosted dashboard.
+      resolve: {
+        alias: { './catalog.json': fileURLToPath(new URL('./src/reviewed-catalog.json', import.meta.url)) },
+      },
       publicDir: false,
       build: { outDir: 'dist-hosted' },
     };

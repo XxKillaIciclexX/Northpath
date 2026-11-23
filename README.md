@@ -4,21 +4,29 @@ For the Northpath website accounts, see the [Supabase database setup guide](supa
 
 ## Hosted Companion preview
 
-The hosted dashboard lets streamers edit Gift Rules and Kits, browse the bundled preview catalog, and simulate gifts in the browser. Drafts are saved in that browser. **Settings → Export JSON** downloads a draft that the Windows dashboard can open with **Settings → Import JSON**. Use the Windows app for engine preview, server configuration, and in-game delivery.
+The hosted dashboard lets streamers edit Gift Rules and Kits, browse the reviewed ARK catalog, and simulate gifts in the browser. Drafts are saved in that browser. **Settings → Export JSON** downloads a draft that the Windows dashboard can open with **Settings → Import JSON**. Use the Windows app for engine preview, server configuration, and in-game delivery.
 
 From the Northpath checkout on `development`, build and serve the hosted preview:
 
 ```powershell
+git switch development
+git pull --ff-only origin development
 npm --prefix companion ci
 npm --prefix companion run build:hosted
 npm --prefix companion run preview:hosted -- --port 4173 --strictPort
 ```
 
-Open `http://127.0.0.1:4173`. Edit a Gift Rule, create a Kit, and refresh to check that both changes persist. Run **Browser preview** from Overview and export the edited draft. Check that the navigation offers Gift Rules, Kit Builder, ARK Catalog, and Settings.
+Open `http://127.0.0.1:4173` and check the following.
+
+1. Under **ARK catalog**, expect **537 creatures · 1954 items** in the total. **Base Game + Free Expansions** is selected by default and shows 381 creatures or 1,414 items and resources. **Next page** advances the results.
+2. Search for **Maeguana** under Dinosaurs and **Egg Incubator** under Items. Select **Lost Colony · Paid** and find **Desmodus** under Dinosaurs. Its card should show the paid pack label and **Verified reference**.
+3. Edit a Gift Rule to use Maeguana and add Egg Incubator to a Kit. Refresh to check that the selections persist. Run **Browser preview** from Overview and use **Settings → Export JSON**. Treat the new entries as draft selections. Check engine and mod support separately before moving any rule to Live.
+
+The hosted catalog snapshot is the Kit Editor baseline merged with Batches 04, 05, and 06 using the existing `stage-free-catalog.mjs` command with `--fill-blueprints --include-paid`. The dashboard uses the same entry IDs for export. [Reviewed catalog source](https://github.com/XxKillaIciclexX/ice-pack-ark/tree/e2830fc585b8c38fc3ac02f205b690e5aacb8541/icepack-catalog-manager)
 
 To stage it on a separate Netlify site, use branch `development`, base directory `companion`, build command `npm run build:hosted`, and publish directory `dist-hosted`. Use Node.js 22.12 or later on a supported release line. After the preview check passes over HTTPS, attach `companion.northpath.ai` to that site and use the DNS record Netlify provides. [Netlify monorepos](https://docs.netlify.com/build/configure-builds/monorepos/) · [Netlify custom domains](https://docs.netlify.com/manage/domains/configure-domains/bring-a-domain-to-netlify/)
 
-The streamer pilot adds signed-in drafts, the reviewed Kit Editor catalog, and a Windows installer. The hosted preview uses a static build. It omits the local pairing screen and engine controls and blocks browser connections from the dashboard to the engine.
+The streamer pilot adds signed-in drafts and a Windows installer. The hosted preview uses a static build. It omits the local pairing screen and engine controls and blocks browser connections from the dashboard to the engine.
 
 ## v5.6 Alpha — Operations Center refresh
 

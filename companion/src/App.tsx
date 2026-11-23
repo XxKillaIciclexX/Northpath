@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import TargetPanel from './TargetPanel';
 import DriftPanel from './DriftPanel';
 import RecoveryPanel from './RecoveryPanel';
@@ -7,7 +8,7 @@ import {
   Activity, ArrowRight, Boxes, Check, ChevronDown, ChevronRight,
   Database, Download, Gamepad2, Gift, Layers3, LayoutDashboard,
   Menu, Monitor, Plus, Radio, RotateCcw, Search, Settings2, ShieldAlert, ShieldCheck,
-  SlidersHorizontal, Trash2, Upload, WifiOff, X, Zap,
+  Trash2, Upload, WifiOff, X, Zap,
 } from 'lucide-react';
 import rawCatalog from './catalog.json';
 import release from './icepack-release.json';
@@ -16,7 +17,9 @@ const releaseLabel = `v${release.version.replace(/-alpha$/, ' Alpha')}`;
 const localServicesEnabled = import.meta.env.MODE !== 'hosted' &&
   ['127.0.0.1', 'localhost', '[::1]'].includes(window.location.hostname);
 
-type CatalogEntry = { id: string; name: string; blueprint: string; contentPack: string; verified: boolean; category: string; tags: string[] };
+type CatalogKind = 'dinosaurs' | 'items';
+type CatalogEntry = { id: string; name: string; blueprint: string | null; contentPack: string; verified: boolean; enabled: boolean; category: string; tags: string[] };
+type CatalogPack = { id: string; name: string; premium: boolean; enabledByDefault: boolean };
 type ActionType = 'dinosaur' | 'item' | 'kit';
 type Action = { type: ActionType; catalogId: string; quantity: number; level: number; tamed: boolean; quality: number; kitId: string; announcement: string };
 type GiftRule = { id: string; giftName: string; giftId: string; enabled: boolean; action: Action };
@@ -44,7 +47,19 @@ type AgentStatus = {
 };
 type Preview = { time: string; gift: string; detail: string; status: 'matched' | 'ignored' };
 
-const catalog: { dinosaurs: CatalogEntry[]; items: CatalogEntry[]; packs: { id: string; name: string }[] } = rawCatalog;
+const catalog: Record<CatalogKind, CatalogEntry[]> & { packs: CatalogPack[] } = rawCatalog;
+const packsById = new Map(catalog.packs.map(pack => [pack.id, pack]));
+const defaultCatalogPack = catalog.packs.find(pack => pack.enabledByDefault)?.id ?? 'all';
+const catalogPageSize = 60;
+const activeEntries = (entries: CatalogEntry[]) => entries.filter(entry => entry.enabled).sort((a, b) => a.name.localeCompare(b.name));
+const browseableCatalog = { dinosaurs: activeEntries(catalog.dinosaurs), items: activeEntries(catalog.items) };
+const entriesById = {
+  dinosaurs: new Map(catalog.dinosaurs.map(entry => [entry.id, entry])),
+  items: new Map(catalog.items.map(entry => [entry.id, entry])),
+};
+const packLabel = (pack: CatalogPack) => pack.premium ? `${pack.name} · Paid` : pack.name;
+const matchesCatalogQuery = (entry: CatalogEntry, query: string) =>
+  [entry.name, entry.id, entry.blueprint, entry.category, ...entry.tags].some(value => value?.toLowerCase().includes(query));
 const STORAGE_KEY = 'northpath.icepack.dashboard.v1';
 const defaultAction = (type: ActionType = 'dinosaur'): Action => ({
   type, catalogId: type === 'item' ? 'Stone' : 'Dodo', quantity: 1, level: 25, tamed: false, quality: 0, kitId: '', announcement: '',
@@ -102,8 +117,9 @@ function loadConfig(): Config {
 const newId = () => crypto.randomUUID();
 const displayAction = (a: Action, kits: Kit[]) => {
   if (a.type === 'kit') return `Kit · ${kits.find(k => k.id === a.kitId)?.name ?? 'Select a kit'}`;
-  if (a.type === 'item') return `${a.quantity} × ${a.catalogId}${a.quality ? ` · quality ${a.quality}` : ''}`;
-  return `${a.quantity} × ${a.catalogId} · Lv ${a.level} · ${a.tamed ? 'Tamed' : 'Wild'}`;
+  const name = entriesById[a.type === 'item' ? 'items' : 'dinosaurs'].get(a.catalogId)?.name ?? a.catalogId;
+  if (a.type === 'item') return `${a.quantity} × ${name}${a.quality ? ` · quality ${a.quality}` : ''}`;
+  return `${a.quantity} × ${name} · Lv ${a.level} · ${a.tamed ? 'Tamed' : 'Wild'}`;
 };
 
 const sections: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
@@ -126,17 +142,33 @@ const Card = ({ children, className = '' }: { children: ReactNode; className?: s
 const Label = ({ children }: { children: ReactNode }) => <label className="label">{children}</label>;
 const IconCircle = ({ children }: { children: ReactNode }) => <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300">{children}</div>;
 
+function CatalogPicker({ kind, value, onChange }: { kind: CatalogKind; value: string; onChange: (id: string) => void }) {
+  const [search, setSearch] = useState('');
+  const label = kind === 'items' ? 'Item' : 'Dinosaur';
+  const query = search.trim().toLowerCase();
+  const options = browseableCatalog[kind].filter(entry => entry.id === value || matchesCatalogQuery(entry, query));
+
+  return <div className="space-y-2">
+    <Label>{label}</Label>
+    <input className="field" aria-label={`Search ${kind}`} placeholder={`Search ${kind}...`} value={search} onChange={event => setSearch(event.target.value)}/>
+    <select className="field" aria-label={label} value={value} onChange={event => onChange(event.target.value)}>
+      {value && !options.some(entry => entry.id === value) && <option value={value}>{value} (from saved draft)</option>}
+      {options.map(entry => {
+        const pack = packsById.get(entry.contentPack);
+        return <option key={entry.id} value={entry.id}>{pack && pack.id !== 'base-game' ? `${entry.name} (${packLabel(pack)})` : entry.name}</option>;
+      })}
+    </select>
+  </div>;
+}
+
 function ActionEditor({ value, onChange, kits, allowKit = true }: { value: Action; onChange: (next: Action) => void; kits: Kit[]; allowKit?: boolean }) {
   const change = (patch: Partial<Action>) => onChange({ ...value, ...patch });
-  const options = value.type === 'item' ? catalog.items : catalog.dinosaurs;
   return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     <div><Label>Action</Label><select className="field" value={value.type} onChange={e => onChange(defaultAction(e.target.value as ActionType))}>
       <option value="dinosaur">Spawn dinosaur</option><option value="item">Give item</option>{allowKit && <option value="kit">Deliver kit</option>}
     </select></div>
     {value.type === 'kit' ? <div className="sm:col-span-2"><Label>Kit</Label><select className="field" value={value.kitId} onChange={e => change({ kitId: e.target.value })}><option value="">Select a kit</option>{kits.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}</select></div> : <>
-      <div><Label>{value.type === 'item' ? 'Item' : 'Dinosaur'}</Label><select className="field" value={value.catalogId} onChange={e => change({ catalogId: e.target.value })}>
-        {options.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></div>
+      <CatalogPicker key={value.type} kind={value.type === 'item' ? 'items' : 'dinosaurs'} value={value.catalogId} onChange={catalogId => change({ catalogId })}/>
       <div><Label>Quantity (1–1,000)</Label><input className="field" type="number" min="1" max="1000" value={value.quantity} onChange={e => change({ quantity: Math.max(1, Math.min(1000, Number(e.target.value) || 1)) })}/></div>
       {value.type === 'dinosaur' ? <>
         <div><Label>Level (1–150)</Label><input className="field" type="number" min="1" max="150" value={value.level} onChange={e => change({ level: Math.max(1, Math.min(150, Number(e.target.value) || 1)) })}/></div>
@@ -155,7 +187,9 @@ function App() {
   const [kitOpen, setKitOpen] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
-  const [kind, setKind] = useState<'dinosaurs' | 'items'>('dinosaurs');
+  const [kind, setKind] = useState<CatalogKind>('dinosaurs');
+  const [catalogPack, setCatalogPack] = useState(localServicesEnabled ? 'all' : defaultCatalogPack);
+  const [catalogPage, setCatalogPage] = useState(0);
   const [simulationGift, setSimulationGift] = useState('Rose');
   const [previews, setPreviews] = useState<Preview[]>([]);
   const [notice, setNotice] = useState('');
@@ -252,9 +286,16 @@ function App() {
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch { /* local storage may be blocked */ } }, [config]);
   const ruleCount = config.rules.filter(r => r.enabled).length;
   const activeKits = config.kits.length;
-  const entries = kind === 'dinosaurs' ? catalog.dinosaurs : catalog.items;
-  const filteredEntries = useMemo(() => entries.filter(c => (category === 'all' || c.category === category) && `${c.name} ${c.category} ${c.tags.join(' ')}`.toLowerCase().includes(query.toLowerCase())), [entries, category, query]);
+  const entries = browseableCatalog[kind];
+  const filteredEntries = useMemo(() => {
+    const search = query.trim().toLowerCase();
+    return entries.filter(entry => (catalogPack === 'all' || entry.contentPack === catalogPack) &&
+      (category === 'all' || entry.category === category) && matchesCatalogQuery(entry, search));
+  }, [entries, catalogPack, category, query]);
   const categories = Array.from(new Set(entries.map(e => e.category))).sort();
+  const catalogOffset = catalogPage * catalogPageSize;
+  const catalogPageEnd = Math.min(catalogOffset + catalogPageSize, filteredEntries.length);
+  const changeCatalogKind = (nextKind: CatalogKind) => { setKind(nextKind); setCategory('all'); setCatalogPage(0); };
   const updateRule = (id: string, patch: Partial<GiftRule>) => update({ rules: config.rules.map(r => r.id === id ? { ...r, ...patch } : r) });
   const updateKit = (id: string, patch: Partial<Kit>) => update({ kits: config.kits.map(k => k.id === id ? { ...k, ...patch } : k) });
   const updateEntry = (kit: Kit, entryId: string, action: Action) => updateKit(kit.id, { entries: kit.entries.map(e => e.id === entryId ? { ...e, action } : e) });
@@ -325,7 +366,7 @@ function App() {
             {[
               { label: 'Enabled gift rules', count: String(ruleCount), icon: Gift, hint: 'Saved in this browser' },
               { label: 'Configured kits', count: String(activeKits), icon: Boxes, hint: 'Items + dinosaurs' },
-              { label: 'Catalog creatures', count: String(catalog.dinosaurs.length), icon: Gamepad2, hint: 'Paths not verified' },
+              { label: 'Catalog creatures', count: String(catalog.dinosaurs.length), icon: Gamepad2, hint: 'All content packs' },
               ...(localServicesEnabled ? [{ label: 'Local engine', count: agent ? 'Detected' : 'Offline', icon: agent ? ShieldCheck : WifiOff, hint: 'Connected agent status' }] : []),
             ].map(s => <Card key={s.label}><div className="flex items-start justify-between"><span className="text-xs font-semibold text-slate-400">{s.label}</span><s.icon className="text-cyan-400" size={19}/></div><div className="mt-4 text-3xl font-bold text-white">{s.count}</div><div className="mt-2 text-xs text-slate-500">{s.hint}</div></Card>)}
           </div>
@@ -388,9 +429,58 @@ function App() {
           <div className="grid gap-5 xl:grid-cols-2">{config.kits.length === 0 && <Card>No kits yet. Create a kit to get started.</Card>}{config.kits.map(kit => <Card key={kit.id} className="h-fit"><div className="flex items-start gap-3"><IconCircle><Boxes size={20}/></IconCircle><div className="min-w-0 flex-1"><h3 className="font-semibold text-white">{kit.name}</h3><p className="mt-1 text-xs text-slate-400">{kit.entries.length} entries · {kit.description || 'No description'}</p></div><button className="btn btn-ghost" onClick={() => setKitOpen(kitOpen === kit.id ? null : kit.id)}>{kitOpen === kit.id ? 'Close' : 'Edit'}</button><button className="rounded-lg p-2 text-slate-500 hover:text-rose-400" aria-label={`Delete ${kit.name}`} onClick={() => { if (window.confirm(`Delete ${kit.name}? Rules referencing it will need updating.`)) update({ kits: config.kits.filter(k => k.id !== kit.id) }); }}><Trash2 size={17}/></button></div><div className="mt-4 space-y-2">{kit.entries.map(entry => <div key={entry.id} className="rounded-lg bg-[#0a1524] px-3 py-2 text-xs text-slate-300">{displayAction(entry.action, config.kits)}</div>)}{!kit.entries.length && <p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-500">This kit is empty.</p>}</div>{kitOpen === kit.id && <div className="mt-5 space-y-5 border-t border-slate-700 pt-5"><div><Label>Kit name</Label><input className="field" maxLength={120} value={kit.name} onChange={e => updateKit(kit.id, { name: e.target.value })}/></div><div><Label>Description</Label><textarea className="field" rows={2} maxLength={500} value={kit.description} onChange={e => updateKit(kit.id, { description: e.target.value })}/></div>{kit.entries.map((entry, idx) => <div key={entry.id} className="rounded-xl border border-slate-700 bg-[#0a1524] p-4"><div className="mb-4 flex justify-between"><span className="text-xs font-semibold text-slate-300">Entry {idx + 1}</span><button aria-label="Remove kit entry" className="text-rose-400" onClick={() => updateKit(kit.id, { entries: kit.entries.filter(e => e.id !== entry.id) })}><Trash2 size={16}/></button></div><ActionEditor allowKit={false} kits={config.kits} value={entry.action} onChange={action => updateEntry(kit, entry.id, action)}/></div>)}<button className="btn btn-ghost w-full" onClick={() => updateKit(kit.id, { entries: [...kit.entries, { id: newId(), action: defaultAction('item') }] })}><Plus size={16}/> Add item or dinosaur</button></div>}</Card>)}</div>
         </>}
         {page === 'catalog' && <>
-          <SectionTitle title="ARK catalog" subtitle="Browse our imported content data. Blueprint paths are candidate references, not server-verified." extra={<span className="pill">{catalog.dinosaurs.length} creatures · {catalog.items.length} items</span>}/>
-          <div className="mb-5 flex flex-col gap-3 md:flex-row"><div className="flex gap-2"><button className={`btn ${kind === 'dinosaurs' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setKind('dinosaurs'); setCategory('all'); }}>Dinosaurs</button><button className={`btn ${kind === 'items' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setKind('items'); setCategory('all'); }}>Items</button></div><div className="relative flex-1"><Search className="absolute left-3 top-3 text-slate-500" size={17}/><input className="field !pl-10" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search catalog..."/></div><div className="relative md:w-56"><SlidersHorizontal size={17} className="absolute left-3 top-3 text-slate-500"/><select className="field !pl-10" value={category} onChange={e => setCategory(e.target.value)}><option value="all">All categories</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
-          <div className="mb-4 text-xs text-slate-500">Showing {filteredEntries.length} of {entries.length} entries</div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filteredEntries.map(entry => <div key={entry.id} className="panel p-4"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><div className="rounded-lg bg-cyan-500/10 p-2 text-cyan-300">{kind === 'dinosaurs' ? <Gamepad2 size={19}/> : <Layers3 size={19}/>}</div><div><h3 className="text-sm font-semibold text-white">{entry.name}</h3><p className="mt-1 text-xs text-slate-500">{entry.category}</p></div></div><span className="text-[10px] font-medium text-amber-400">Unverified</span></div><div className="mt-4 flex flex-wrap gap-1.5">{entry.tags.slice(0, 3).map(t => <span key={t} className="pill">{t}</span>)}</div><p className="mt-3 truncate font-mono text-[10px] text-slate-500" title={entry.blueprint}>{entry.blueprint || 'No candidate path'}</p></div>)}</div>{!filteredEntries.length && <Card>No entries match your search.</Card>}
+          <SectionTitle title="ARK catalog" subtitle="Browse creature, item, and resource references. Verified paths are backed by catalog sources. In-game delivery depends on your server and mod."
+            extra={<span className="pill">{catalog.dinosaurs.length} creatures · {catalog.items.length} items</span>}/>
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-[auto_1fr_1fr_auto]">
+            <div className="flex gap-2">
+              <button className={`btn ${kind === 'dinosaurs' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeCatalogKind('dinosaurs')}>Dinosaurs</button>
+              <button className={`btn ${kind === 'items' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeCatalogKind('items')}>Items</button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-3 text-slate-500" size={17}/>
+              <input className="field !pl-10" aria-label="Search catalog" value={query} onChange={event => { setQuery(event.target.value); setCatalogPage(0); }} placeholder="Search catalog..."/>
+            </div>
+            <select className="field" aria-label="Content pack" value={catalogPack} onChange={event => { setCatalogPack(event.target.value); setCatalogPage(0); }}>
+              <option value="all">All content packs</option>
+              {catalog.packs.map(pack => <option key={pack.id} value={pack.id}>{packLabel(pack)}</option>)}
+            </select>
+            <select className="field" aria-label="Category" value={category} onChange={event => { setCategory(event.target.value); setCatalogPage(0); }}>
+              <option value="all">All categories</option>
+              {categories.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+          <p className="mb-4 text-sm text-slate-400" role="status">
+            {filteredEntries.length > 0 ? `Showing ${catalogOffset + 1}–${catalogPageEnd} of ${filteredEntries.length}` : '0'} matching {kind === 'dinosaurs' ? 'creatures' : 'items'} · {catalog[kind].length} total catalog entries
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredEntries.slice(catalogOffset, catalogPageEnd).map(entry => {
+              const pack = packsById.get(entry.contentPack);
+              return <div key={entry.id} className="panel min-w-0 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="rounded-lg bg-cyan-500/10 p-2 text-cyan-300">{kind === 'dinosaurs' ? <Gamepad2 size={19}/> : <Layers3 size={19}/>}</div>
+                    <div>
+                      <h3 className="break-words text-sm font-semibold text-white">{entry.name}</h3>
+                      <p className="mt-1 text-xs text-slate-400">{entry.category}</p>
+                    </div>
+                  </div>
+                  <span className={`text-xs ${entry.verified ? 'text-emerald-300' : 'text-amber-300'}`}>{entry.verified ? 'Verified reference' : 'Unverified'}</span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {pack && <span className={`pill ${pack.premium ? '!text-amber-300' : ''}`}>{packLabel(pack)}</span>}
+                  {entry.tags.slice(0, 3).map(tag => <span key={tag} className="pill">{tag}</span>)}
+                </div>
+                <p className="mt-3 truncate font-mono text-[10px] text-slate-400" title={entry.blueprint ?? undefined}>{entry.blueprint || 'No candidate path'}</p>
+              </div>;
+            })}
+          </div>
+          {filteredEntries.length === 0 && <Card>No entries match your filters.</Card>}
+          {filteredEntries.length > catalogPageSize && (
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" className="btn btn-ghost" disabled={catalogPage === 0} onClick={() => setCatalogPage(catalogPage - 1)}>Previous page</button>
+              <button type="button" className="btn btn-ghost" disabled={catalogPageEnd === filteredEntries.length} onClick={() => setCatalogPage(catalogPage + 1)}>Next page</button>
+            </div>
+          )}
         </>}
         {localServicesEnabled && page === 'connections' && <>
           <SectionTitle title="Local agent connection" subtitle="Monitor recent gift and RCON activity, and sync approved configuration. No RCON commands are sent from this page." extra={<span className={`pill ${agent ? '!text-emerald-300' : '!text-amber-300'}`}>{agent ? 'Engine detected' : 'Not connected'}</span>}/>
