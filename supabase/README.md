@@ -22,6 +22,39 @@ where schemaname = 'public' and tablename = 'profiles';
 
 Expect one row with `rowsecurity` equal to `true`. Signed-in users can read their own profile and update their own display name. Supabase Auth creates the profile when a user is created. The migration also creates profiles for any users already in the development project. [Supabase user management](https://supabase.com/docs/guides/auth/managing-user-data) · [Row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 
+### If `profiles` already exists
+
+Error `42P07` means PostgreSQL found an existing relation named `public.profiles`. This can happen if you ran the migration successfully before. Open a **new query** in the **Northpath Development** project and run this read-only check. It reports schema information without returning any user records.
+
+```sql
+select
+    exists (
+        select 1 from pg_catalog.pg_tables
+        where schemaname = 'public' and tablename = 'profiles' and rowsecurity
+    ) as rls_enabled,
+    array(
+        select column_name::text || ' ' || udt_name::text
+        from information_schema.columns
+        where table_schema = 'public' and table_name = 'profiles'
+        order by ordinal_position
+    ) as profile_columns,
+    array(
+        select policyname::text
+        from pg_catalog.pg_policies
+        where schemaname = 'public' and tablename = 'profiles'
+        order by policyname
+    ) as profile_policies,
+    exists (
+        select 1 from pg_catalog.pg_trigger
+        where tgrelid = to_regclass('auth.users')
+          and tgname = 'create_website_profile_after_signup'
+          and tgfoid = to_regprocedure('public.create_website_profile()')
+          and tgenabled in ('O', 'A')
+    ) as northpath_signup_trigger;
+```
+
+If both status columns say `true`, the columns are `id uuid`, `display_name text`, and `created_at timestamptz`, and the two policies are `Read own profile` and `Update own profile`, continue with the test account in step 3. If the result differs, keep the existing table and share the output of the check so we can plan a migration for that schema.
+
 ## 3. Verify profiles before wiring up the website
 
 1. In **Authentication → Users**, use **Add user → Create new user** with an address you control. This is a dashboard test of profile creation.
