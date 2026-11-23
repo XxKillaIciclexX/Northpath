@@ -82,7 +82,9 @@ if (-not (Test-Path -LiteralPath '.env.local')) {
 notepad .env.local
 ```
 
-In Supabase, use **Connect** to copy the **Project URL** and the **publishable key** beginning with `sb_publishable_`. Put them in `.env.local`, save the file, then close Notepad. Keep your database password and server-side keys in private tooling. [React configuration](https://supabase.com/docs/guides/getting-started/quickstarts/reactjs) · [Project keys](https://supabase.com/docs/guides/getting-started/api-keys)
+In Supabase, use **Connect** to copy the **Project URL** into `VITE_SUPABASE_URL`. Then open **Settings → API Keys → Publishable and secret API keys** and copy the full **publishable key** beginning with `sb_publishable_` into `VITE_SUPABASE_PUBLISHABLE_KEY`. If you are using the legacy **anon** key, set `VITE_SUPABASE_ANON_KEY` instead. Save `.env.local` in the checkout root, then close Notepad. Keep the database password and server-side keys in private tooling. [React configuration](https://supabase.com/docs/guides/getting-started/quickstarts/reactjs) · [Project keys](https://supabase.com/docs/guides/getting-started/api-keys)
+
+If Vite reports a missing key, check that the file is named `.env.local` and that its key line has a value. If it reports an invalid key, copy the full public value again. PowerShell environment variables with the same names take precedence over `.env.local`. [Vite environment settings](https://vite.dev/guide/env-and-mode)
 
 In **Supabase → Authentication → URL Configuration**, set **Site URL** to `http://localhost:5175`, and add these two entries under **Redirect URLs**.
 
