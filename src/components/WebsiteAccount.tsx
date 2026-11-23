@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { X } from 'lucide-react';
-import { accountRedirect, completeAccountCallback, websiteAuth } from '../lib/website-auth';
+import { accountRedirect, completeAccountCallback, googleSignInEnabled, websiteAuth } from '../lib/website-auth';
 
 type View = 'sign-in' | 'sign-up' | 'request-reset' | 'new-password';
 type Feedback = { text: string; error?: boolean };
@@ -16,6 +16,7 @@ const titles: Record<View, string> = {
 const fieldStyle = 'mt-2 w-full rounded-xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none focus:border-cyan-300';
 const primaryStyle = 'w-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 px-5 py-3 font-bold text-slate-950 disabled:opacity-60';
 const linkStyle = 'text-sm font-semibold text-cyan-200 underline-offset-4 hover:underline';
+const googleFailure: Feedback = { text: 'Google sign-in could not be completed. Try again or sign in with email.', error: true };
 
 export default function WebsiteAccount() {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -36,6 +37,8 @@ export default function WebsiteAccount() {
       if (!active) return;
       if (result === 'recovery') setView('new-password');
       if (result === 'confirmed') setFeedback({ text: 'Your email is confirmed.' });
+      if (result === 'google-signed-in') setFeedback({ text: 'You’re signed in with Google.' });
+      if (result === 'google-failed') setFeedback(googleFailure);
       if (result === 'invalid') {
         setFeedback({ text: 'This link could not be used. Open it in the browser where you requested it, or request a new link.', error: true });
       }
@@ -98,6 +101,22 @@ export default function WebsiteAccount() {
     }
   }
 
+  async function signInWithGoogle() {
+    setBusy(true);
+    setFeedback(undefined);
+    try {
+      const { error } = await auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: accountRedirect('google') },
+      });
+      if (error) throw error;
+    } catch {
+      setFeedback(googleFailure);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function signOut() {
     setBusy(true);
     try {
@@ -137,6 +156,12 @@ export default function WebsiteAccount() {
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
+              {googleSignInEnabled && (view === 'sign-in' || view === 'sign-up') && (
+                <button type="button" disabled={busy} onClick={signInWithGoogle} className="flex w-full items-center justify-center gap-3 rounded-full border border-[#dadce0] bg-white px-5 py-3 text-sm font-medium text-[#1f1f1f] hover:bg-slate-100 disabled:opacity-60">
+                  <img src="/google-g.png" alt="" width="18" height="18" />
+                  Continue with Google
+                </button>
+              )}
               {view !== 'new-password' && <label className="block text-sm font-semibold">Email address
                 <input required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} className={fieldStyle} />
               </label>}
