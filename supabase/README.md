@@ -126,6 +126,12 @@ Set up custom SMTP to send confirmations and password resets to external testers
 
    Keep the app password in Supabase. If **App Passwords** is unavailable for the mailbox, check with your Workspace admin or use the Resend option below. [Google Workspace SMTP](https://knowledge.workspace.google.com/admin/gmail/send-email-from-a-printer-scanner-or-app) · [Supabase SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp#how-to-set-up-a-custom-smtp-server)
 
+#### Send from `noreply@northpath.ai`
+
+1. Open Gmail for the Workspace mailbox that owns the alias. Go to **Settings → See all settings → Accounts** (or **Accounts and Import**). Under **Send mail as**, add `noreply@northpath.ai` and complete verification if prompted. Compose a test email to an inbox you control and choose the alias in the **From** field. [Workspace aliases](https://knowledge.workspace.google.com/admin/users/add-or-delete-an-alternate-email-address-email-alias) · [Gmail Send mail as](https://support.google.com/mail/answer/22370)
+2. In the Supabase project used by `northpath.ai`, open **Authentication → Emails → SMTP Settings**. Set **Sender email** to `noreply@northpath.ai` and **Sender name** to `Northpath`. Use the primary Workspace mailbox and its app password for SMTP authentication. [Supabase SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp)
+3. Request a fresh magic link to an inbox you control. In Gmail, use **More → Show original** to check that `From` contains `noreply@northpath.ai`. Check `Sender` and `Return-Path` for the primary mailbox if those headers are present. Google notes that some recipients may see the primary account when using an alias. If Google rewrites the From address or exposes the primary mailbox, use a dedicated Workspace sending mailbox or a verified transactional sender at `northpath.ai`. [Inspect message headers](https://support.google.com/mail/answer/29436) · [Gmail sender display](https://support.google.com/mail/answer/22370)
+
 ### Resend SMTP
 
 1. In **Resend → Domains**, add a sending domain you own, such as `notify.northpath.ai`. Add the DNS records Resend provides and wait for the domain to show **Verified**. Create an API key with sending access for that domain. [Resend domain setup](https://resend.com/docs/dashboard/domains/introduction) · [Resend SMTP settings](https://resend.com/docs/send-with-smtp)
