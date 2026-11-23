@@ -71,8 +71,33 @@ where not exists (
 
 ## 4. Connect and test website authentication
 
-Once the website account page is wired to the new project, use its local URL as the development **Site URL** in **Authentication → URL Configuration**, then add the exact confirmation and recovery URLs used by the app to **Redirect URLs**. Repeat that configuration for the staging site. Use the **Project URL** and **publishable key** in the website build settings. Keep the database password and secret or service-role keys in private tooling. [React configuration](https://supabase.com/docs/guides/getting-started/quickstarts/reactjs) · [Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
+From the `Northpath` checkout on Windows, run the following in PowerShell.
 
-Test email confirmation, sign-in, sign-out, and password recovery in staging. Supabase's default email service limits who can receive auth mail. Configure custom SMTP before invitations or confirmation emails go to people outside the Supabase organization. Add Google as a second provider after the email flow works. [Auth email delivery](https://supabase.com/docs/guides/auth/auth-smtp) · [Google provider](https://supabase.com/docs/guides/auth/social-login/auth-google)
+```powershell
+git switch development
+git pull --ff-only origin development
+if (-not (Test-Path -LiteralPath '.env.local')) {
+    Copy-Item -LiteralPath '.env.example' -Destination '.env.local'
+}
+notepad .env.local
+```
+
+In Supabase, use **Connect** to copy the **Project URL** and the **publishable key** beginning with `sb_publishable_`. Put them in `.env.local`, save the file, then close Notepad. Keep your database password and server-side keys in private tooling. [React configuration](https://supabase.com/docs/guides/getting-started/quickstarts/reactjs) · [Project keys](https://supabase.com/docs/guides/getting-started/api-keys)
+
+In **Supabase → Authentication → URL Configuration**, set **Site URL** to `http://localhost:5175`, and add these two entries under **Redirect URLs**.
+
+- `http://localhost:5175/?account=confirm`
+- `http://localhost:5175/?account=recovery`
+
+In the email provider settings, enable email/password, user sign-ups, and email confirmation for testing. Start the website with a current Node.js LTS release. [Email/password settings](https://supabase.com/docs/guides/auth/passwords) · [Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
+
+```powershell
+npm ci
+npm run dev -- --host localhost --port 5175 --strictPort
+```
+
+Open `http://localhost:5175` and click **Sign in** in the header. Sign in with the confirmed test user from step 3, check that **Your account** shows its email, then sign out. Test **Create an account** and **Forgot password** using an address that can receive mail from your project. Open the email links in the same browser profile where you requested them. After changing the password, sign out and sign in with the new password.
+
+Supabase's default email service limits who can receive auth mail. Configure custom SMTP before sending invitations or confirmation emails to people outside the Supabase organization. For staging, set the same two build variables on the staging deploy and add both callback URLs for its exact origin in Supabase. Add Google as a second provider after the email flow works. [Auth email delivery](https://supabase.com/docs/guides/auth/auth-smtp) · [Google provider](https://supabase.com/docs/guides/auth/social-login/auth-google)
 
 If you want Bolt to manage the project connection directly, configure it for **Northpath Development** using Bolt's Supabase integration. The Northpath website can also connect directly using its own build settings. [Connect Supabase in Bolt](https://support.bolt.new/integrations/supabase#connect-a-supabase-database)

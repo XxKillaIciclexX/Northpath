@@ -19,7 +19,7 @@
 
 - The website account rebuild targets a fresh Supabase project. Use the project URL for the new development database when configuring the website.
 - The `development` branch contains the refreshed website and is the branch for account work. Verify the active GitHub branch in Bolt before generating changes.
-- The website in `development` has no active account integration. The initial schema and setup steps are in `supabase/`.
+- The website in `development` supports email authentication when configured with the development project's URL and publishable key. The schema and setup steps are in `supabase/`.
 - Start with email sign-in, account confirmation, password recovery, and sign-out. Add Google sign-in after the email flow works on the test URL.
 - Companion's local bridge and ARK engine are separate from website authentication. Scope the first account integration to the website in `src/`.
 

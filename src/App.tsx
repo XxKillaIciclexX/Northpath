@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import WebsiteAccount from './components/WebsiteAccount';
 import {
   ArrowRight, ArrowUpRight, Blocks, Check, ChevronRight, Code2, Compass,
   Database, Gamepad2, Layers3, Mail, Menu, Monitor, Radio, Server,
@@ -81,8 +82,11 @@ export default function App() {
           <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
             {navigation.map((item) => <a key={item.href} href={item.href} className="text-sm font-semibold text-slate-300 transition-colors hover:text-white">{item.label}</a>)}
           </nav>
-          <a className="hidden items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-100 md:inline-flex" href="mailto:hello@northpath.ai?subject=Let's%20talk%20Northpath">Let's talk <ArrowUpRight size={16}/></a>
-          <button type="button" className="rounded-lg border border-white/15 p-2 text-white md:hidden" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={22}/> : <Menu size={22}/>}</button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <a className="hidden items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-100 md:inline-flex" href="mailto:hello@northpath.ai?subject=Let's%20talk%20Northpath">Let's talk <ArrowUpRight size={16}/></a>
+            <WebsiteAccount />
+            <button type="button" className="rounded-lg border border-white/15 p-2 text-white md:hidden" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={22}/> : <Menu size={22}/>}</button>
+          </div>
         </div>
         {menuOpen && <nav aria-label="Mobile navigation" className="border-t border-white/10 bg-[#0d1b2b] px-5 py-4 md:hidden">{navigation.map(item => <a key={item.href} href={item.href} onClick={closeMenu} className="block rounded-lg px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10">{item.label}</a>)}<a href="mailto:hello@northpath.ai" onClick={closeMenu} className="mt-3 block rounded-lg bg-emerald-400 px-4 py-3 text-center text-sm font-bold text-slate-950">Let's talk</a></nav>}
       </header>
