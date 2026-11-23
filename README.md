@@ -6,17 +6,17 @@ For the Northpath website accounts, see the [Supabase database setup guide](supa
 
 The hosted dashboard lets streamers edit Gift Rules and Kits, browse the reviewed ARK catalog, and simulate gifts in the browser. Drafts are saved in that browser. **Settings → Export JSON** downloads a draft that the Windows dashboard can open with **Settings → Import JSON**. Use the Windows app for engine preview, server configuration, and in-game delivery.
 
-From the Northpath checkout on `development`, build and serve the hosted preview:
+From the Northpath checkout on `development`, build and serve the website and Companion together.
 
 ```powershell
 git switch development
 git pull --ff-only origin development
-npm --prefix companion ci
-npm --prefix companion run build:hosted
-npm --prefix companion run preview:hosted -- --port 4173 --strictPort
+npm ci
+npm run build
+npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 ```
 
-Open `http://127.0.0.1:4173` and check the following.
+Open `http://127.0.0.1:4173/companion`. From the homepage, **Open Companion preview** in the Ice Pack Companion section takes you to the same dashboard.
 
 1. Under **ARK catalog**, expect **537 creatures · 1954 items** in the total. **Base Game + Free Expansions** is selected by default and shows 381 creatures or 1,414 items and resources. **Next page** advances the results.
 2. Search for **Maeguana** under Dinosaurs and **Egg Incubator** under Items. Select **Lost Colony · Paid** and find **Desmodus** under Dinosaurs. Its card should show the paid pack label and **Verified reference**.
@@ -24,9 +24,7 @@ Open `http://127.0.0.1:4173` and check the following.
 
 The hosted catalog snapshot is the Kit Editor baseline merged with Batches 04, 05, and 06 using the existing `stage-free-catalog.mjs` command with `--fill-blueprints --include-paid`. The dashboard uses the same entry IDs for export. [Reviewed catalog source](https://github.com/XxKillaIciclexX/ice-pack-ark/tree/e2830fc585b8c38fc3ac02f205b690e5aacb8541/icepack-catalog-manager)
 
-Use a separate Bolt project for hosted staging. The Companion app lives in `companion/` on `development`. Prepare that folder as the staging project's app and use its hosted build. Publish to the project's `bolt.host` address and repeat the preview checks there over HTTPS. [Bolt publishing](https://support.bolt.new/bolt-cloud/hosting/publish)
-
-After staging passes, check **Domains & Hosting** in the Companion project for `companion.northpath.ai`. Bolt limits which subdomains can be set as primary domains. Confirm the project can serve at that address before adding the DNS records Bolt provides. [Bolt custom domains](https://support.bolt.new/bolt-cloud/domains/connect#subdomains-as-primary-domains)
+In the existing Northpath Bolt project, select `development` and open `/companion/` in Preview. When ready, publish the root project. Its `dist` contains both the homepage and `companion/index.html`. Verify `https://northpath.ai/companion` by opening it directly and reloading it over HTTPS. [Bolt publishing](https://support.bolt.new/bolt-cloud/hosting/publish)
 
 The streamer pilot adds signed-in drafts and a Windows installer. The hosted preview uses a static build. It omits the local pairing screen and engine controls and blocks browser connections from the dashboard to the engine.
 

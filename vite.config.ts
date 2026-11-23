@@ -1,6 +1,17 @@
 import { Buffer } from 'node:buffer';
-import { defineConfig, loadEnv } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, loadEnv, type Connect } from 'vite';
 import react from '@vitejs/plugin-react';
+import { companionIndex, hostedCompanion } from './companion/vite-hosted.ts';
+
+const serveCompanion: Connect.NextHandleFunction = (request, response, next) => {
+  const location = request.url?.replace(/^\/companion(?=\?|$)/, '/companion/');
+  if (location && location !== request.url) {
+    response.writeHead(307, { Location: location }).end();
+    return;
+  }
+  next();
+};
 
 function isPublicSupabaseKey(key: string) {
   if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(key)) return true;
@@ -39,7 +50,16 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [react(), hostedCompanion(), {
+      name: 'companion-route',
+      configureServer: server => { server.middlewares.use(serveCompanion); },
+      configurePreviewServer: server => { server.middlewares.use(serveCompanion); },
+    }],
     optimizeDeps: { exclude: ['lucide-react'] },
+    build: {
+      rolldownOptions: {
+        input: [fileURLToPath(new URL('./index.html', import.meta.url)), companionIndex],
+      },
+    },
   };
 });

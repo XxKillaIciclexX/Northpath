@@ -14,7 +14,8 @@ import rawCatalog from './catalog.json';
 import release from './icepack-release.json';
 
 const releaseLabel = `v${release.version.replace(/-alpha$/, ' Alpha')}`;
-const localServicesEnabled = import.meta.env.MODE !== 'hosted' &&
+const onNorthpathSite = /^\/companion(?:\/|$)/.test(window.location.pathname);
+const localServicesEnabled = import.meta.env.VITE_COMPANION_HOSTED !== 'true' &&
   ['127.0.0.1', 'localhost', '[::1]'].includes(window.location.hostname);
 
 type CatalogKind = 'dinosaurs' | 'items';
@@ -555,7 +556,11 @@ function App() {
           <div className="grid gap-6 xl:grid-cols-2"><Card><h2 className="mb-5 font-semibold text-white">Workspace preferences</h2><div className="space-y-4"><div><Label>Server nickname</Label><input className="field" maxLength={100} value={config.serverName} onChange={e => update({ serverName: e.target.value })}/></div>{localServicesEnabled && <div><Label>Player targeting</Label><p className="text-sm text-slate-300">The authoritative Specimen Implant ID is now managed under <strong>Connections → Engine Player Target</strong>. This browser-only workspace field is not used to target live ARK rewards.</p></div>}<div><Label>Preferred gift region</Label><select className="field" value={config.preferredRegion} onChange={e => update({ preferredRegion: e.target.value })}><option value="US">United States</option><option value="GB">United Kingdom</option><option value="CA">Canada</option><option value="Other">Other / undecided</option></select></div></div></Card><Card><h2 className="mb-2 font-semibold text-white">Configuration backup</h2><p className="mb-5 text-sm text-slate-400">Rules and kits live in this browser's local storage. Export JSON before clearing browser data or switching devices.</p><div className="flex flex-wrap gap-3"><button className="btn btn-primary" onClick={exportConfig}><Download size={16}/> Export JSON</button><button className="btn btn-ghost" onClick={() => fileRef.current?.click()}><Upload size={16}/> Import JSON</button><input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={importConfig}/></div><div className="mt-6 border-t border-slate-700 pt-5"><h3 className="mb-2 text-sm font-medium text-slate-200">Restore starter examples</h3><p className="mb-3 text-xs text-slate-500">Resets local kits and rules. Export first if you want to keep your work.</p><button className="btn btn-danger" onClick={() => { if (window.confirm('Replace all local settings with starter examples?')) { setSyncPreview(null); setCompareResult(null); setConfig(initial); setPreviews([]); setNotice('Starter configuration restored.'); } }}><RotateCcw size={16}/> Reset local data</button></div></Card></div>
         </>}
       </main>
-      <footer className="border-t border-[#203249] px-5 py-5 text-center text-xs text-slate-500 md:px-8">ICE PACK COMPANION <span className="mx-2 text-slate-700">•</span> A NORTHPATH PRODUCT <span className="mx-2 text-slate-700">•</span> {localServicesEnabled ? 'OFFLINE PROTOTYPE' : 'HOSTED PREVIEW'}</footer>
+      <footer className="border-t border-[#203249] px-5 py-5 text-center text-xs text-slate-400 md:px-8">
+        ICE PACK COMPANION <span className="mx-2 text-slate-700">•</span>
+        {onNorthpathSite ? <a className="text-cyan-300 hover:underline" href="/">Northpath home</a> : 'A NORTHPATH PRODUCT'}
+        <span className="mx-2 text-slate-700">•</span> {localServicesEnabled ? 'OFFLINE PROTOTYPE' : 'HOSTED PREVIEW'}
+      </footer>
     </div>
   </div>;
 }
