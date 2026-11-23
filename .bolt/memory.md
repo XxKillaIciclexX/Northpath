@@ -2,9 +2,9 @@
 
 ## Product intent & audience
 
-- **Northpath AI** — marketing/services site for AI automation services.
-- Primary conversion paths: contact form (also drives sign-up), email newsletter subscription.
-- Audience: businesses seeking AI automation services.
+- The public website presents Northpath's services and Ice Pack Companion.
+- The website currently uses email links for inquiries.
+- The audience includes businesses seeking automation and streamers interested in the Companion.
 
 ## Brand personality & voice
 
@@ -12,23 +12,18 @@
 
 ## Visual design & UX direction
 
-- Stack: Vite + React, JSX with Tailwind CSS classes, Lucide React icons.
+- Stack is Vite, React with TypeScript, Tailwind CSS, and Lucide icons.
 - No additional UI/icon theme packages unless explicitly requested.
 
 ## Decisions, constraints & rationale
 
-- Backend: Supabase (auth + Postgres).
-- Auth flows present: login, contact-form-driven sign-up, password reset.
-- Existing migration includes `email_subscribers` table.
-- Current problem: contact form creates auth accounts but stores inquiry details (name, company, message) only in `auth.users.user_metadata` — unreliable for business data; needs structured tables.
-- Planned schema (not yet applied — Supabase connection was unavailable):
-  - `profiles` — user name, company, contact info linked to auth account.
-  - `contact_inquiries` — structured form submissions (name, email, company, message).
-  - `email_subscribers` — already exists; needs RLS policies and grants aligned to skill requirements (4 per-verb policies, explicit grants).
-- RLS design: signed-in users see only their own profile and inquiries; contact form can submit inquiries before login.
+- Use Bolt Database and its built-in authentication for the new website accounts. The old external Supabase project was removed.
+- The `development` branch contains the refreshed website and is the branch for account work. Verify the active GitHub branch in Bolt before generating changes.
+- The website in `development` has no active account integration. Check the project's database panel in Bolt for the provisioning status.
+- Start with email sign-in, account confirmation, password recovery, and sign-out. Add Google sign-in after the email flow works on the test URL.
+- Companion's local bridge and ARK engine are separate from website authentication. Scope the first account integration to the website in `src/`.
 
 ## Open questions & assumptions
 
-- Supabase connection must be restored from the Bolt Supabase panel before schema can be applied.
-- Assumption: contact form should still create auth accounts on submit alongside storing structured inquiry data.
-- Assumption: profiles table should sync from `user_metadata` on first login or be populated at inquiry time.
+- Confirm the Bolt Database opens and the test account appears in User Management before building additional account features.
+- Check the deployed test URL and its authentication redirects before publishing the updated site to `northpath.ai`.
