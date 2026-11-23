@@ -24,7 +24,9 @@ Open `http://127.0.0.1:4173` and check the following.
 
 The hosted catalog snapshot is the Kit Editor baseline merged with Batches 04, 05, and 06 using the existing `stage-free-catalog.mjs` command with `--fill-blueprints --include-paid`. The dashboard uses the same entry IDs for export. [Reviewed catalog source](https://github.com/XxKillaIciclexX/ice-pack-ark/tree/e2830fc585b8c38fc3ac02f205b690e5aacb8541/icepack-catalog-manager)
 
-To stage it on a separate Netlify site, use branch `development`, base directory `companion`, build command `npm run build:hosted`, and publish directory `dist-hosted`. Use Node.js 22.12 or later on a supported release line. After the preview check passes over HTTPS, attach `companion.northpath.ai` to that site and use the DNS record Netlify provides. [Netlify monorepos](https://docs.netlify.com/build/configure-builds/monorepos/) · [Netlify custom domains](https://docs.netlify.com/manage/domains/configure-domains/bring-a-domain-to-netlify/)
+Use a separate Bolt project for hosted staging. The Companion app lives in `companion/` on `development`. Prepare that folder as the staging project's app and use its hosted build. Publish to the project's `bolt.host` address and repeat the preview checks there over HTTPS. [Bolt publishing](https://support.bolt.new/bolt-cloud/hosting/publish)
+
+After staging passes, check **Domains & Hosting** in the Companion project for `companion.northpath.ai`. Bolt limits which subdomains can be set as primary domains. Confirm the project can serve at that address before adding the DNS records Bolt provides. [Bolt custom domains](https://support.bolt.new/bolt-cloud/domains/connect#subdomains-as-primary-domains)
 
 The streamer pilot adds signed-in drafts and a Windows installer. The hosted preview uses a static build. It omits the local pairing screen and engine controls and blocks browser connections from the dashboard to the engine.
 
