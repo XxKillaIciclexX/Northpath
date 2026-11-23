@@ -1,5 +1,7 @@
 # Ice Pack Companion
 
+For the Northpath website accounts, see the [Supabase database setup guide](supabase/README.md).
+
 ## v5.6 Alpha — Operations Center refresh
 
 The Windows Operations Center uses the Companion dashboard's rounded cards, status pills, and emerald-to-cyan accents. Buttons fit their labels and wrap as the window narrows. **Local services** brings managed start, stop, dashboard, diagnostics, and logs together.

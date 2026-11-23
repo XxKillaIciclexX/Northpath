@@ -17,13 +17,13 @@
 
 ## Decisions, constraints & rationale
 
-- Use Bolt Database and its built-in authentication for the new website accounts. The old external Supabase project was removed.
+- The website account rebuild targets a fresh Supabase project. Use the project URL for the new development database when configuring the website.
 - The `development` branch contains the refreshed website and is the branch for account work. Verify the active GitHub branch in Bolt before generating changes.
-- The website in `development` has no active account integration. Check the project's database panel in Bolt for the provisioning status.
+- The website in `development` has no active account integration. The initial schema and setup steps are in `supabase/`.
 - Start with email sign-in, account confirmation, password recovery, and sign-out. Add Google sign-in after the email flow works on the test URL.
 - Companion's local bridge and ARK engine are separate from website authentication. Scope the first account integration to the website in `src/`.
 
 ## Open questions & assumptions
 
-- Confirm the Bolt Database opens and the test account appears in User Management before building additional account features.
+- Verify that a Supabase Auth test account gets a matching profile before testing the website sign-in flow.
 - Check the deployed test URL and its authentication redirects before publishing the updated site to `northpath.ai`.
