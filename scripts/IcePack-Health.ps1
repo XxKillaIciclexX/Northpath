@@ -49,6 +49,12 @@ function Get-IcePackHealth {
     $legacyArmed = ($engineHealthy -and $engine.Data.armed -eq $true)
     $customMode = if ($engineHealthy) { [string]$engine.Data.customRules.mode } else { 'unknown' }
     $experimentalMode = if ($engineHealthy) { [string]$engine.Data.giftRcon.mode } else { 'unknown' }
+    $giftSource = $null
+    $giftSourceStatus = $null
+    if ($engineHealthy) {
+        $giftSource = if ($engine.Data.PSObject.Properties['giftSource']) { [string]$engine.Data.giftSource } else { 'streamerbot' }
+        $giftSourceStatus = if ($engine.Data.PSObject.Properties['giftSourceStatus']) { [string]$engine.Data.giftSourceStatus } else { 'ready' }
+    }
     # Preview must not be mistaken for Live, and unknown mode values must not be treated as safe.
     $knownModes = @('off','preview','live')
     $modesKnown = ($engineHealthy -and $customMode -cin $knownModes -and $experimentalMode -cin $knownModes)
@@ -72,6 +78,8 @@ function Get-IcePackHealth {
         CustomRulesMode = $customMode
         ExperimentalMode = $experimentalMode
         LegacyArmed = [bool]$legacyArmed
+        GiftSource = $giftSource
+        GiftSourceStatus = $giftSourceStatus
         PreviewSafe = [bool]$previewSafe
         LiveOrArmed = [bool]$liveActive
         ReadyForPreviewSetup = [bool]($servicesReady -and $safeForSetup)

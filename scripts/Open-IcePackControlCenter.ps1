@@ -262,6 +262,13 @@ $liveButton = New-ActionButton 'Enable Live Custom Rules' 'Primary'
 $stopRulesButton = New-ActionButton 'Stop Custom Rules' 'Danger'
 Add-ActionRow $readiness @($liveButton, $stopRulesButton)
 
+$giftInputCard = New-Card $content 'Gift source'
+$giftInputLabel = New-Text 'Checking gift source...' 10 $false $theme.Muted
+Add-Row $giftInputCard $giftInputLabel
+$directGiftButton = New-ActionButton 'Use direct TikFinity'
+$streamerBotGiftButton = New-ActionButton 'Use Streamer.bot'
+Add-ActionRow $giftInputCard @($directGiftButton, $streamerBotGiftButton)
+
 $pairing = New-Card $content 'Bridge pairing'
 Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
 $copyTokenButton = New-ActionButton 'Copy bridge pairing token'
@@ -308,6 +315,19 @@ Add-Row $layout $footer
 $form.Controls.Add($layout)
 $form.ResumeLayout($true)
 
+function Update-IcePackGiftSourceLabel($Health) {
+    try { $selected = Get-IcePackGiftSource }
+    catch { $giftInputLabel.Text = $_.Exception.Message; return }
+    $name = if ($selected -eq 'tikfinity') { 'TikFinity Desktop' } else { 'Streamer.bot' }
+    if (-not $Health.EngineHealthy) { $giftInputLabel.Text = "Next start: $name"; return }
+    $message = if ($Health.GiftSource -eq 'tikfinity') {
+        if ($Health.GiftSourceStatus -eq 'connected') { 'TikFinity Desktop connected' }
+        else { 'Waiting for TikFinity Desktop' }
+    } else { 'Streamer.bot ready' }
+    if ($selected -ne $Health.GiftSource) { $message += " | Restart Companion for $name" }
+    $giftInputLabel.Text = $message
+}
+
 function Refresh-IcePackStatus {
     # Health probes read only three fixed localhost URLs; no tokens or IDs are displayed.
     $health = Get-IcePackHealth
@@ -335,6 +355,7 @@ function Refresh-IcePackStatus {
     $safeLabel.ForeColor = if ($health.RewardLanesOff -or $health.PreviewSafe) { $theme.Success } elseif ($health.LiveOrArmed) { $theme.Error } else { $theme.Warning }
     $liveButton.Enabled = $health.BridgeHealthy -and $health.TargetLoaded -and -not $health.LiveOrArmed
     $stopRulesButton.Enabled = $health.BridgeHealthy -and $health.CustomRulesMode -in @('preview', 'live')
+    Update-IcePackGiftSourceLabel $health
     $statusLabel.Text = "$open of 3 services responding  /  $(Get-Date -Format 'h:mm:ss tt')"
     # Status represents endpoint health only, never live gift readiness or RCON connectivity.
 }
@@ -354,6 +375,16 @@ $startButton.Add_Click({
 })
 $openButton.Add_Click({ Start-Process 'http://127.0.0.1:5173/' })
 $checkButton.Add_Click({ Refresh-IcePackStatus })
+function Select-IcePackGiftSource([string]$Source) {
+    try {
+        Set-IcePackGiftSource $Source
+        Refresh-IcePackStatus
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Gift source unavailable', 'OK', 'Warning')
+    }
+}
+$directGiftButton.Add_Click({ Select-IcePackGiftSource 'tikfinity' })
+$streamerBotGiftButton.Add_Click({ Select-IcePackGiftSource 'streamerbot' })
 $diagButton.Add_Click({ Open-PowerShellScript $diagnosticScript })
 $readinessButton.Add_Click({ Open-PowerShellScript $readinessScript })
 $folderButton.Add_Click({ Start-Process 'explorer.exe' -ArgumentList ('"' + $settings.repoPath + '"') })

@@ -6,6 +6,28 @@ function Get-IcePackConfigPath {
     return (Join-Path $env:LOCALAPPDATA 'IcePackCompanion\settings.json')
 }
 
+function Get-IcePackGiftSourcePath {
+    return (Join-Path (Split-Path -Parent (Get-IcePackConfigPath)) 'managed\gift-source.txt')
+}
+
+function Get-IcePackGiftSource {
+    $file = Get-IcePackGiftSourcePath
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return 'streamerbot' }
+    $source = [IO.File]::ReadAllText($file).Trim()
+    if ($source -cnotin @('streamerbot', 'tikfinity')) { throw 'Invalid saved gift source. Select one in Operations Center.' }
+    return $source
+}
+
+function Set-IcePackGiftSource([ValidateSet('streamerbot', 'tikfinity')][string]$Source) {
+    $file = Get-IcePackGiftSourcePath
+    New-Item -ItemType Directory -Path (Split-Path -Parent $file) -Force | Out-Null
+    $temp = "$file.$([Guid]::NewGuid().ToString('N')).tmp"
+    try {
+        [IO.File]::WriteAllText($temp, $Source)
+        Move-Item -LiteralPath $temp -Destination $file -Force
+    } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force } }
+}
+
 function Get-IcePackSettings {
     $repo = Split-Path -Parent $PSScriptRoot
     $defaultEngine = 'C:\IcePackARK\ice-pack-ark'

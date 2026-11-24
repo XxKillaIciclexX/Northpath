@@ -49,6 +49,18 @@ foreach($name in $names){
             $token=$null
             if($null -eq $proc) { Remove-Item -LiteralPath (Get-IcePackBridgeTokenPath) -Force -ErrorAction SilentlyContinue }
         }
+    } elseif ($name -eq 'engine') {
+        $giftSource = Get-IcePackGiftSource
+        if ($giftSource -eq 'tikfinity' -and -not [IO.File]::ReadAllText($def.Script).Contains('process.env.ICEPACK_GIFT_SOURCE')) {
+            throw 'Install the direct TikFinity engine update before starting with this gift source.'
+        }
+        $oldGiftSource = [Environment]::GetEnvironmentVariable('ICEPACK_GIFT_SOURCE','Process')
+        try {
+            [Environment]::SetEnvironmentVariable('ICEPACK_GIFT_SOURCE',$giftSource,'Process')
+            $proc=Start-Process -FilePath $def.Program -ArgumentList $launchArgs -WorkingDirectory $def.WorkDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
+        } finally {
+            [Environment]::SetEnvironmentVariable('ICEPACK_GIFT_SOURCE',$oldGiftSource,'Process')
+        }
     } else {
         $proc=Start-Process -FilePath $def.Program -ArgumentList $launchArgs -WorkingDirectory $def.WorkDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
     }

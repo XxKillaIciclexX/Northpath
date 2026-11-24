@@ -26,6 +26,11 @@ const updates = [
     original: ['847d9f1014035f503211f7262fdfc9b74da25f1ded15746a27ae02d158226fe3', '1a2c0d9ee21742692c5eb3512ad44f83f3d250f1f2e686c36ed6749d7d95d63d', 'e28241100f40d76a91493ca52ec66fa03e8970b405621902346167da59b1e44b', '36c54c8b2c38e36beabdf8043b8c26e5e359e0c4a52ad1f031a11df6fad32b0b', '5bc4133b4c71a413db39acc9c129cf518e225bbbac593ec02f677ba9fcb19cf8'],
   },
 ];
+const giftInputUpdate = {
+  path: 'server.mjs',
+  current: '83c633e4257304c7c25ed6d9b70adfb4eaea69c612a610d060f4c738446cdb33',
+  original: ['4d48d81bb3d984513a1daae69aa266e580659ccf350259f8edda70165e9cb985'],
+};
 
 const backupPrefix = '.icepack-engine-backup-';
 
@@ -78,7 +83,7 @@ async function readVersion(root, spec, currentOnly = false) {
   return { path, bytes, mode, hash };
 }
 
-async function planUpdate(engine, source, restoring) {
+async function planUpdate(engine, source, restoring, selected) {
   await regularFile(join(engine, 'server.mjs'));
   if (!(await lstat(join(engine, 'public'))).isDirectory()) {
     throw new Error('Expected a regular public directory in the target engine.');
@@ -87,7 +92,7 @@ async function planUpdate(engine, source, restoring) {
     throw new Error('Expected a regular public directory in the update source.');
   }
   const plan = [];
-  for (const spec of updates) {
+  for (const spec of selected) {
     const before = await readVersion(engine, spec);
     const after = await readVersion(source, spec, !restoring);
     plan.push({ before, after });
@@ -98,7 +103,7 @@ async function planUpdate(engine, source, restoring) {
     timeout: 5000,
   });
   if (syntax.error) throw syntax.error;
-  if (syntax.status !== 0) throw new Error('The proposed engine rules module failed its syntax check.');
+  if (syntax.status !== 0) throw new Error(`The proposed ${selected[0].path} failed its syntax check.`);
   return plan;
 }
 
@@ -168,13 +173,14 @@ async function main() {
   const { values } = parseArgs({
     options: {
       engine: { type: 'string' },
+      'gift-input': { type: 'boolean' },
       apply: { type: 'boolean' },
       restore: { type: 'string' },
       help: { type: 'boolean' },
     },
   });
   if (values.help) {
-    console.log('Update-IcePackEngine.mjs [--engine <engine-folder>] [--restore <backup-folder>] [--apply]');
+    console.log('Update-IcePackEngine.mjs [--engine <engine-folder>] [--gift-input] [--restore <backup-folder>] [--apply]');
     return;
   }
   const engine = await enginePath(values.engine);
@@ -189,7 +195,7 @@ async function main() {
   }
   const reservation = values.apply ? await reserveEnginePort() : null;
   try {
-    const plan = await planUpdate(engine, source, values.restore !== undefined);
+    const plan = await planUpdate(engine, source, values.restore !== undefined, values['gift-input'] ? [giftInputUpdate] : updates);
     console.log(`Target engine: ${engine}`);
     console.log(`${values.restore === undefined ? 'Update' : 'Restore'} source: ${source}`);
     for (const { before, after } of plan) {

@@ -52,3 +52,15 @@ test('a locally modified file or untrusted backup is refused before writes', asy
   assert.equal(await readFile(target, 'utf8'), '<p>Local customization</p>');
   assert.deepEqual((await readdir(engine)).sort(), ['icepack-custom-rules.mjs', 'public', 'server.mjs']);
 });
+
+test('the gift input update checks only the engine entry point', async t => {
+  const { engine, run } = await fixture(t, 'engine-overlay');
+  const entry = join(engine, 'server.mjs');
+  const current = await readFile(join(source, 'server.mjs'), 'utf8');
+  await writeFile(entry, current.replace(/\n/g, '\r\n'));
+  await writeFile(join(engine, 'public', 'index.html'), '<p>Local dashboard</p>');
+  const { stdout } = await run('--gift-input');
+  assert.deepEqual(stdout.match(/^CURRENT .*$/gm), [`CURRENT ${entry}`]);
+  await writeFile(entry, `${current}\n// Local customization\n`);
+  await assert.rejects(run('--gift-input'), { stderr: /Unrecognized version/ });
+});

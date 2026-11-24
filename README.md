@@ -201,6 +201,19 @@ node "$updater" --restore "$backup"
 node "$updater" --restore "$backup" --apply
 ```
 
+### Switch to direct TikFinity gift input
+
+From the Northpath `development` checkout, update the regular engine entry point. The first command previews which file will change. Stop Companion through Operations Center before applying.
+
+```powershell
+node .\scripts\Update-IcePackEngine.mjs --gift-input
+node .\scripts\Update-IcePackEngine.mjs --gift-input --apply
+```
+
+Save the printed backup folder. Open TikFinity Desktop on the same PC and connect it to your TikTok LIVE. Reopen the updated Operations Center, select **Gift source → Use direct TikFinity**, then select **Start Companion**. Expect **TikFinity Desktop connected** under **Gift source**. Keep Streamer.bot closed for this test.
+
+Enable **Live Custom Rules** and test a single gift with a known Stone reward. Then wait at least 15 seconds and test a configured streak-capable gift. Expect the mapped reward once when the streak completes. Stop Custom Rules when the test is done. To switch back, select **Use Streamer.bot**, then restart Companion. To restore the previous engine entry point, stop Companion and use `--gift-input --restore` with the saved backup path, followed by `--apply` after checking the dry run.
+
 The ARK Engine dashboard’s **Recent gift deliveries** section keeps the last 20 outcomes until restart. It distinguishes completed sends, partial sends stopped by the operator, RCON failures, cancellations before sending, and gifts that expired before sending. Preview events stay in the event log.
 
 After at least one real delivery outcome, expand **Recent gift deliveries** and select **Download delivery history**. Open the JSON and verify `schemaVersion` is 1 and the gift, counts, and outcome match the table. The file is generated in the browser and uses UTC timestamps. It omits command bodies, player IDs, and raw events. The history still resets when the engine restarts.
