@@ -1,0 +1,18 @@
+{
+  "name": "northpath-ark-relay",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "rcon-client": "4.2.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.6.0"
+  }
+}

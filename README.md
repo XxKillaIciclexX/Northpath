@@ -28,6 +28,10 @@ In the existing Northpath Bolt project, select `development` and open `/companio
 
 The hosted dashboard supports [account drafts](supabase/README.md#7-save-companion-drafts-to-streamer-accounts) after the Supabase migration and build setting are in place. Engine controls and the pairing screen are available through the Windows dashboard. The streamer pilot also needs the Windows installer.
 
+## Hosted ARK relay pilot
+
+The [staging guide](relay/README.md) covers server registration, access approval, and a fixed Rose reward through the Northpath relay.
+
 ## Windows streamer setup
 
 The streamer installer includes Node.js, the ARK engine, direct TikFinity Desktop input, and the one-shot TikFinity simulator. Use [the Northpath dashboard](https://northpath.ai/companion) for Gift Rules and Kits. The Start menu app starts and stops the two local services and controls live rewards.

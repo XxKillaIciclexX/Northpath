@@ -3,7 +3,7 @@ import { normalizePath, type Plugin } from 'vite';
 
 export const companionIndex = fileURLToPath(new URL('./index.html', import.meta.url));
 
-export function hostedCompanion(accountOrigin?: string, agentConfig?: { supabaseUrl: string; publishableKey: string }): Plugin {
+export function hostedCompanion(accountOrigin?: string, agentConfig?: { supabaseUrl: string; publishableKey: string }, relayOrigin?: string): Plugin {
   let building = false;
   return {
     name: 'hosted-companion',
@@ -26,7 +26,7 @@ export function hostedCompanion(accountOrigin?: string, agentConfig?: { supabase
           html: accountOrigin ? html.replace('src="./src/main.tsx"', 'src="/src/companion-account-entry.tsx"') : html,
           tags: building ? [{
             tag: 'meta',
-            attrs: { 'http-equiv': 'Content-Security-Policy', content: `connect-src ${accountOrigin ?? "'none'"}` },
+            attrs: { 'http-equiv': 'Content-Security-Policy', content: `connect-src ${[accountOrigin, relayOrigin].filter(Boolean).join(' ') || "'none'"}` },
             injectTo: 'head-prepend',
           }] : [],
         };
