@@ -179,3 +179,12 @@ Run the migration in the production Supabase project before enabling the flag fo
 4. Sign in to [Northpath Companion](https://northpath.ai/companion#connections) and paste the **Website pairing code** printed by the Windows launcher. Click **Pair Windows app**, wait for **Preview ready**, then click **Run Heart Me Preview**. Expect **The engine planned 25 Stone** in the website. Stop the Windows app and confirm the site reports **Windows app offline** within about 30 seconds. **Disconnect** removes this app from your account.
 
 The Windows app checks in over HTTPS and runs the sample preview locally. The website receives connection status and the result of that sample. The pilot still needs a separate test-server pass for live gift delivery.
+
+### Link the regular Operations Center
+
+1. Run [the Survivor status migration](migrations/20261123000400_report_companion_survivor.sql) in the same Supabase project's **SQL Editor**. Then publish the updated Northpath project from Bolt with the Connections flag already enabled.
+2. Pull `development` in your Northpath checkout on Windows. Close the Pilot if it is running. Stop and restart the regular Companion from Operations Center to load the updated bridge, then open the updated Operations Center.
+3. If your Survivor ID is already saved and loaded, keep it. To set or change it, turn off the reward lanes, then select **Operational readiness → Set Survivor ID** and enter your numeric Specimen Implant ID. The local engine saves the target after the bridge takes a configuration snapshot.
+4. Select **Northpath website → Copy website pairing code**, then **Open website Connections**. Sign in, paste the code, and select **Pair Windows app**. Approve the replacement prompt if your account is still paired with the Pilot. Expect **Survivor linked** if the engine has loaded your saved target. Stop Companion and confirm the website reports it offline within about 30 seconds.
+
+The regular app reports engine availability and whether the target is configured. It keeps your Survivor ID and ARK credentials on Windows. Website Gift Rule and Kit edits remain drafts until a separate apply step.

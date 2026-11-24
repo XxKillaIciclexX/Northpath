@@ -7,6 +7,7 @@ type Device = {
   preview_ready: boolean;
   preview_state: 'queued' | 'running' | 'passed' | 'failed' | null;
   preview_updated_at: string | null;
+  survivor_configured: boolean | null;
 };
 
 export default function CompanionConnections({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -23,7 +24,7 @@ export default function CompanionConnections({ client, userId }: { client: Supab
     let timer: number;
     const refresh = async () => {
       const { data, error } = await client.from('companion_devices')
-        .select('seen_at, engine_online, preview_ready, preview_state, preview_updated_at')
+        .select('seen_at, engine_online, preview_ready, preview_state, preview_updated_at, survivor_configured')
         .eq('user_id', userId).abortSignal(signal).maybeSingle<Device>();
       if (signal.aborted) return;
       setStatusError(Boolean(error));
@@ -35,6 +36,7 @@ export default function CompanionConnections({ client, userId }: { client: Supab
   }, [client, userId, refreshVersion]);
 
   const online = Boolean(device?.seen_at && Date.now() - Date.parse(device.seen_at) < 25_000);
+  const operationsCenter = typeof device?.survivor_configured === 'boolean';
   const requestPending = device?.preview_state === 'queued' || device?.preview_state === 'running';
   const inProgress = Boolean(requestPending && device?.preview_updated_at &&
     Date.now() - Date.parse(device.preview_updated_at) < 45_000);
@@ -77,12 +79,15 @@ export default function CompanionConnections({ client, userId }: { client: Supab
     {device && <div className="mt-4 space-y-2 text-sm text-slate-300" aria-live="polite">
       <p>{online ? 'Windows app connected' : device.seen_at ? 'Windows app offline' : 'Waiting for the Windows app to check in'}</p>
       {online && <p>{device.engine_online ? (device.preview_ready ? 'Preview ready' : 'Engine connected') : 'Engine offline'}</p>}
-      {inProgress && <p>Running Heart Me preview…</p>}
-      {requestPending && !inProgress && <p className="text-amber-200">The preview timed out. Try again when the engine is ready.</p>}
-      {device.preview_state === 'passed' && <p className="text-emerald-200">Heart Me preview passed. The engine planned 25 Stone.</p>}
-      {device.preview_state === 'failed' && <p className="text-rose-200">Heart Me preview failed. Check the Windows launcher.</p>}
+      {operationsCenter && online && device.engine_online && (device.survivor_configured
+        ? <p className="text-emerald-200">Survivor linked. The ARK Engine has loaded the saved Survivor ID.</p>
+        : <p className="text-amber-200">Survivor ID needed. In Operations Center, select Set Survivor ID.</p>)}
+      {!operationsCenter && inProgress && <p>Running Heart Me preview…</p>}
+      {!operationsCenter && requestPending && !inProgress && <p className="text-amber-200">The preview timed out. Try again when the engine is ready.</p>}
+      {!operationsCenter && device.preview_state === 'passed' && <p className="text-emerald-200">Heart Me preview passed. The engine planned 25 Stone. No game command was sent.</p>}
+      {!operationsCenter && device.preview_state === 'failed' && <p className="text-rose-200">Heart Me preview failed. Check the Windows launcher.</p>}
       <div className="flex flex-wrap gap-3 pt-2">
-        <button type="button" className="btn btn-primary" disabled={busy || !online || !device.preview_ready || inProgress} onClick={() => void run('preview')}>Run Heart Me Preview</button>
+        {!operationsCenter && <button type="button" className="btn btn-primary" disabled={busy || !online || !device.preview_ready || inProgress} onClick={() => void run('preview')}>Run Heart Me Preview</button>}
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => {
           if (window.confirm('Disconnect the Windows app from this account?')) void run('disconnect');
         }}>Disconnect</button>
@@ -90,7 +95,7 @@ export default function CompanionConnections({ client, userId }: { client: Supab
     </div>}
     <form className="mt-5 space-y-3" onSubmit={pair}>
       <label className="block text-sm text-slate-300" htmlFor="website-pairing-code">Website pairing code</label>
-      <p className="text-sm text-slate-400">Start the Windows Companion Pilot and copy its Website pairing code.</p>
+      <p className="text-sm text-slate-400">In Windows Operations Center, select Copy website pairing code. For the Pilot, copy the code shown in its launcher.</p>
       <input id="website-pairing-code" className="field" type="password" autoComplete="off" spellCheck={false} value={code}
         onChange={event => setCode(event.target.value)} />
       <button type="submit" className="btn btn-ghost" disabled={busy || !/^[0-9a-f]{64}$/i.test(code.trim())}>Pair Windows app</button>

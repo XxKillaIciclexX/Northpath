@@ -256,12 +256,18 @@ $safeLabel = New-Text 'Reward lanes: checking...' 10 $false $theme.Muted
 Add-Row $readiness $targetLabel
 Add-Row $readiness $safeLabel
 $readinessButton = New-ActionButton 'Run preflight'
-Add-ActionRow $readiness @($readinessButton)
+$survivorButton = New-ActionButton 'Set Survivor ID'
+Add-ActionRow $readiness @($survivorButton, $readinessButton)
 
 $pairing = New-Card $content 'Bridge pairing'
 Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
 $copyTokenButton = New-ActionButton 'Copy bridge pairing token'
 Add-ActionRow $pairing @($copyTokenButton)
+
+$website = New-Card $content 'Northpath website'
+$websiteCodeButton = New-ActionButton 'Copy website pairing code'
+$websiteButton = New-ActionButton 'Open website Connections'
+Add-ActionRow $website @($websiteCodeButton, $websiteButton)
 
 $recovery = New-Card $content 'Configuration protection'
 $backupButton = New-ActionButton 'Backup now'
@@ -492,6 +498,52 @@ $copyTokenButton.Add_Click({
         $statusLabel.Text='Bridge pairing token copied to clipboard.'
     } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Pairing token unavailable','OK','Warning') | Out-Null }
 })
+function Invoke-IcePackBridgeAction([string]$Endpoint, [hashtable]$Body = @{}) {
+    . (Join-Path $PSScriptRoot 'IcePack-ManagedCommon.ps1')
+    $definition = Get-IcePackServiceDefinition 'bridge' $settings
+    if (-not (Test-IcePackOwnedProcess (Read-IcePackOwnedRecord 'bridge') $definition)) {
+        throw 'Start Companion from Operations Center first.'
+    }
+    $token = Read-IcePackBridgeToken
+    try {
+        Invoke-RestMethod -Uri "http://127.0.0.1:3212/$Endpoint" -Method Post -MaximumRedirection 0 -TimeoutSec 12 `
+            -Headers @{ Origin = 'http://127.0.0.1:5173'; 'x-icepack-sync-token' = $token } `
+            -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Compress)
+    } catch {
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+            $result = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
+            if ($result -and $result.PSObject.Properties['error']) { throw $result.error }
+        }
+        throw
+    }
+}
+$survivorButton.Add_Click({
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $survivorId = [Microsoft.VisualBasic.Interaction]::InputBox(
+        'Enter the numeric Specimen Implant ID for your survivor. The ID is saved to your local ARK Engine.',
+        'Set Survivor ID'
+    ).Trim()
+    if (-not $survivorId) { return }
+    try {
+        $result = Invoke-IcePackBridgeAction 'target/save' @{ playerId = $survivorId }
+        if (-not $result.ok) { throw 'The engine did not confirm the Survivor ID.' }
+        Refresh-IcePackStatus
+        $statusLabel.Text = 'Survivor ID saved and loaded by the ARK Engine.'
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Could not save Survivor ID', 'OK', 'Warning') | Out-Null
+    }
+})
+$websiteCodeButton.Add_Click({
+    try {
+        $result = Invoke-IcePackBridgeAction 'website/connect'
+        if ($result.pairingCode -cnotmatch '^[0-9a-f]{64}$') { throw 'Restart Companion to load the updated bridge.' }
+        [System.Windows.Forms.Clipboard]::SetText($result.pairingCode)
+        $statusLabel.Text = 'Website pairing code copied. Paste it in Northpath Connections.'
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Website pairing unavailable', 'OK', 'Warning') | Out-Null
+    }
+})
+$websiteButton.Add_Click({ Start-Process 'https://northpath.ai/companion#connections' })
 $updateManagerButton.Add_Click({
     try {
         $path = Join-Path $PSScriptRoot 'Open-IcePackUpdateManager.ps1'

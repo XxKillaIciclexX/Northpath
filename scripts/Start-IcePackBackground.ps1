@@ -34,15 +34,18 @@ foreach($name in $names){
         # Start-Process inherits environment variables; restore parent value immediately.
         $oldToken=[Environment]::GetEnvironmentVariable('ICEPACK_BRIDGE_PAIRING_TOKEN','Process')
         $oldKit=[Environment]::GetEnvironmentVariable('ICEPACK_KIT_DIR','Process')
+        $oldWebsiteDir=[Environment]::GetEnvironmentVariable('ICEPACK_WEBSITE_LINK_DIR','Process')
         $token=New-IcePackBridgeToken
         try {
             Save-IcePackBridgeToken $token
             [Environment]::SetEnvironmentVariable('ICEPACK_BRIDGE_PAIRING_TOKEN',$token,'Process')
             [Environment]::SetEnvironmentVariable('ICEPACK_KIT_DIR',[string]$settings.kitDir,'Process')
+            [Environment]::SetEnvironmentVariable('ICEPACK_WEBSITE_LINK_DIR',$root,'Process')
             $proc=Start-Process -FilePath $def.Program -ArgumentList @('"'+$def.Script+'"') -WorkingDirectory $def.WorkDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
         } finally {
             [Environment]::SetEnvironmentVariable('ICEPACK_BRIDGE_PAIRING_TOKEN',$oldToken,'Process')
             [Environment]::SetEnvironmentVariable('ICEPACK_KIT_DIR',$oldKit,'Process')
+            [Environment]::SetEnvironmentVariable('ICEPACK_WEBSITE_LINK_DIR',$oldWebsiteDir,'Process')
             $token=$null
             if($null -eq $proc) { Remove-Item -LiteralPath (Get-IcePackBridgeTokenPath) -Force -ErrorAction SilentlyContinue }
         }

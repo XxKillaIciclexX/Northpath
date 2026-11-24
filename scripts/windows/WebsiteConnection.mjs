@@ -44,7 +44,7 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
   const secret = await deviceSecret(root);
   const pairingCode = createHash('sha256').update(secret).digest('hex');
 
-  return function start({ dashboardUrl, localToken }) {
+  function start({ dashboardUrl, localToken, readSurvivorStatus }) {
     const controller = new AbortController();
     const { signal } = controller;
     let timeout;
@@ -85,15 +85,24 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
           await rpc('finish_companion_preview', result);
           result = undefined;
         }
-        const state = await localStatus().catch(() => ({}));
-        const ready = state.engineOnline === true && state.customRulesMode === 'preview' && state.armState === false &&
-          state.giftRconMode === 'off' && state.pending === 0 && state.customQueued === 0 && state.customInflight === false;
-        const data = await rpc('companion_device_heartbeat', { p_engine_online: state.engineOnline === true, p_preview_ready: ready });
+        let data;
+        if (readSurvivorStatus) {
+          const state = await Promise.resolve().then(readSurvivorStatus).catch(() => ({}));
+          data = await rpc('report_companion_survivor', {
+            p_engine_online: state.engineOnline === true,
+            p_survivor_configured: state.engineOnline === true && state.survivorConfigured === true,
+          });
+        } else {
+          const state = await localStatus().catch(() => ({}));
+          const ready = state.engineOnline === true && state.customRulesMode === 'preview' && state.armState === false &&
+            state.giftRconMode === 'off' && state.pending === 0 && state.customQueued === 0 && state.customInflight === false;
+          data = await rpc('companion_device_heartbeat', { p_engine_online: state.engineOnline === true, p_preview_ready: ready });
+        }
         if (data.paired === true && !paired) console.log('Website connected. Use Connections in the Northpath dashboard.');
         if (data.paired !== true && paired) console.log('Website disconnected. Pair again from the Northpath dashboard.');
         paired = data.paired === true;
         offline = false;
-        if (paired && typeof data.preview_id === 'string') {
+        if (!readSurvivorStatus && paired && typeof data.preview_id === 'string') {
           result = { p_preview_id: data.preview_id, p_passed: await preview().catch(() => false) };
           await rpc('finish_companion_preview', result);
           result = undefined;
@@ -109,8 +118,9 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
       }
     }
 
-    console.log(`Website pairing code: ${pairingCode}`);
     void heartbeat();
     return () => { controller.abort(); clearTimeout(timeout); };
-  };
+  }
+
+  return { pairingCode, start };
 }

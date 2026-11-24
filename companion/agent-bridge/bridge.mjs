@@ -22,6 +22,7 @@ const KIT_DIR=process.env.ICEPACK_KIT_DIR ? path.resolve(process.env.ICEPACK_KIT
 const managedToken=process.env.ICEPACK_BRIDGE_PAIRING_TOKEN;
 const previewMode=process.env.ICEPACK_ALPHA_PREVIEW;
 const standalonePreview=Boolean(managedToken)&&['1','pilot'].includes(previewMode);
+const websiteLinkDir = !standalonePreview && managedToken && process.env.ICEPACK_WEBSITE_LINK_DIR;
 if(managedToken!==undefined&&!/^[0-9a-f]{48}$/.test(managedToken))throw Error('Invalid managed bridge pairing token');
 const TOKEN=managedToken??crypto.randomBytes(24).toString('hex');
 const permittedOrigins=new Set(standalonePreview
@@ -35,6 +36,7 @@ let controlling=false;
 let applying=false;
 let restoring=false;
 let savingTarget=false;
+let websiteLink;
 const restorePreviews=new Map();
 async function enginePortListening(){return new Promise(resolve=>{const c=net.connect({host:'127.0.0.1',port:3210});let done=false;const finish=v=>{if(!done){done=true;c.destroy();resolve(v);}};c.once('connect',()=>finish(true));c.once('error',()=>finish(false));c.setTimeout(1200,()=>finish(true));});}
 // Show only a small, redacted window of recent local engine activity.
@@ -53,7 +55,30 @@ function safeActivity(logs){
  });
 }
 function pickState(state){const cr=state?.customRules||{};return {online:true,engineOnline:true,engineStatus:String(state?.status??'Engine reached').slice(0,160),engineVersion:'legacy-local',armState:state?.armed===true,giftRconMode:String(state?.giftRcon?.mode??'unknown').slice(0,40),customRulesMode:String(cr.mode??'unknown').slice(0,40),customRulesLoaded:cr.loaded===true,customRuleCount:Number.isSafeInteger(cr.ruleCount)?cr.ruleCount:0,customKitCount:Number.isSafeInteger(cr.kitCount)?cr.kitCount:0,customQueued:Number.isSafeInteger(cr.queued)?cr.queued:0,customInflight:cr.inflight===true,pending:Number.isSafeInteger(state?.pending)?state.pending:0,bridgeOnline:state?.bridgeOnline===true,recentLogs:safeActivity(state?.logs),checkedAt:new Date().toISOString()};}
-async function engineState(){const r=await fetch(`${ENGINE_URL}/state`,{signal:AbortSignal.timeout(2200)});if(!r.ok)throw Error(`Engine status HTTP ${r.status}`);const raw=await r.text();if(raw.length>2_000_000)throw Error('Engine state too large');return pickState(JSON.parse(raw));}
+async function readEngineState() {
+  const response = await fetch(`${ENGINE_URL}/state`, { signal: AbortSignal.timeout(2200) });
+  if (!response.ok) throw Error(`Engine status HTTP ${response.status}`);
+  const raw = await response.text();
+  if (raw.length > 2_000_000) throw Error('Engine state too large');
+  return JSON.parse(raw);
+}
+async function engineState(){return pickState(await readEngineState());}
+function connectWebsite() {
+  websiteLink ??= (async () => {
+    const { prepareWebsiteConnection } = await import('../../scripts/windows/WebsiteConnection.mjs');
+    const connection = await prepareWebsiteConnection(websiteLinkDir);
+    if (!connection) throw Error('Northpath website Connections is unavailable. Try again later.');
+    connection.start({ readSurvivorStatus: async () => {
+      const target = getEngineTarget(await readEngineState());
+      return { engineOnline: true, survivorConfigured: target.configured && target.laneConfigured };
+    } });
+    return connection.pairingCode;
+  })().catch(error => {
+    websiteLink = undefined;
+    throw error;
+  });
+  return websiteLink;
+}
 async function simulateEngineGift(gift){
  const r=await fetch(`${ENGINE_URL}/custom-rules-simulate`,{method:'POST',headers:{'Content-Type':'application/json','x-ice-pack':'1',Origin:ENGINE_URL},body:JSON.stringify(gift),signal:AbortSignal.timeout(3500)});
  const raw=await r.text(); if(raw.length>20000)throw Error('Engine preview response too large');
@@ -80,11 +105,12 @@ const server=http.createServer(async(req,res)=>{
   const endpoints=standalonePreview
     ? ['/pairing/check','/simulate/preview','/draft/preview','/draft/export','/draft/rehearse','/draft/compare']
     : ['/sync/preview','/sync/apply','/sync/compare','/sync/drift','/simulate/preview','/control','/recovery/list','/recovery/compare','/recovery/preview','/recovery/restore','/recovery/audit','/target/read','/target/save'];
-  if(!endpoints.includes(req.url)||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
+  if((!endpoints.includes(req.url)&&!(websiteLinkDir&&req.url==='/website/connect'))||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
   // No cross-origin browser access: requests through Vite's same-origin proxy include Origin on POST.
   if(!permittedOrigins.has(origin))return json(403,{error:'A local dashboard Origin is required'});
   const submitted=String(req.headers['x-icepack-sync-token']??'');
   if(!/^[a-f0-9]{48}$/.test(submitted)||!crypto.timingSafeEqual(Buffer.from(submitted),Buffer.from(TOKEN)))return json(401,{error:'Enter the pairing token from the current launcher session'});
+  if(req.url==='/website/connect')return json(200,{ok:true,pairingCode:await connectWebsite()});
   if(req.url==='/pairing/check')return json(200,{ok:true});
   if(req.url==='/draft/preview'){
     const plan=previewDashboardDraft(await readJsonBody(req),draftCatalog);
@@ -109,10 +135,7 @@ const server=http.createServer(async(req,res)=>{
     return json(200,{ok:true,comparison});
   }
   if(req.url==='/target/read') {
-    const r=await fetch(`${ENGINE_URL}/state`,{signal:AbortSignal.timeout(2500)});
-    if(!r.ok)throw Error(`Engine state HTTP ${r.status}`);
-    const raw=await r.text();if(raw.length>2_000_000)throw Error('Engine state too large');
-    return json(200,{ok:true,target:getEngineTarget(JSON.parse(raw))});
+    return json(200,{ok:true,target:getEngineTarget(await readEngineState())});
   }
   if(req.url==='/target/save') {
     if(savingTarget||applying||restoring||controlling)return json(409,{error:'Another protected operation is running'});
@@ -288,4 +311,7 @@ server.listen(PORT,HOST,()=>{
  else{console.log('Sync token for dashboard (keep private): '+TOKEN);}
  console.log('Kit Editor directory: '+(KIT_DIR??'NOT SET — sync disabled'));
  console.log('Local-only: NEVER expose port 3212 through port forwarding or cloud hosting.');
+ if(websiteLinkDir&&fs.existsSync(path.join(websiteLinkDir,'website-device.key'))){
+   void connectWebsite().catch(()=>console.log('Website Connections unavailable. Reconnect from Operations Center.'));
+ }
 });

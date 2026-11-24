@@ -206,7 +206,8 @@ export function launchInstalled(root, { pilot = false, websiteConnection = null 
     console.log('PASS sample Heart Me rule loaded in Preview mode');
     const destination = websiteConnection ? 'https://northpath.ai/companion#connections' : dashboard.url.href;
     if (websiteConnection) {
-      disconnectWebsite = websiteConnection({ dashboardUrl: dashboard.url, localToken: pairing.ICEPACK_BRIDGE_PAIRING_TOKEN });
+      disconnectWebsite = websiteConnection.start({ dashboardUrl: dashboard.url, localToken: pairing.ICEPACK_BRIDGE_PAIRING_TOKEN });
+      console.log(`Website pairing code: ${websiteConnection.pairingCode}`);
       console.log(`Northpath Connections: ${destination}`);
     } else {
       console.log(`First-run Dashboard: ${dashboard.url.href}`);
