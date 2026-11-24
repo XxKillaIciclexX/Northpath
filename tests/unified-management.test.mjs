@@ -8,10 +8,19 @@ const start=r('Start-IcePackCompanionManaged.ps1');
 const stop=r('Stop-IcePackCompanionManaged.ps1');
 const ui=r('Open-IcePackControlCenter.ps1');
 const status=r('Get-IcePackCompanionSummary.ps1');
-test('start order launches engine bridge dashboard',()=>assert.match(start,/foreach\(\$name in @\('engine','bridge','dashboard'\)\)/));
+const common=r('IcePack-ManagedCommon.ps1');
+test('starts the engine before the bridge and includes the dashboard only in the checkout',()=>{
+ assert.match(start,/\$names = @\(Get-IcePackManagedServices\)/);
+ assert.match(start,/foreach\(\$name in \$names\)/);
+ assert.match(common,/if \(Test-IcePackStreamerInstall\) \{\s+if \(\$StopOrder\) \{ return @\('bridge','engine'\) \}\s+return @\('engine','bridge'\)/);
+ assert.match(common,/return @\('engine','bridge','dashboard'\)/);
+});
 test('start never adopts an unowned port',()=>{assert.match(start,/Test-IcePackPort \$def.Port/);assert.match(start,/UNOWNED/);assert.match(start,/\$failed=\$true/)});
 test('launch requires ownership verification',()=>assert.match(start,/Test-IcePackOwnedProcess \$newRec \$def/));
-test('stop order drains bridge before engine',()=>assert.match(stop,/foreach\(\$name in @\('bridge','dashboard','engine'\)\)/));
+test('stop order drains bridge before engine',()=>{
+ assert.match(stop,/Get-IcePackManagedServices -StopOrder/);
+ assert.match(common,/if \(\$StopOrder\) \{ return @\('bridge','dashboard','engine'\) \}/);
+});
 test('stop refuses ownership mismatch',()=>assert.match(stop,/if\(-not\(Test-IcePackOwnedProcess \$rec \$def\)\)/));
 test('both operations offer dry run and use existing managed helpers',()=>{for(const file of [start,stop])assert.match(file,/\[switch\]\$CheckOnly/);assert.match(start,/Start-IcePackBackground.ps1/);assert.match(stop,/Stop-IcePackBackground.ps1/)});
 test('UI has one click Start and Stop and confirms Stop',()=>{assert.match(ui,/Start Companion/);assert.match(ui,/Stop Companion/);assert.match(ui,/Confirm managed stop/);assert.match(ui,/Invoke-IcePackManagedAction 'Start-IcePackCompanionManaged.ps1'/)});

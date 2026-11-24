@@ -28,6 +28,37 @@ In the existing Northpath Bolt project, select `development` and open `/companio
 
 The hosted dashboard supports [account drafts](supabase/README.md#7-save-companion-drafts-to-streamer-accounts) after the Supabase migration and build setting are in place. Engine controls and the pairing screen are available through the Windows dashboard. The streamer pilot also needs the Windows installer.
 
+## Windows streamer setup
+
+The streamer installer includes Node.js, the ARK engine, direct TikFinity Desktop input, and the one-shot TikFinity simulator. Use [the Northpath dashboard](https://northpath.ai/companion) for Gift Rules and Kits. The Start menu app starts and stops the two local services and controls live rewards.
+
+### Build the clean-PC test installer
+
+From the Northpath checkout in PowerShell, with Node.js 22.12 or newer:
+
+```powershell
+git switch development
+git pull --ff-only origin development
+node .\scripts\Build-IcePackPilotSetup.mjs --local --streamer
+```
+
+The builder uses the verified ARK engine ZIP already in `%LOCALAPPDATA%\IcePackCompanion\releases`. Use `--engine "C:\path\to\engine-source.zip"` if you moved it. It writes `IcePackCompanionStreamer-5.6-win-x64-Setup.exe` and its SHA-256 file under `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. Copy both to the test PC.
+
+### Test first launch and gift delivery
+
+1. Compare `Get-FileHash -Algorithm SHA256 .\IcePackCompanionStreamer-5.6-win-x64-Setup.exe` with the SHA-256 file. Run the unsigned internal test setup. In Start, open **Ice Pack Companion Streamer**. On a PC with an older Companion installation, stop its services before starting this one.
+2. Click **Set ARK Server**. Enter the RCON host, RCON port, and RCON password for the ASA server that has the IcePackCompanion mod. Click **Start Companion**. Verify the engine and bridge report **Responding** and the button turns red and reads **Stop Companion**. Click **Set Survivor ID** and enter your numeric Specimen Implant ID.
+3. Click **Open dashboard** and sign in. Click **Copy website pairing code**, paste it into Northpath **Connections**, and select **Pair Windows app**. Confirm that the website shows the app and engine connected and the survivor linked.
+4. Save an enabled Rose rule for **5 Stone** to your Northpath account. In the Windows app, click **Enable account sync** and wait for the app to report the saved rules are applied. The sync button should read **Disable account sync**.
+5. With Live Rewards off and TikFinity Desktop open, click **Arm TikFinity test gift** and enter `Rose`. Within two minutes, use TikFinity's **Third-Party Action** test for Ice Pack Companion. Confirm **5 Stone** arrives in-game and that the Windows app reports the delivery. Trigger the action again and verify that the survivor's inventory stays at **5 Stone** from the test.
+6. Click **Start Live Rewards**, confirm the prompt, and verify the red **Stop Live Rewards** button appears. Click it and verify the app reports the lanes are off. Click **Stop Companion** and check that the ports below return no rows. Start the app again and verify the server settings, Survivor ID, and account sync are retained and Live Rewards starts off.
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 3210,3212,8832 -ErrorAction SilentlyContinue
+```
+
+To test uninstall, stop Companion and close the app. Remove **Ice Pack Companion Streamer** in **Settings → Apps → Installed apps**. Verify the Start menu shortcut disappears and user data remains under `%LOCALAPPDATA%\IcePackCompanionStreamer\data`. Reinstall the same setup to verify it can reuse that data.
+
 ## Windows pilot setup
 
 `IcePackCompanionPilot-5.6-win-x64-Setup.exe` installs the Windows preview for the current user under `%LOCALAPPDATA%\IcePackCompanionPilot\v5.6`. It includes Node.js and uses a separate Start menu shortcut. Use the unsigned setup and its SHA-256 file for the internal clean-PC test.

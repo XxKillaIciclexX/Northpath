@@ -15,7 +15,7 @@ export function resolveBackupPaths(kitDir, options={}) {
   if (!kitDir) throw Error('Missing Kit Editor directory');
   const local = options.localAppData ?? process.env.LOCALAPPDATA;
   if (!local) throw Error('LOCALAPPDATA is unavailable; cannot create a compatible recovery snapshot');
-  const configFile = options.settingsPath ?? path.join(local,'IcePackCompanion','settings.json');
+  const configFile = options.settingsPath ?? process.env.ICEPACK_COMPANION_SETTINGS_PATH ?? path.join(local,'IcePackCompanion','settings.json');
   let settings;
   try { settings=JSON.parse(fs.readFileSync(configFile,'utf8').replace(/^\uFEFF/,'')); }
   catch (e) { throw Error(`Cannot read installed companion settings (${e.message}); run installer again`); }
@@ -25,8 +25,9 @@ export function resolveBackupPaths(kitDir, options={}) {
   if (canonical(settings.kitDir).toLowerCase() !== canonical(kitDir).toLowerCase()) {
     throw Error('Bridge Kit directory differs from installed settings; update settings before applying');
   }
-  const engineDir=canonical(settings.enginePath);
-  return {engineDir, kitDir:canonical(kitDir), root:path.join(path.dirname(configFile),'backups')};
+  const engineCodeDir = canonical(settings.enginePath);
+  const engineDir = settings.engineDataPath ? canonical(settings.engineDataPath) : engineCodeDir;
+  return {engineDir, engineCodeDir, kitDir:canonical(kitDir), root:path.join(path.dirname(configFile),'backups')};
 }
 
 export function snapshotBeforeApply(paths) {

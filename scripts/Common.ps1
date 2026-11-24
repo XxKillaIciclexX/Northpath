@@ -1,8 +1,13 @@
 # Shared path settings and read-only network checks for Ice Pack Companion v0.9.
 Set-StrictMode -Version Latest
 
+function Test-IcePackStreamerInstall {
+    return (Test-Path -LiteralPath (Join-Path $PSScriptRoot '../streamer-install.json') -PathType Leaf)
+}
+
 function Get-IcePackConfigPath {
     if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw 'LOCALAPPDATA is not set. Use a normal Windows user session.' }
+    if (Test-IcePackStreamerInstall) { return (Join-Path $env:LOCALAPPDATA 'IcePackCompanionStreamer/data/settings.json') }
     return (Join-Path $env:LOCALAPPDATA 'IcePackCompanion\settings.json')
 }
 
@@ -11,6 +16,7 @@ function Get-IcePackGiftSourcePath {
 }
 
 function Get-IcePackGiftSource {
+    if (Test-IcePackStreamerInstall) { return 'tikfinity' }
     $file = Get-IcePackGiftSourcePath
     if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return 'streamerbot' }
     $source = [IO.File]::ReadAllText($file).Trim()
@@ -30,6 +36,15 @@ function Set-IcePackGiftSource([ValidateSet('streamerbot', 'tikfinity')][string]
 
 function Get-IcePackSettings {
     $repo = Split-Path -Parent $PSScriptRoot
+    if (Test-IcePackStreamerInstall) {
+        $data = Split-Path -Parent (Get-IcePackConfigPath)
+        return [pscustomobject]@{
+            repoPath = $repo
+            enginePath = (Join-Path $repo 'engine')
+            engineDataPath = (Join-Path $data 'engine')
+            kitDir = (Join-Path $data 'kits')
+        }
+    }
     $defaultEngine = 'C:\IcePackARK\ice-pack-ark'
     $defaults = @{
         repoPath = $repo
@@ -46,6 +61,7 @@ function Get-IcePackSettings {
             if (-not [string]::IsNullOrWhiteSpace([string]$value)) { $defaults[$key] = [string]$value }
         }
     }
+    $defaults.engineDataPath = $defaults.enginePath
     return [pscustomobject]$defaults
 }
 
@@ -62,16 +78,24 @@ function Test-IcePackPort([int]$Port) {
 function Assert-IcePackFiles($settings) {
     $requirements = @(
         @{ Name='ARK engine'; Path=(Join-Path $settings.enginePath 'server.mjs') },
-        @{ Name='Private ARK engine .env'; Path=(Join-Path $settings.enginePath '.env') },
-        @{ Name='Local bridge'; Path=(Join-Path $settings.repoPath 'companion\agent-bridge\bridge.mjs') },
-        @{ Name='Dashboard'; Path=(Join-Path $settings.repoPath 'companion\package.json') }
+        @{ Name='Local bridge'; Path=(Join-Path $settings.repoPath 'companion\agent-bridge\bridge.mjs') }
     )
+    if (Test-IcePackStreamerInstall) {
+        $requirements += @{ Name='Bundled Node.js'; Path=(Join-Path $settings.repoPath 'runtime\node.exe') }
+    } else {
+        $requirements += @(
+            @{ Name='Private ARK engine .env'; Path=(Join-Path $settings.enginePath '.env') },
+            @{ Name='Dashboard'; Path=(Join-Path $settings.repoPath 'companion\package.json') }
+        )
+    }
     foreach ($item in $requirements) {
         if (-not (Test-Path -LiteralPath $item.Path -PathType Leaf)) {
             throw "Missing $($item.Name) at $($item.Path). Check installer paths."
         }
     }
-    foreach ($cmd in @('node','npm')) {
-        if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { throw "$cmd is missing from PATH." }
+    if (-not (Test-IcePackStreamerInstall)) {
+        foreach ($cmd in @('node','npm')) {
+            if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { throw "$cmd is missing from PATH." }
+        }
     }
 }

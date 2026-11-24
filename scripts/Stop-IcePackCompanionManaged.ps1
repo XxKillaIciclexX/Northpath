@@ -7,11 +7,12 @@ $settings=Get-IcePackSettings
 $stop=Join-Path $PSScriptRoot 'Stop-IcePackBackground.ps1'
 if(-not(Test-Path -LiteralPath $stop -PathType Leaf)){throw 'Missing v2.2 managed shutdown script.'}
 $failed=$false
-foreach($name in @('bridge','dashboard','engine')) {
+foreach($name in (Get-IcePackManagedServices -StopOrder)) {
     $def=Get-IcePackServiceDefinition $name $settings
     $rec=Read-IcePackOwnedRecord $name
     if(-not $rec){Write-Host "${name}: not managed here; left untouched.";continue}
     if(-not(Test-IcePackOwnedProcess $rec $def)) {
+        if (Test-IcePackStreamerInstall) { continue }
         Write-Warning "${name}: ownership mismatch; refusing shutdown; inspect record."
         $failed=$true
         continue

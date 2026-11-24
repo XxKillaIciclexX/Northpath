@@ -2,14 +2,28 @@
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'Common.ps1')
 function Get-IcePackManagedRoot {
-    $root = Join-Path $env:LOCALAPPDATA 'IcePackCompanion\managed'
+    $root = Join-Path (Split-Path -Parent (Get-IcePackConfigPath)) 'managed'
     New-Item -ItemType Directory -Path $root -Force | Out-Null
     return $root
 }
+function Get-IcePackManagedServices([switch]$StopOrder) {
+    if (Test-IcePackStreamerInstall) {
+        if ($StopOrder) { return @('bridge','engine') }
+        return @('engine','bridge')
+    }
+    if ($StopOrder) { return @('bridge','dashboard','engine') }
+    return @('engine','bridge','dashboard')
+}
 function Get-IcePackServiceDefinition([string]$Name, $Settings) {
-    $node = (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+    $packaged = Test-IcePackStreamerInstall
+    $node = if ($packaged) { Join-Path $Settings.repoPath 'runtime/node.exe' }
+        else { (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source }
     switch ($Name) {
-        'engine' { return [pscustomobject]@{Name=$Name; Port=3210; Program=$node; WorkDir=$Settings.enginePath; Script=(Join-Path $Settings.enginePath 'server.mjs'); Args=@('--env-file=.env','server.mjs')} }
+        'engine' {
+            $script = Join-Path $Settings.enginePath 'server.mjs'
+            $launchArgs = if ($packaged) { @('"' + $script + '"') } else { @('--env-file=.env','server.mjs') }
+            return [pscustomobject]@{Name=$Name; Port=3210; Program=$node; WorkDir=$Settings.engineDataPath; Script=$script; Args=$launchArgs}
+        }
         'dashboard' {
             $work = Join-Path $Settings.repoPath 'companion'
             $script = Join-Path $work 'node_modules\vite\bin\vite.js'
@@ -42,7 +56,10 @@ function Test-IcePackOwnedProcess($Record, $Definition) {
     if (-not [string]::Equals([string]$process.ExecutablePath, [string]$Definition.Program, [StringComparison]::OrdinalIgnoreCase)) { return $false }
     # Never stop a node process unless its launch command matches the known service script.
     $cmd = [string]$process.CommandLine
-    if ($Definition.Name -eq 'engine') { return $cmd.Contains('--env-file=.env') -and $cmd.Contains('server.mjs') }
+    if ($Definition.Name -eq 'engine' -and -not (Test-IcePackStreamerInstall)) {
+        return $cmd.Contains('--env-file=.env') -and $cmd.Contains('server.mjs')
+    }
+    if ($Definition.Name -eq 'engine') { return $cmd.Contains([string]$Definition.Script) }
     if ($Definition.Name -eq 'bridge') { return $cmd.Contains([string]$Definition.Script) }
     return $cmd.Contains([string]$Definition.Script) -and $cmd.Contains('--strictPort')
 }

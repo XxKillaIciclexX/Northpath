@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { constants, createReadStream } from 'node:fs';
-import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,10 +44,10 @@ async function copyVerified(source, target, hash, label) {
   await verifyFile(target, hash, label);
 }
 
-function run(executable, args, options = {}) {
+function run(executable, args, options = {}, accept = result => result.status === 0) {
   const result = spawnSync(executable, args, { ...options, stdio: 'inherit', timeout: 300_000 });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${basename(executable)} failed (${result.status ?? result.signal})`);
+  if (!accept(result)) throw new Error(`${basename(executable)} failed (${result.status ?? result.signal})`);
 }
 
 async function copyEntries(source, target, names) {
@@ -68,6 +68,77 @@ function installWindowsDependencies(target, cache, depth) {
   });
 }
 
+async function stageStreamer(values, payload, scratch, version) {
+  const archive = join(scratch, 'engine.zip');
+  await copyVerified(resolve(values.engine), archive, hashes.engine, 'ARK Engine source ZIP');
+  console.log('PASS ARK Engine ZIP SHA-256');
+  const extracted = join(scratch, 'engine-source');
+  if (windows) {
+    run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      "$ErrorActionPreference = 'Stop'; Expand-Archive -LiteralPath $env:ICEPACK_ARCHIVE -DestinationPath $env:ICEPACK_EXTRACT_TO"], {
+      env: { ...process.env, ICEPACK_ARCHIVE: archive, ICEPACK_EXTRACT_TO: extracted },
+    });
+  } else {
+    // Info-ZIP reports warning status 1 for the backslashes in this verified Windows archive.
+    run('unzip', ['-q', archive, '-d', extracted], {}, result => [0, 1].includes(result.status));
+  }
+  const engine = join(payload, 'engine');
+  await mkdir(engine);
+  await copyEntries(join(extracted, 'engine'), engine, [
+    'engine.mjs', 'icepack-config-engine.mjs', 'icepack-gift-rcon.mjs', 'icepack-spawn-rcon.mjs',
+    'package.json', 'package-lock.json',
+  ]);
+  await copyEntries(join(here, 'engine-overlay'), engine, ['server.mjs', 'icepack-custom-rules.mjs']);
+  installWindowsDependencies(engine, join(scratch, 'npm-cache'), '--omit=dev');
+
+  const companion = join(payload, 'companion');
+  const bridgeSource = join(companionSource, 'agent-bridge');
+  const bridge = join(companion, 'agent-bridge');
+  await mkdir(bridge, { recursive: true });
+  const bridgeModules = (await readdir(bridgeSource, { withFileTypes: true }))
+    .filter(entry => entry.isFile() && entry.name.endsWith('.mjs'));
+  await copyEntries(bridgeSource, bridge, bridgeModules.map(entry => entry.name));
+  await mkdir(join(companion, 'src'));
+  await copyEntries(join(companionSource, 'src'), join(companion, 'src'), ['icepack-release.json', 'reviewed-catalog.json']);
+
+  const scripts = join(payload, 'scripts');
+  await mkdir(join(scripts, 'windows'), { recursive: true });
+  await copyEntries(here, scripts, [
+    'Common.ps1', 'IcePack-StreamerCommon.ps1', 'IcePack-ManagedCommon.ps1', 'IcePack-Health.ps1',
+    'IcePack-OperationsTheme.cs', 'IcePack-Release.ps1', 'IcePack-ConfigCommon.ps1',
+    'Open-IcePackControlCenter.ps1',
+    'Start-IcePackCompanionManaged.ps1', 'Start-IcePackBackground.ps1',
+    'Stop-IcePackCompanionManaged.ps1', 'Stop-IcePackBackground.ps1',
+    'AutoBackup-IcePackConfiguration.ps1', 'Backup-IcePackConfiguration.ps1',
+  ]);
+  await copyEntries(join(here, 'windows'), join(scripts, 'windows'), ['WebsiteConnection.mjs']);
+  await writeFile(join(payload, 'streamer-install.json'), JSON.stringify({ version }) + '\n');
+}
+
+async function stagePilot(values, payload, scratch, version) {
+  const alphaRoot = join(scratch, 'alpha');
+  run(process.execPath, [join(here, 'Install-IcePackAlpha.mjs'), '--install-root', alphaRoot,
+    '--companion', resolve(values.companion), '--companion-sha256', hashes.companion,
+    '--engine', resolve(values.engine), '--engine-sha256', hashes.engine]);
+  const installed = join(alphaRoot, `v${version}`);
+  await copyEntries(installed, payload, ['Test-IcePackCleanInstall.mjs', 'Test-IcePackEngineDraft.mjs', 'preview-rules', 'alpha-install.json']);
+  await copyEntries(join(here, 'windows'), payload, ['Start-IcePackPilot.mjs', 'WebsiteConnection.mjs']);
+  const companion = join(payload, 'companion');
+  const engine = join(payload, 'engine');
+  await mkdir(join(companion, 'src'), { recursive: true });
+  await copyEntries(join(installed, 'companion'), companion, ['agent-bridge', 'dist', 'package.json', 'package-lock.json', 'vite.config.ts']);
+  await copyFile(join(companionSource, 'src', 'reviewed-catalog.json'), join(companion, 'src', 'catalog.json'));
+  await mkdir(engine);
+  await copyEntries(join(installed, 'engine'), engine, ['engine.mjs', 'icepack-config-engine.mjs', 'icepack-custom-rules.mjs',
+    'icepack-gift-rcon.mjs', 'icepack-spawn-rcon.mjs', 'package.json', 'package-lock.json', 'public', 'rules-v06.json', 'server.mjs']);
+  await rm(alphaRoot, { recursive: true });
+  const cache = join(scratch, 'npm-cache');
+  installWindowsDependencies(companion, cache, '--include=dev');
+  installWindowsDependencies(engine, cache, '--omit=dev');
+  const rolldown = join(companion, 'node_modules', '@rolldown', 'binding-win32-x64-msvc', 'rolldown-binding.win32-x64-msvc.node');
+  if (!(await lstat(rolldown)).isFile()) throw new Error('Windows x64 dashboard binding is missing');
+}
+
 async function build(values, nsisRoot) {
   const metadata = JSON.parse(await readFile(join(companionSource, 'src', 'icepack-release.json'), 'utf8'));
   const version = /^(\d+\.\d+)-alpha$/.exec(metadata.version)?.[1];
@@ -81,36 +152,17 @@ async function build(values, nsisRoot) {
     await copyVerified(values['node-license'], join(runtime, 'LICENSE.txt'), hashes.license, 'Node.js license');
     console.log(`PASS bundled Node.js v${nodeVersion} Windows x64 SHA-256`);
 
-    const alphaRoot = join(scratch, 'alpha');
-    run(process.execPath, [join(here, 'Install-IcePackAlpha.mjs'), '--install-root', alphaRoot,
-      '--companion', resolve(values.companion), '--companion-sha256', hashes.companion,
-      '--engine', resolve(values.engine), '--engine-sha256', hashes.engine]);
-    const installed = join(alphaRoot, `v${version}`);
-    await copyEntries(installed, payload, ['Test-IcePackCleanInstall.mjs', 'Test-IcePackEngineDraft.mjs', 'preview-rules', 'alpha-install.json']);
-    await copyEntries(join(here, 'windows'), payload, ['Start-IcePackPilot.mjs', 'WebsiteConnection.mjs']);
+    if (values.streamer) await stageStreamer(values, payload, scratch, version);
+    else await stagePilot(values, payload, scratch, version);
 
-    const companion = join(payload, 'companion');
-    const engine = join(payload, 'engine');
-    await mkdir(join(companion, 'src'), { recursive: true });
-    await copyEntries(join(installed, 'companion'), companion, ['agent-bridge', 'dist', 'package.json', 'package-lock.json', 'vite.config.ts']);
-    await copyFile(join(companionSource, 'src', 'reviewed-catalog.json'), join(companion, 'src', 'catalog.json'));
-    await mkdir(engine);
-    await copyEntries(join(installed, 'engine'), engine, ['engine.mjs', 'icepack-config-engine.mjs', 'icepack-custom-rules.mjs',
-      'icepack-gift-rcon.mjs', 'icepack-spawn-rcon.mjs', 'package.json', 'package-lock.json', 'public', 'rules-v06.json', 'server.mjs']);
-    await rm(alphaRoot, { recursive: true });
-
-    const cache = join(scratch, 'npm-cache');
-    installWindowsDependencies(companion, cache, '--include=dev');
-    installWindowsDependencies(engine, cache, '--omit=dev');
-    const rolldown = join(companion, 'node_modules', '@rolldown', 'binding-win32-x64-msvc', 'rolldown-binding.win32-x64-msvc.node');
-    if (!(await lstat(rolldown)).isFile()) throw new Error('Windows x64 dashboard binding is missing');
-
-    const artifact = `IcePackCompanionPilot-${version}-win-x64-Setup.exe`;
+    const edition = values.streamer ? 'Streamer' : 'Pilot';
+    const artifact = `IcePackCompanion${edition}-${version}-win-x64-Setup.exe`;
     const setup = join(scratch, artifact);
     const define = (name, value) => `${windows ? '/D' : '-D'}${name}=${value}`;
     const compilerOptions = nsisRoot ? { env: { ...process.env, NSISDIR: nsisRoot } } : {};
     run(values.makensis ?? 'makensis', [windows ? '/WX' : '-WX', define('PILOT_VERSION', version), define('PAYLOAD_FILES', join(payload, '*')),
-      define('SETUP_FILE', setup), join(here, 'windows', 'IcePackPilotSetup.nsi')], compilerOptions);
+      define('SETUP_FILE', setup), ...(values.streamer ? [define('STREAMER_SETUP', '1')] : []),
+      join(here, 'windows', 'IcePackPilotSetup.nsi')], compilerOptions);
     const digest = await sha256(setup);
     const output = resolve(values.out);
     await mkdir(output, { recursive: true });
@@ -122,7 +174,7 @@ async function build(values, nsisRoot) {
       await rm(destination);
       throw error;
     }
-    console.log(`PASS Windows pilot setup: ${destination}`);
+    console.log(`PASS Windows ${edition.toLowerCase()} setup: ${destination}`);
     console.log(`SHA-256: ${digest}`);
   } finally {
     await rm(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
@@ -140,7 +192,7 @@ async function buildOnWindows(values) {
   const released = join(localAppData, 'IcePackCompanion', 'releases');
   const companion = values.companion ?? join(released, archives.companion);
   const engine = values.engine ?? join(released, archives.engine);
-  await verifyFile(companion, hashes.companion, 'Companion source ZIP');
+  if (!values.streamer) await verifyFile(companion, hashes.companion, 'Companion source ZIP');
   await verifyFile(engine, hashes.engine, 'ARK Engine source ZIP');
 
   const scratch = await mkdtemp(join(tmpdir(), 'icepack-pilot-tools-'));
@@ -172,7 +224,8 @@ async function buildOnWindows(values) {
     const nsisRoot = join(extracted, `nsis-${nsisVersion}`);
     await build({
       companion, engine, node, 'node-license': license, makensis: join(nsisRoot, 'makensis.exe'),
-      out: values.out ?? join(userProfile, 'Downloads', 'IcePackCompanionPilot'),
+      streamer: values.streamer,
+      out: values.out ?? join(userProfile, 'Downloads', values.streamer ? 'IcePackCompanionStreamer' : 'IcePackCompanionPilot'),
     }, nsisRoot);
   } finally {
     await rm(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
@@ -184,10 +237,12 @@ try {
   const { values } = parseArgs({ options: {
     ...Object.fromEntries([...required, 'makensis'].map(name => [name, { type: 'string' }])),
     local: { type: 'boolean' },
+    streamer: { type: 'boolean' },
   } });
   if (values.local) await buildOnWindows(values);
   else {
-    if (required.some(name => !values[name])) throw new Error(`Use --local on Windows or pass ${required.map(name => `--${name} <path>`).join(' ')}`);
+    const needed = values.streamer ? required.filter(name => name !== 'companion') : required;
+    if (needed.some(name => !values[name])) throw new Error(`Use --local on Windows or pass ${needed.map(name => `--${name} <path>`).join(' ')}`);
     await build(values);
   }
 } catch (error) {

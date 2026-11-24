@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 
 function Get-BackupLayout {
     $settings = Get-IcePackSettings
-    $engine = [System.IO.Path]::GetFullPath($settings.enginePath)
+    $engine = [System.IO.Path]::GetFullPath($settings.engineDataPath)
     $kit = [System.IO.Path]::GetFullPath($settings.kitDir)
     $root = Join-Path (Split-Path -Parent (Get-IcePackConfigPath)) 'backups'
     return [pscustomobject]@{

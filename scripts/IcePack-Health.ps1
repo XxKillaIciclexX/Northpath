@@ -37,10 +37,10 @@ function Test-IcePackWeb([int]$TimeoutMs = 1000) {
     $request.Method = 'GET'; $request.Timeout = $TimeoutMs; $request.ReadWriteTimeout = $TimeoutMs; $request.Proxy = $null
     try { $response = $request.GetResponse(); try { return ([int]$response.StatusCode -eq 200) } finally { $response.Dispose() } } catch { return $false }
 }
-function Get-IcePackHealth {
-    $engine = Invoke-IcePackLocalJson 'http://127.0.0.1:3210/state'
-    $bridge = Invoke-IcePackLocalJson 'http://127.0.0.1:3212/status'
-    $dashboard = Test-IcePackWeb
+function Get-IcePackHealth([switch]$Hosted, [switch]$SkipEngine, [switch]$SkipBridge) {
+    $engine = if (-not $SkipEngine) { Invoke-IcePackLocalJson 'http://127.0.0.1:3210/state' }
+    $bridge = if (-not $SkipBridge) { Invoke-IcePackLocalJson 'http://127.0.0.1:3212/status' }
+    $dashboard = -not $Hosted -and (Test-IcePackWeb)
     $engineHealthy = ($null -ne $engine -and $engine.HttpStatus -eq 200 -and $null -ne $engine.Data.settings)
     $bridgeHealthy = ($null -ne $bridge -and $bridge.HttpStatus -eq 200 -and $bridge.Data.engineOnline -eq $true)
     $bridgeReachable = ($null -ne $bridge -and $bridge.Data.online -eq $true)
@@ -51,9 +51,11 @@ function Get-IcePackHealth {
     $experimentalMode = if ($engineHealthy) { [string]$engine.Data.giftRcon.mode } else { 'unknown' }
     $giftSource = $null
     $giftSourceStatus = $null
+    $giftTest = $null
     if ($engineHealthy) {
         $giftSource = if ($engine.Data.PSObject.Properties['giftSource']) { [string]$engine.Data.giftSource } else { 'streamerbot' }
         $giftSourceStatus = if ($engine.Data.PSObject.Properties['giftSourceStatus']) { [string]$engine.Data.giftSourceStatus } else { 'ready' }
+        if ($engine.Data.PSObject.Properties['giftTest']) { $giftTest = $engine.Data.giftTest }
     }
     # Preview must not be mistaken for Live, and unknown mode values must not be treated as safe.
     $knownModes = @('off','preview','live')
@@ -80,6 +82,8 @@ function Get-IcePackHealth {
         LegacyArmed = [bool]$legacyArmed
         GiftSource = $giftSource
         GiftSourceStatus = $giftSourceStatus
+        GiftTestReady = ($null -ne $giftTest -and $giftTest.state -notin @('unavailable','armed'))
+        GiftTestMessage = $(if ($null -ne $giftTest) { [string]$giftTest.message } else { '' })
         PreviewSafe = [bool]$previewSafe
         LiveOrArmed = [bool]$liveActive
         ReadyForPreviewSetup = [bool]($servicesReady -and $safeForSetup)

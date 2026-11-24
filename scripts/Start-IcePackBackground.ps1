@@ -5,7 +5,12 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'IcePack-ManagedCommon.ps1')
 $settings=Get-IcePackSettings
 Assert-IcePackFiles $settings
-$names=if($Service -eq 'all'){@('engine','dashboard','bridge')}else{@($Service)}
+$packaged = Test-IcePackStreamerInstall
+if ($packaged) {
+    . (Join-Path $PSScriptRoot 'IcePack-StreamerCommon.ps1')
+    if (-not $CheckOnly) { Initialize-IcePackStreamer }
+}
+$names=if($Service -eq 'all'){Get-IcePackManagedServices}else{@($Service)}
 foreach($name in $names){
     $def=Get-IcePackServiceDefinition $name $settings
     $existing=Read-IcePackOwnedRecord $name
@@ -35,17 +40,25 @@ foreach($name in $names){
         $oldToken=[Environment]::GetEnvironmentVariable('ICEPACK_BRIDGE_PAIRING_TOKEN','Process')
         $oldKit=[Environment]::GetEnvironmentVariable('ICEPACK_KIT_DIR','Process')
         $oldWebsiteDir=[Environment]::GetEnvironmentVariable('ICEPACK_WEBSITE_LINK_DIR','Process')
+        $oldSettingsPath=[Environment]::GetEnvironmentVariable('ICEPACK_COMPANION_SETTINGS_PATH','Process')
+        $oldPreviewMode=[Environment]::GetEnvironmentVariable('ICEPACK_ALPHA_PREVIEW','Process')
         $token=New-IcePackBridgeToken
         try {
             Save-IcePackBridgeToken $token
             [Environment]::SetEnvironmentVariable('ICEPACK_BRIDGE_PAIRING_TOKEN',$token,'Process')
             [Environment]::SetEnvironmentVariable('ICEPACK_KIT_DIR',[string]$settings.kitDir,'Process')
             [Environment]::SetEnvironmentVariable('ICEPACK_WEBSITE_LINK_DIR',$root,'Process')
+            if ($packaged) {
+                [Environment]::SetEnvironmentVariable('ICEPACK_COMPANION_SETTINGS_PATH',(Get-IcePackConfigPath),'Process')
+                [Environment]::SetEnvironmentVariable('ICEPACK_ALPHA_PREVIEW',$null,'Process')
+            }
             $proc=Start-Process -FilePath $def.Program -ArgumentList @('"'+$def.Script+'"') -WorkingDirectory $def.WorkDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
         } finally {
             [Environment]::SetEnvironmentVariable('ICEPACK_BRIDGE_PAIRING_TOKEN',$oldToken,'Process')
             [Environment]::SetEnvironmentVariable('ICEPACK_KIT_DIR',$oldKit,'Process')
             [Environment]::SetEnvironmentVariable('ICEPACK_WEBSITE_LINK_DIR',$oldWebsiteDir,'Process')
+            [Environment]::SetEnvironmentVariable('ICEPACK_COMPANION_SETTINGS_PATH',$oldSettingsPath,'Process')
+            [Environment]::SetEnvironmentVariable('ICEPACK_ALPHA_PREVIEW',$oldPreviewMode,'Process')
             $token=$null
             if($null -eq $proc) { Remove-Item -LiteralPath (Get-IcePackBridgeTokenPath) -Force -ErrorAction SilentlyContinue }
         }
@@ -55,11 +68,29 @@ foreach($name in $names){
             throw 'Install the direct TikFinity engine update before starting with this gift source.'
         }
         $oldGiftSource = [Environment]::GetEnvironmentVariable('ICEPACK_GIFT_SOURCE','Process')
+        $privateEnv = @{}
         try {
             [Environment]::SetEnvironmentVariable('ICEPACK_GIFT_SOURCE',$giftSource,'Process')
+            if ($packaged) {
+                $server = Read-IcePackServerSettings
+                $rcon = @{ RCON_HOST=$null; RCON_PORT=$null; RCON_PASSWORD=$null; ICEPACK_KIT_DIR=$settings.kitDir }
+                if ($null -ne $server) {
+                    $rcon.RCON_HOST = [string]$server.host
+                    $rcon.RCON_PORT = [string]$server.port
+                    $credential = [System.Net.NetworkCredential]::new('', (ConvertTo-SecureString $server.password))
+                    $rcon.RCON_PASSWORD = $credential.Password
+                }
+                foreach ($key in $rcon.Keys) {
+                    $privateEnv[$key] = [Environment]::GetEnvironmentVariable($key,'Process')
+                    [Environment]::SetEnvironmentVariable($key,$rcon[$key],'Process')
+                }
+            }
             $proc=Start-Process -FilePath $def.Program -ArgumentList $launchArgs -WorkingDirectory $def.WorkDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
         } finally {
             [Environment]::SetEnvironmentVariable('ICEPACK_GIFT_SOURCE',$oldGiftSource,'Process')
+            foreach ($key in $privateEnv.Keys) { [Environment]::SetEnvironmentVariable($key,$privateEnv[$key],'Process') }
+            $rcon = $null
+            $credential = $null
         }
     } else {
         $proc=Start-Process -FilePath $def.Program -ArgumentList $launchArgs -WorkingDirectory $def.WorkDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
@@ -68,4 +99,4 @@ foreach($name in $names){
     catch { Write-Warning "Unable to record ownership; attempting to stop ONLY new process $($proc.Id).";if(-not $proc.HasExited){Stop-Process -Id $proc.Id -ErrorAction SilentlyContinue};if($name -eq 'bridge'){Remove-Item -LiteralPath (Get-IcePackBridgeTokenPath) -Force -ErrorAction SilentlyContinue};throw }
     Write-Host "$name launched quietly (PID $($proc.Id)). Logs: $root"
 }
-Write-Host 'For managed bridge pairing, use Copy-IcePackBridgeToken.ps1 (clipboard only). Existing visible bridge is still supported.'
+if (-not $packaged) { Write-Host 'For managed bridge pairing, use Copy-IcePackBridgeToken.ps1 (clipboard only). Existing visible bridge is still supported.' }

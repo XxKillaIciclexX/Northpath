@@ -16,7 +16,7 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
   async function localRules() {
     if (!kitDir) throw Error('Configure the local Kit Editor directory in Companion first.');
     const paths = resolveBackupPaths(kitDir);
-    const planner = await import(pathToFileURL(join(paths.engineDir, 'icepack-custom-rules.mjs')).href);
+    const planner = await import(pathToFileURL(join(paths.engineCodeDir, 'icepack-custom-rules.mjs')).href);
     const saved = planner.loadSavedRules(kitDir);
     if (!saved.fingerprints) throw Error('Update the regular ARK Engine to a version that reports loaded rule fingerprints.');
     return { paths, planner, saved };

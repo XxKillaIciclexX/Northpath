@@ -37,6 +37,22 @@ test('rejects an incorrectly paired Kit directory',t=>{
  const other=path.join(f.root,'other');fs.mkdirSync(other);
  assert.throws(()=>resolveBackupPaths(other,{localAppData:f.local}),/differs from installed settings/);
 });
+test('a streamer install loads planner code from the app and backs up rules from user data', t => {
+  const f = fixtures();
+  t.after(() => fs.rmSync(f.root, { recursive: true, force: true }));
+  const data = path.join(f.local, 'IcePackCompanionStreamer', 'data');
+  const engineData = path.join(data, 'engine');
+  fs.mkdirSync(engineData, { recursive: true });
+  fs.writeFileSync(path.join(engineData, 'rules-v06.json'), JSON.stringify({ playerId: '314159', rules: [] }));
+  const settingsPath = path.join(data, 'settings.json');
+  fs.writeFileSync(settingsPath, JSON.stringify({ enginePath: f.engine, engineDataPath: engineData, kitDir: f.kit }));
+
+  const paths = resolveBackupPaths(f.kit, { localAppData: f.local, settingsPath });
+  assert.equal(paths.engineCodeDir, fs.realpathSync(f.engine));
+  const snapshot = snapshotBeforeApply(paths);
+  assert.equal(paths.root, path.join(data, 'backups'));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(snapshot.directory, 'legacy-rules.json'))).playerId, '314159');
+});
 test('no existing config blocks apply safely',t=>{
  const f=fixtures();t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));
  fs.rmSync(path.join(f.engine,'rules-v06.json'));fs.rmSync(path.join(f.kit,'streamer-config-v2.json'));

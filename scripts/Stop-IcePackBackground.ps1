@@ -4,7 +4,7 @@ param([ValidateSet('all','engine','dashboard','bridge')][string]$Service='all', 
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'IcePack-ManagedCommon.ps1')
 $settings=Get-IcePackSettings
-$names=if($Service -eq 'all'){@('bridge','dashboard','engine')}else{@($Service)}
+$names=if($Service -eq 'all'){Get-IcePackManagedServices -StopOrder}else{@($Service)}
 foreach($name in $names){
     $def=Get-IcePackServiceDefinition $name $settings
     $rec=Read-IcePackOwnedRecord $name
@@ -15,6 +15,7 @@ foreach($name in $names){
     }
     if($CheckOnly){Write-Host "Would stop owned $name PID $($rec.pid).";continue}
     Stop-Process -Id ([int]$rec.pid) -ErrorAction Stop
+    Wait-Process -Id ([int]$rec.pid) -Timeout 5 -ErrorAction SilentlyContinue
     $recordPath=Join-Path (Get-IcePackManagedRoot) "$name.json"
     Remove-Item -LiteralPath $recordPath -Force
     if($name -eq 'bridge') { Remove-Item -LiteralPath (Get-IcePackBridgeTokenPath) -Force -ErrorAction SilentlyContinue }

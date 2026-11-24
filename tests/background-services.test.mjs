@@ -9,12 +9,13 @@ const common=file('IcePack-ManagedCommon.ps1');
 const start=file('Start-IcePackBackground.ps1');
 const stop=file('Stop-IcePackBackground.ps1');
 const ui=file('Open-IcePackControlCenter.ps1');
-test('only engine and dashboard are managed',()=>{
+test('engine, dashboard, and bridge use named managed definitions',()=>{
  assert.match(common,/switch \(\$Name\)/);
  assert.match(common,/'engine'/);
  assert.match(common,/'dashboard'/);
- assert.doesNotMatch(start,/Run-Bridge|bridge\.mjs|21213/);
- assert.match(start,/Bridge stays visible/);
+ assert.match(common,/'bridge'/);
+ assert.match(start,/Get-IcePackServiceDefinition/);
+ assert.doesNotMatch(start,/Run-Bridge|21213/);
 });
 test('engine quiet start includes env file and protected backup',()=>{
  assert.match(common,/--env-file=\.env/);
@@ -31,7 +32,7 @@ test('owned PID requires start time, executable and command line match',()=>{
 });
 test('stop never kills unowned services or bridge',()=>{
  assert.match(stop,/ownership could not be verified; refusing to stop/);
- assert.match(stop,/Unowned processes and the visible bridge were not touched/);
+ assert.match(stop,/Unowned processes are never touched/);
  assert.doesNotMatch(stop,/taskkill|Stop-Process -Name|Get-Process node/);
 });
 test('managed logs never capture bridge pairing token',()=>{

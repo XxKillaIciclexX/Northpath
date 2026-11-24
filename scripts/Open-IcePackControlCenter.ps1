@@ -17,16 +17,32 @@ if (-not ('IcePack.Operations.RoundedButton' -as [type])) {
         'System.dll', 'System.Drawing.dll', 'System.Windows.Forms.dll'
     )
 }
-. (Join-Path $PSScriptRoot 'Common.ps1')
+. (Join-Path $PSScriptRoot 'IcePack-ManagedCommon.ps1')
 . (Join-Path $PSScriptRoot 'IcePack-Health.ps1')
 . (Join-Path $PSScriptRoot 'IcePack-Release.ps1')
 
+$streamer = Test-IcePackStreamerInstall
+if ($streamer) {
+    $firstWindow = $false
+    $appMutex = [System.Threading.Mutex]::new($true, 'Local\Northpath.IcePackCompanionStreamer', [ref]$firstWindow)
+    if (-not $firstWindow) { $appMutex.Dispose(); return }
+    try {
+        . (Join-Path $PSScriptRoot 'IcePack-StreamerCommon.ps1')
+        Initialize-IcePackStreamer
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Companion setup', 'OK', 'Warning')
+        $appMutex.Dispose()
+        return
+    }
+}
 $settings = Get-IcePackSettings
 $launchScript = Join-Path $PSScriptRoot 'Start-IcePackCompanion.ps1'
 $diagnosticScript = Join-Path $PSScriptRoot 'Test-IcePackCompanion.ps1'
 $readinessScript = Join-Path $PSScriptRoot 'Test-IcePackReadiness.ps1'
-foreach ($script in @($launchScript, $diagnosticScript, $readinessScript)) {
-    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing support script: $script" }
+if (-not $streamer) {
+    foreach ($script in @($launchScript, $diagnosticScript, $readinessScript)) {
+        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing support script: $script" }
+    }
 }
 
 $theme = @{
@@ -118,6 +134,12 @@ function New-ActionButton([string]$Text, [string]$Variant = 'Secondary') {
     $button.MinimumSize = [System.Drawing.Size]::new(0, 38)
     $button.Padding = [System.Windows.Forms.Padding]::new(11, 3, 11, 3)
     $button.Cursor = [System.Windows.Forms.Cursors]::Hand
+    Set-ActionButtonStyle $button $Variant
+    return $button
+}
+
+function Set-ActionButtonStyle([System.Windows.Forms.Button]$Button, [string]$Variant) {
+    $button.Outline = [System.Drawing.Color]::Empty
     switch ($Variant) {
         'Primary' {
             $button.FillStart = $theme.Emerald
@@ -139,7 +161,15 @@ function New-ActionButton([string]$Text, [string]$Variant = 'Secondary') {
             $button.Outline = $theme.ButtonBorder
         }
     }
-    return $button
+    $button.Invalidate()
+}
+
+function Set-ActionToggle($Button, [bool]$Active, [string]$StartText, [string]$StopText) {
+    $text = if ($Active) { $StopText } else { $StartText }
+    if ($Button.Text -eq $text) { return }
+    $Button.Text = $text
+    Set-ActionButtonStyle $Button $(if ($Active) { 'Danger' } else { 'Primary' })
+    $Button.Parent.PerformLayout()
 }
 
 function Add-ActionRow([System.Windows.Forms.TableLayoutPanel]$Stack, [System.Windows.Forms.Button[]]$Buttons) {
@@ -240,71 +270,99 @@ $scroll.Controls.Add($content)
 $services = New-Card $content 'Local services'
 $engineLabel = Add-ServiceRow $services 'ARK Engine' 3210
 $bridgeLabel = Add-ServiceRow $services 'Local Bridge' 3212
-$dashboardLabel = Add-ServiceRow $services 'Dashboard' 5173
-$quietStartButton = New-ActionButton 'Start Companion' 'Primary'
+if (-not $streamer) { $dashboardLabel = Add-ServiceRow $services 'Dashboard' 5173 }
+$companionButton = New-ActionButton 'Start Companion' 'Primary'
 $openButton = New-ActionButton 'Open dashboard'
-$quietStopButton = New-ActionButton 'Stop Companion' 'Danger'
-Add-ActionRow $services @($quietStartButton, $openButton, $quietStopButton)
-$checkButton = New-ActionButton 'Refresh status'
-$diagButton = New-ActionButton 'Diagnostics'
-$quietLogsButton = New-ActionButton 'Open logs'
-Add-ActionRow $services @($checkButton, $diagButton, $quietLogsButton)
+Add-ActionRow $services @($companionButton, $openButton)
+if (-not $streamer) {
+    $checkButton = New-ActionButton 'Refresh status'
+    $diagButton = New-ActionButton 'Diagnostics'
+    $quietLogsButton = New-ActionButton 'Open logs'
+    Add-ActionRow $services @($checkButton, $diagButton, $quietLogsButton)
+}
 
-$readiness = New-Card $content 'Operational readiness'
+$readiness = New-Card $content $(if ($streamer) { 'ARK rewards' } else { 'Operational readiness' })
 $targetLabel = New-Text 'Player target: checking...' 10 $false $theme.Muted
 $safeLabel = New-Text 'Reward lanes: checking...' 10 $false $theme.Muted
 Add-Row $readiness $targetLabel
 Add-Row $readiness $safeLabel
-$readinessButton = New-ActionButton 'Run preflight'
 $survivorButton = New-ActionButton 'Set Survivor ID'
-Add-ActionRow $readiness @($survivorButton, $readinessButton)
-$liveButton = New-ActionButton 'Enable Live Custom Rules' 'Primary'
-$stopRulesButton = New-ActionButton 'Stop Custom Rules' 'Danger'
-Add-ActionRow $readiness @($liveButton, $stopRulesButton)
+if ($streamer) {
+    $serverLabel = New-Text 'ARK server: checking...' 10 $false $theme.Muted
+    Add-Row $readiness $serverLabel
+    $serverButton = New-ActionButton 'Set ARK Server'
+    Add-ActionRow $readiness @($serverButton, $survivorButton)
+} else {
+    $readinessButton = New-ActionButton 'Run preflight'
+    Add-ActionRow $readiness @($survivorButton, $readinessButton)
+}
+$startLiveText = if ($streamer) { 'Start Live Rewards' } else { 'Enable Live Custom Rules' }
+$stopLiveText = if ($streamer) { 'Stop Live Rewards' } else { 'Stop Custom Rules' }
+$liveButton = New-ActionButton $startLiveText 'Primary'
+Add-ActionRow $readiness @($liveButton)
 
 $giftInputCard = New-Card $content 'Gift source'
 $giftInputLabel = New-Text 'Checking gift source...' 10 $false $theme.Muted
 Add-Row $giftInputCard $giftInputLabel
-$directGiftButton = New-ActionButton 'Use direct TikFinity'
-$streamerBotGiftButton = New-ActionButton 'Use Streamer.bot'
-Add-ActionRow $giftInputCard @($directGiftButton, $streamerBotGiftButton)
 $armGiftTestButton = New-ActionButton 'Arm TikFinity test gift'
-$giftTestStatusButton = New-ActionButton 'Check test status'
-Add-ActionRow $giftInputCard @($armGiftTestButton, $giftTestStatusButton)
+if ($streamer) {
+    $giftTestLabel = New-Text '' 10 $false $theme.Muted
+    $giftTestLabel.MaximumSize = [System.Drawing.Size]::new(415, 0)
+    Add-Row $giftInputCard $giftTestLabel
+    Add-ActionRow $giftInputCard @($armGiftTestButton)
+} else {
+    $directGiftButton = New-ActionButton 'Use direct TikFinity'
+    $streamerBotGiftButton = New-ActionButton 'Use Streamer.bot'
+    Add-ActionRow $giftInputCard @($directGiftButton, $streamerBotGiftButton)
+    $giftTestStatusButton = New-ActionButton 'Check test status'
+    Add-ActionRow $giftInputCard @($armGiftTestButton, $giftTestStatusButton)
+}
 
-$pairing = New-Card $content 'Bridge pairing'
-Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
-$copyTokenButton = New-ActionButton 'Copy bridge pairing token'
-Add-ActionRow $pairing @($copyTokenButton)
+if (-not $streamer) {
+    $pairing = New-Card $content 'Bridge pairing'
+    Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
+    $copyTokenButton = New-ActionButton 'Copy bridge pairing token'
+    Add-ActionRow $pairing @($copyTokenButton)
+}
 
 $website = New-Card $content 'Northpath website'
 $websiteCodeButton = New-ActionButton 'Copy website pairing code'
-$websiteButton = New-ActionButton 'Open website Connections'
-Add-ActionRow $website @($websiteCodeButton, $websiteButton)
-$reviewWebsiteRuleButton = New-ActionButton 'Review website rule'
-Add-ActionRow $website @($reviewWebsiteRuleButton)
-$enableAccountSyncButton = New-ActionButton 'Enable account sync'
-$disableAccountSyncButton = New-ActionButton 'Disable account sync'
-$checkAccountSyncButton = New-ActionButton 'Check sync status'
-Add-ActionRow $website @($enableAccountSyncButton, $disableAccountSyncButton, $checkAccountSyncButton)
+if ($streamer) {
+    $syncLabel = New-Text '' 10 $false $theme.Muted
+    $syncLabel.MaximumSize = [System.Drawing.Size]::new(415, 0)
+    Add-Row $website $syncLabel
+    $syncButton = New-ActionButton 'Enable account sync' 'Primary'
+    Add-ActionRow $website @($websiteCodeButton, $syncButton)
+} else {
+    $websiteButton = New-ActionButton 'Open website Connections'
+    Add-ActionRow $website @($websiteCodeButton, $websiteButton)
+    $reviewWebsiteRuleButton = New-ActionButton 'Review website rule'
+    Add-ActionRow $website @($reviewWebsiteRuleButton)
+    $enableAccountSyncButton = New-ActionButton 'Enable account sync'
+    $disableAccountSyncButton = New-ActionButton 'Disable account sync'
+    $checkAccountSyncButton = New-ActionButton 'Check sync status'
+    Add-ActionRow $website @($enableAccountSyncButton, $disableAccountSyncButton, $checkAccountSyncButton)
+}
 
-$recovery = New-Card $content 'Configuration protection'
-$backupButton = New-ActionButton 'Backup now'
-$backupsButton = New-ActionButton 'Open backups'
-$restoreHelpButton = New-ActionButton 'Recovery guide'
-Add-ActionRow $recovery @($backupButton, $backupsButton, $restoreHelpButton)
+if (-not $streamer) {
+    $recovery = New-Card $content 'Configuration protection'
+    $backupButton = New-ActionButton 'Backup now'
+    $backupsButton = New-ActionButton 'Open backups'
+    $restoreHelpButton = New-ActionButton 'Recovery guide'
+    Add-ActionRow $recovery @($backupButton, $backupsButton, $restoreHelpButton)
 
-$updates = New-Card $content 'Updates and inventory'
-$updateManagerButton = New-ActionButton 'Open Update Manager'
-Add-ActionRow $updates @($updateManagerButton)
-$reportButton = New-ActionButton 'View installation report'
-$baselineButton = New-ActionButton 'Version / baseline status'
-Add-ActionRow $updates @($reportButton, $baselineButton)
+    $updates = New-Card $content 'Updates and inventory'
+    $updateManagerButton = New-ActionButton 'Open Update Manager'
+    Add-ActionRow $updates @($updateManagerButton)
+    $reportButton = New-ActionButton 'View installation report'
+    $baselineButton = New-ActionButton 'Version / baseline status'
+    Add-ActionRow $updates @($reportButton, $baselineButton)
 
-$tools = New-Card $content 'Utilities'
-$startButton = New-ActionButton 'Legacy startup'
-$folderButton = New-ActionButton 'Open project folder'
-Add-ActionRow $tools @($startButton, $folderButton)
+    $tools = New-Card $content 'Utilities'
+    $startButton = New-ActionButton 'Legacy startup'
+    $folderButton = New-ActionButton 'Open project folder'
+    Add-ActionRow $tools @($startButton, $folderButton)
+}
 
 $footer = New-Stack
 $footer.Padding = [System.Windows.Forms.Padding]::new(20, 7, 20, 2)
@@ -331,11 +389,33 @@ function Update-IcePackGiftSourceLabel($Health) {
     $giftInputLabel.Text = $message
 }
 
+function Test-IcePackServiceOwned([string]$Name) {
+    $record = Read-IcePackOwnedRecord $Name
+    if ($null -eq $record) { return $false }
+    return (Test-IcePackOwnedProcess $record (Get-IcePackServiceDefinition $Name $settings))
+}
+
+$script:hasOwnedService = $false
+$script:stopRules = $false
+$script:syncEnabled = $false
+
 function Refresh-IcePackStatus {
     # Health probes read only three fixed localhost URLs; no tokens or IDs are displayed.
-    $health = Get-IcePackHealth
-    $serviceResults = @($health.EngineHealthy, $health.BridgeReachable, $health.DashboardHealthy)
-    $labels = @($engineLabel, $bridgeLabel, $dashboardLabel)
+    $engineOwned = Test-IcePackServiceOwned 'engine'
+    $bridgeOwned = Test-IcePackServiceOwned 'bridge'
+    $script:hasOwnedService = $engineOwned -or $bridgeOwned
+    if (-not $streamer) { $script:hasOwnedService = $script:hasOwnedService -or (Test-IcePackServiceOwned 'dashboard') }
+    Set-ActionToggle $companionButton $script:hasOwnedService 'Start Companion' 'Stop Companion'
+    $health = Get-IcePackHealth -Hosted:$streamer -SkipEngine:($streamer -and -not $engineOwned) -SkipBridge:($streamer -and -not $bridgeOwned)
+    $engineReady = $health.EngineHealthy
+    $bridgeReady = $health.BridgeHealthy -and $engineReady
+    $bridgeActionsReady = $bridgeReady -and $null -eq $script:managedProcess
+    $serviceResults = @($engineReady, $health.BridgeReachable)
+    $labels = @($engineLabel, $bridgeLabel)
+    if (-not $streamer) {
+        $serviceResults += $health.DashboardHealthy
+        $labels += $dashboardLabel
+    }
     $open = 0
     for ($i = 0; $i -lt $labels.Count; $i++) {
         if ($serviceResults[$i]) {
@@ -343,11 +423,11 @@ function Refresh-IcePackStatus {
             $labels[$i].ForeColor = $theme.Success
             $open++
         } else {
-            $labels[$i].Text = 'Check service'
-            $labels[$i].ForeColor = $theme.Error
+            $labels[$i].Text = if ($streamer) { 'Offline' } else { 'Check service' }
+            $labels[$i].ForeColor = if ($streamer) { $theme.Muted } else { $theme.Error }
         }
     }
-    if ($health.TargetSaved -and $health.TargetLoaded) {
+    if ($engineReady -and $health.TargetSaved -and $health.TargetLoaded) {
         $targetLabel.Text = 'Player target: saved and loaded'
         $targetLabel.ForeColor = $theme.Success
     } else {
@@ -356,10 +436,37 @@ function Refresh-IcePackStatus {
     }
     $safeLabel.Text = 'Reward lanes: ' + $health.RewardState
     $safeLabel.ForeColor = if ($health.RewardLanesOff -or $health.PreviewSafe) { $theme.Success } elseif ($health.LiveOrArmed) { $theme.Error } else { $theme.Warning }
-    $liveButton.Enabled = $health.BridgeHealthy -and $health.TargetLoaded -and -not $health.LiveOrArmed
-    $stopRulesButton.Enabled = $health.BridgeHealthy -and $health.CustomRulesMode -in @('preview', 'live')
-    Update-IcePackGiftSourceLabel $health
-    $statusLabel.Text = "$open of 3 services responding  /  $(Get-Date -Format 'h:mm:ss tt')"
+    $script:stopRules = $engineReady -and $health.CustomRulesMode -in @('preview', 'live')
+    Set-ActionToggle $liveButton $script:stopRules $startLiveText $stopLiveText
+    $liveButton.Enabled = $bridgeActionsReady -and ($script:stopRules -or ($health.TargetLoaded -and -not $health.LiveOrArmed))
+    if ($streamer) {
+        $validSettings = $false
+        try { $validSettings = $null -ne (Read-IcePackServerSettings) } catch {}
+        $serverLabel.Text = if ($validSettings) { 'ARK server: settings saved' } else { 'ARK server: set your RCON details' }
+        $serverButton.Enabled = -not $script:hasOwnedService -and $null -eq $script:managedProcess
+        $liveButton.Enabled = $liveButton.Enabled -and ($validSettings -or $script:stopRules)
+        $survivorButton.Enabled = $bridgeActionsReady -and $health.RewardLanesOff
+        $websiteCodeButton.Enabled = $bridgeActionsReady
+        $armGiftTestButton.Enabled = $bridgeActionsReady -and $validSettings -and $health.TargetLoaded -and $health.RewardLanesOff -and $health.GiftTestReady
+        $giftTestLabel.Text = if ($engineReady) { $health.GiftTestMessage } else { '' }
+        if ($engineReady) { Update-IcePackGiftSourceLabel $health } else { $giftInputLabel.Text = 'Start Companion for TikFinity Desktop.' }
+        $script:syncEnabled = $false
+        $syncButton.Enabled = $false
+        $syncLabel.Text = 'Start Companion to connect to your Northpath account.'
+        if ($bridgeReady) {
+            try {
+                $sync = Invoke-IcePackBridgePost 'operations/account-sync-status' (Read-IcePackBridgeToken) @{}
+                $script:syncEnabled = $sync.enabled -eq $true
+                $syncLabel.Text = $sync.message
+                $syncButton.Enabled = $bridgeActionsReady
+            } catch { $syncLabel.Text = 'Account sync status unavailable.' }
+        }
+        Set-ActionToggle $syncButton $script:syncEnabled 'Enable account sync' 'Disable account sync'
+        if (-not $engineReady) { $safeLabel.Text = 'Reward lanes: OFFLINE' }
+    } else { Update-IcePackGiftSourceLabel $health }
+    if ($null -eq $script:managedProcess) {
+        $statusLabel.Text = "$open of $($labels.Count) services responding  /  $(Get-Date -Format 'h:mm:ss tt')"
+    }
     # Status represents endpoint health only, never live gift readiness or RCON connectivity.
 }
 
@@ -367,17 +474,21 @@ function Open-PowerShellScript([string]$Path) {
     Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+$Path+'"')) -WorkingDirectory $settings.repoPath
 }
 
-$startButton.Add_Click({
-    try {
-        Assert-IcePackFiles $settings
-        Open-PowerShellScript $launchScript
-        $statusLabel.Text = 'Start requested. The launcher opens only missing services.'
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Startup check failed', 'OK', 'Warning') | Out-Null
-    }
+if (-not $streamer) {
+    $startButton.Add_Click({
+        try {
+            Assert-IcePackFiles $settings
+            Open-PowerShellScript $launchScript
+            $statusLabel.Text = 'Start requested. The launcher opens only missing services.'
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Startup check failed', 'OK', 'Warning') | Out-Null
+        }
+    })
+}
+
+$openButton.Add_Click({
+    Start-Process $(if ($streamer) { 'https://northpath.ai/companion#connections' } else { 'http://127.0.0.1:5173/' })
 })
-$openButton.Add_Click({ Start-Process 'http://127.0.0.1:5173/' })
-$checkButton.Add_Click({ Refresh-IcePackStatus })
 function Select-IcePackGiftSource([string]$Source) {
     try {
         Set-IcePackGiftSource $Source
@@ -386,33 +497,35 @@ function Select-IcePackGiftSource([string]$Source) {
         [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Gift source unavailable', 'OK', 'Warning')
     }
 }
-$directGiftButton.Add_Click({ Select-IcePackGiftSource 'tikfinity' })
-$streamerBotGiftButton.Add_Click({ Select-IcePackGiftSource 'streamerbot' })
-$diagButton.Add_Click({ Open-PowerShellScript $diagnosticScript })
-$readinessButton.Add_Click({ Open-PowerShellScript $readinessScript })
-$folderButton.Add_Click({ Start-Process 'explorer.exe' -ArgumentList ('"' + $settings.repoPath + '"') })
-$backupButton.Add_Click({
-    try {
-        $script = Join-Path $PSScriptRoot 'Backup-IcePackConfiguration.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing backup support script: $script" }
-        Open-PowerShellScript $script
-    } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Backup unavailable', 'OK', 'Warning') | Out-Null }
-})
-$backupsButton.Add_Click({
-    try {
-        $script = Join-Path $PSScriptRoot 'IcePack-ConfigCommon.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing backup support script: $script" }
-        $root = Join-Path (Split-Path -Parent (Get-IcePackConfigPath)) 'backups'
-        New-Item -ItemType Directory -Path $root -Force | Out-Null
-        Start-Process -FilePath 'explorer.exe' -ArgumentList ('"' + $root + '"')
-    } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Backups unavailable', 'OK', 'Warning') | Out-Null }
-})
-$restoreHelpButton.Add_Click({
-    [System.Windows.Forms.MessageBox]::Show(
-        'Stop the original engine and Kit Editor before restoring. Run List-IcePackBackups.ps1 to identify a snapshot, then Restore-IcePackConfiguration.ps1 -Snapshot <name> for a dry run. Only use -ConfirmRestore after reviewing the results. A safety backup is created first.',
-        'Recovery guide (manual and dry-run-first)', 'OK', 'Information') | Out-Null
-})
-
+if (-not $streamer) {
+    $checkButton.Add_Click({ Refresh-IcePackStatus })
+    $directGiftButton.Add_Click({ Select-IcePackGiftSource 'tikfinity' })
+    $streamerBotGiftButton.Add_Click({ Select-IcePackGiftSource 'streamerbot' })
+    $diagButton.Add_Click({ Open-PowerShellScript $diagnosticScript })
+    $readinessButton.Add_Click({ Open-PowerShellScript $readinessScript })
+    $folderButton.Add_Click({ Start-Process 'explorer.exe' -ArgumentList ('"' + $settings.repoPath + '"') })
+    $backupButton.Add_Click({
+        try {
+            $script = Join-Path $PSScriptRoot 'Backup-IcePackConfiguration.ps1'
+            if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing backup support script: $script" }
+            Open-PowerShellScript $script
+        } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Backup unavailable', 'OK', 'Warning') | Out-Null }
+    })
+    $backupsButton.Add_Click({
+        try {
+            $script = Join-Path $PSScriptRoot 'IcePack-ConfigCommon.ps1'
+            if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing backup support script: $script" }
+            $root = Join-Path (Split-Path -Parent (Get-IcePackConfigPath)) 'backups'
+            New-Item -ItemType Directory -Path $root -Force | Out-Null
+            Start-Process -FilePath 'explorer.exe' -ArgumentList ('"' + $root + '"')
+        } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Backups unavailable', 'OK', 'Warning') | Out-Null }
+    })
+    $restoreHelpButton.Add_Click({
+        [System.Windows.Forms.MessageBox]::Show(
+            'Stop the original engine and Kit Editor before restoring. Run List-IcePackBackups.ps1 to identify a snapshot, then Restore-IcePackConfiguration.ps1 -Snapshot <name> for a dry run. Only use -ConfirmRestore after reviewing the results. A safety backup is created first.',
+            'Recovery guide (manual and dry-run-first)', 'OK', 'Information') | Out-Null
+    })
+}
 
 # Managed actions run in a child process with asynchronously drained stdout/stderr.
 # A WinForms timer observes completion on the UI thread. Never WaitForExit on that thread.
@@ -452,7 +565,7 @@ function Finish-IcePackManagedAction {
         if ($details.Length -gt 2500) { $details = $details.Substring(0,2500) + "`n... (output shortened; check logs)" }
         if ($exitCode -ne 0) {
             [System.Windows.Forms.MessageBox]::Show("Managed action failed (exit $exitCode):`n$details", $script:managedActionName, 'OK', 'Warning') | Out-Null
-        } else {
+        } elseif (-not $streamer) {
             $message = if ($details) { $details } else { 'Completed. Check current service status.' }
             [System.Windows.Forms.MessageBox]::Show($message, $script:managedActionName, 'OK', 'Information') | Out-Null
         }
@@ -463,10 +576,9 @@ function Finish-IcePackManagedAction {
         $script:managedProcess = $null
         $script:managedOutputTask = $null
         $script:managedErrorTask = $null
-        $quietStartButton.Enabled = $true
-        $quietStopButton.Enabled = $true
+        $companionButton.Enabled = $true
         $form.UseWaitCursor = $false
-        try { Refresh-IcePackStatus } catch { $statusLabel.Text = 'Refresh failed: use Refresh status.' }
+        try { Refresh-IcePackStatus } catch { $statusLabel.Text = 'Status check failed. Retrying shortly.' }
     }
 }
 
@@ -517,8 +629,8 @@ function Invoke-IcePackManagedAction([string]$FileName, [string]$ActionName) {
         $script:managedActionStarted = [datetime]::UtcNow
         $script:managedTimeoutReported = $false
         $script:managedExitedAt = [datetime]::MinValue
-        $quietStartButton.Enabled = $false
-        $quietStopButton.Enabled = $false
+        $companionButton.Enabled = $false
+        if ($streamer) { $serverButton.Enabled = $false }
         $statusLabel.Text = "$ActionName in progress..."
         $script:managedActionTimer.Start()
     } catch {
@@ -527,22 +639,29 @@ function Invoke-IcePackManagedAction([string]$FileName, [string]$ActionName) {
     }
 }
 
-$quietStartButton.Add_Click({
-    try { Invoke-IcePackManagedAction 'Start-IcePackCompanionManaged.ps1' 'Start Companion' }
-    catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Managed startup','OK','Warning') | Out-Null }
-})
-$quietStopButton.Add_Click({
-    if ([System.Windows.Forms.MessageBox]::Show('Stop ONLY processes owned by Ice Pack Companion? In-flight RCON commands cannot be recalled.','Confirm managed stop','YesNo','Warning') -eq 'Yes') {
-        try { Invoke-IcePackManagedAction 'Stop-IcePackCompanionManaged.ps1' 'Stop Companion' }
-        catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Managed shutdown','OK','Warning') | Out-Null }
+$companionButton.Add_Click({
+    try {
+        if ($script:hasOwnedService) {
+            if (-not $streamer -and [System.Windows.Forms.MessageBox]::Show(
+                $form, 'Stop Companion services? In-flight RCON commands cannot be recalled.',
+                'Confirm managed stop', 'YesNo', 'Warning') -ne 'Yes') { return }
+            Invoke-IcePackManagedAction 'Stop-IcePackCompanionManaged.ps1' 'Stop Companion'
+        } else {
+            Invoke-IcePackManagedAction 'Start-IcePackCompanionManaged.ps1' 'Start Companion'
+        }
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Companion services', 'OK', 'Warning')
     }
 })
-$copyTokenButton.Add_Click({
-    try {
-        & (Join-Path $PSScriptRoot 'Copy-IcePackBridgeToken.ps1') | Out-Null
-        $statusLabel.Text='Bridge pairing token copied to clipboard.'
-    } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Pairing token unavailable','OK','Warning') | Out-Null }
-})
+if (-not $streamer) {
+    $copyTokenButton.Add_Click({
+        try {
+            & (Join-Path $PSScriptRoot 'Copy-IcePackBridgeToken.ps1') | Out-Null
+            $statusLabel.Text='Bridge pairing token copied to clipboard.'
+        } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Pairing token unavailable','OK','Warning') | Out-Null }
+    })
+}
+
 function Invoke-IcePackBridgePost([string]$Endpoint, [string]$Token, [hashtable]$Body) {
     Add-Type -AssemblyName System.Net.Http
     $handler = [System.Net.Http.HttpClientHandler]::new()
@@ -571,12 +690,67 @@ function Invoke-IcePackBridgePost([string]$Endpoint, [string]$Token, [hashtable]
     } finally { $client.Dispose() }
 }
 function Invoke-IcePackBridgeAction([string]$Endpoint, [hashtable]$Body = @{}) {
+    if ($streamer -and $null -ne $script:managedProcess) { throw 'Wait for Companion to finish starting or stopping.' }
     . (Join-Path $PSScriptRoot 'IcePack-ManagedCommon.ps1')
     $definition = Get-IcePackServiceDefinition 'bridge' $settings
-    if (-not (Test-IcePackOwnedProcess (Read-IcePackOwnedRecord 'bridge') $definition)) {
+    if (-not (Test-IcePackOwnedProcess (Read-IcePackOwnedRecord 'bridge') $definition) -or
+        ($streamer -and -not (Test-IcePackServiceOwned 'engine'))) {
         throw 'Start Companion from Operations Center first.'
     }
     Invoke-IcePackBridgePost $Endpoint (Read-IcePackBridgeToken) $Body
+}
+if ($streamer) {
+    $serverButton.Add_Click({
+        $dialog = [System.Windows.Forms.Form]::new()
+        try {
+            $dialog.Text = 'Set ARK Server'
+            $dialog.ClientSize = [System.Drawing.Size]::new(400, 290)
+            $dialog.FormBorderStyle = 'FixedDialog'
+            $dialog.StartPosition = 'CenterParent'
+            $dialog.MaximizeBox = $false
+            $dialog.MinimizeBox = $false
+            $dialog.BackColor = $theme.Surface
+            $dialog.ForeColor = $theme.Foreground
+            $dialog.Font = $form.Font
+            $stack = New-Stack
+            $stack.Padding = [System.Windows.Forms.Padding]::new(16)
+            $dialog.Controls.Add($stack)
+            $saved = $null
+            try { $saved = Read-IcePackServerSettings } catch {}
+            $fields = @{}
+            foreach ($label in @('RCON host', 'RCON port', 'RCON password')) {
+                Add-Row $stack (New-Text $label 10 $true $theme.Foreground)
+                $field = [System.Windows.Forms.TextBox]::new()
+                $field.Dock = 'Top'
+                $field.Margin = [System.Windows.Forms.Padding]::new(0, 0, 0, 10)
+                Add-Row $stack $field
+                $fields[$label] = $field
+            }
+            $fields['RCON password'].UseSystemPasswordChar = $true
+            if ($null -ne $saved) {
+                $fields['RCON host'].Text = $saved.host
+                $fields['RCON port'].Text = [string]$saved.port
+                Add-Row $stack (New-Text 'Leave the password blank to keep the saved password.' 9 $false $theme.Muted)
+            }
+            $save = New-ActionButton 'Save' 'Primary'
+            $save.DialogResult = 'OK'
+            $cancel = New-ActionButton 'Cancel'
+            $cancel.DialogResult = 'Cancel'
+            Add-ActionRow $stack @($save, $cancel)
+            $dialog.AcceptButton = $save
+            $dialog.CancelButton = $cancel
+            while ($dialog.ShowDialog($form) -eq 'OK') {
+                try {
+                    if ($fields['RCON port'].Text.Trim() -notmatch '^\d{1,5}$') { throw 'Enter a numeric RCON port.' }
+                    Save-IcePackServerSettings $fields['RCON host'].Text.Trim() ([int]$fields['RCON port'].Text) $fields['RCON password'].Text
+                    Refresh-IcePackStatus
+                    break
+                } catch {
+                    [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'ARK server settings', 'OK', 'Warning')
+                }
+            }
+        } finally { $dialog.Dispose() }
+    })
 }
 $armGiftTestButton.Add_Click({
     Add-Type -AssemblyName Microsoft.VisualBasic
@@ -588,20 +762,24 @@ $armGiftTestButton.Add_Click({
     if ([System.Windows.Forms.MessageBox]::Show($form, $confirm, 'Arm TikFinity test gift', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
     try {
         $result = Invoke-IcePackBridgeAction 'operations/arm-tikfinity-test' @{ gift = $gift; confirmation = 'ARM TIKFINITY TEST' }
+        Refresh-IcePackStatus
         $statusLabel.Text = $result.message
         [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'TikFinity test gift', 'OK', 'Information')
     } catch {
         [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'TikFinity test gift', 'OK', 'Warning')
     }
 })
-$giftTestStatusButton.Add_Click({
-    try {
-        $result = Invoke-IcePackBridgeAction 'operations/tikfinity-test-status'
-        [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'TikFinity test gift', 'OK', 'Information')
-    } catch {
-        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'TikFinity test gift', 'OK', 'Warning')
-    }
-})
+if (-not $streamer) {
+    $giftTestStatusButton.Add_Click({
+        try {
+            $result = Invoke-IcePackBridgeAction 'operations/tikfinity-test-status'
+            [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'TikFinity test gift', 'OK', 'Information')
+        } catch {
+            [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'TikFinity test gift', 'OK', 'Warning')
+        }
+    })
+}
+
 $survivorButton.Add_Click({
     Add-Type -AssemblyName Microsoft.VisualBasic
     $survivorId = [Microsoft.VisualBasic.Interaction]::InputBox(
@@ -628,7 +806,7 @@ $websiteCodeButton.Add_Click({
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Website pairing unavailable', 'OK', 'Warning') | Out-Null
     }
 })
-$websiteButton.Add_Click({ Start-Process 'https://northpath.ai/companion#connections' })
+
 function Invoke-IcePackAccountSyncAction([string]$Command) {
     try {
         $result = Invoke-IcePackBridgeAction "operations/$Command"
@@ -637,14 +815,24 @@ function Invoke-IcePackAccountSyncAction([string]$Command) {
         [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Northpath account sync', 'OK', 'Warning')
     }
 }
-$enableAccountSyncButton.Add_Click({
+function Enable-IcePackAccountSync {
     $message = 'Use the saved Northpath draft to manage matching local Gift Rules and Kits? Saving to your account will update those entries once gift lanes are idle. Local-only entries are kept.'
     if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Enable account sync', 'YesNo', 'Question', 'Button2') -eq 'Yes') {
         Invoke-IcePackAccountSyncAction 'enable-account-sync'
     }
-})
-$disableAccountSyncButton.Add_Click({ Invoke-IcePackAccountSyncAction 'disable-account-sync' })
-$checkAccountSyncButton.Add_Click({ Invoke-IcePackAccountSyncAction 'account-sync-status' })
+}
+if ($streamer) {
+    $syncButton.Add_Click({
+        if ($script:syncEnabled) { Invoke-IcePackAccountSyncAction 'disable-account-sync' }
+        else { Enable-IcePackAccountSync }
+        Refresh-IcePackStatus
+    })
+} else {
+    $websiteButton.Add_Click({ Start-Process 'https://northpath.ai/companion#connections' })
+    $enableAccountSyncButton.Add_Click({ Enable-IcePackAccountSync })
+    $disableAccountSyncButton.Add_Click({ Invoke-IcePackAccountSyncAction 'disable-account-sync' })
+    $checkAccountSyncButton.Add_Click({ Invoke-IcePackAccountSyncAction 'account-sync-status' })
+}
 function Format-IcePackRule($Rule) {
     if ($null -eq $Rule) { return 'No matching local rule' }
     $gift = if ($Rule.giftName) { [string]$Rule.giftName } else { "Gift $($Rule.giftId)" }
@@ -658,33 +846,46 @@ function Format-IcePackRule($Rule) {
     $enabled = if ($Rule.enabled) { 'enabled' } else { 'disabled' }
     return "$gift - $description ($enabled, $($Rule.cooldown)s cooldown)"
 }
-$reviewWebsiteRuleButton.Add_Click({
-    Add-Type -AssemblyName Microsoft.VisualBasic
-    $gift = [Microsoft.VisualBasic.Interaction]::InputBox(
-        'Enter a gift name or ID from the draft saved to your Northpath account.', 'Review website rule'
-    ).Trim()
-    if (-not $gift) { return }
-    try {
-        $review = Invoke-IcePackBridgeAction 'operations/review-rule' @{ gift = $gift }
-        $current = Format-IcePackRule $review.previous
-        $proposed = Format-IcePackRule $review.rule
-        $summary = "Current rule`n$current`n`nProposed rule`n$proposed"
-        if ($review.applyBlock) {
-            $message = "$summary`n`n$($review.applyBlock)`nUse Stop Custom Rules in Operational readiness, then review the rule again to apply it."
-            [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Website rule review', 'OK', 'Information')
-            return
+if (-not $streamer) {
+    $reviewWebsiteRuleButton.Add_Click({
+        Add-Type -AssemblyName Microsoft.VisualBasic
+        $gift = [Microsoft.VisualBasic.Interaction]::InputBox(
+            'Enter a gift name or ID from the draft saved to your Northpath account.', 'Review website rule'
+        ).Trim()
+        if (-not $gift) { return }
+        try {
+            $review = Invoke-IcePackBridgeAction 'operations/review-rule' @{ gift = $gift }
+            $current = Format-IcePackRule $review.previous
+            $proposed = Format-IcePackRule $review.rule
+            $summary = "Current rule`n$current`n`nProposed rule`n$proposed"
+            if ($review.applyBlock) {
+                $message = "$summary`n`n$($review.applyBlock)`nUse Stop Custom Rules in Operational readiness, then review the rule again to apply it."
+                [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Website rule review', 'OK', 'Information')
+                return
+            }
+            $message = "$summary`n`nApply this rule to the local ARK Engine? A recovery snapshot is saved first."
+            if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Approve website rule', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
+            $applied = Invoke-IcePackBridgeAction 'operations/apply-rule' @{ reviewId = $review.reviewId }
+            [void][System.Windows.Forms.MessageBox]::Show($form,
+                "Rule applied and loaded.`nRecovery snapshot $($applied.recoverySnapshot)", 'Website rule applied', 'OK', 'Information')
+            Refresh-IcePackStatus
+        } catch {
+            [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Website rule unavailable', 'OK', 'Warning')
         }
-        $message = "$summary`n`nApply this rule to the local ARK Engine? A recovery snapshot is saved first."
-        if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Approve website rule', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
-        $applied = Invoke-IcePackBridgeAction 'operations/apply-rule' @{ reviewId = $review.reviewId }
-        [void][System.Windows.Forms.MessageBox]::Show($form,
-            "Rule applied and loaded.`nRecovery snapshot $($applied.recoverySnapshot)", 'Website rule applied', 'OK', 'Information')
-        Refresh-IcePackStatus
-    } catch {
-        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Website rule unavailable', 'OK', 'Warning')
-    }
-})
+    })
+}
+
 $liveButton.Add_Click({
+    if ($script:stopRules) {
+        try {
+            Invoke-IcePackBridgeAction 'operations/stop-live' | Out-Null
+            Refresh-IcePackStatus
+            $statusLabel.Text = 'Custom Gift Rules stopped.'
+        } catch {
+            [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Could not stop Custom Gift Rules', 'OK', 'Warning')
+        }
+        return
+    }
     $message = 'Enable Live Custom Rules? Incoming matching gifts can deliver rewards to your saved survivor.'
     if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Enable Live Custom Rules', 'YesNo', 'Warning', 'Button2') -ne 'Yes') { return }
     try {
@@ -695,48 +896,41 @@ $liveButton.Add_Click({
         [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Live Custom Rules unavailable', 'OK', 'Warning')
     }
 })
-$stopRulesButton.Add_Click({
-    try {
-        Invoke-IcePackBridgeAction 'operations/stop-live' | Out-Null
-        Refresh-IcePackStatus
-        $statusLabel.Text = 'Custom Gift Rules stopped.'
-    } catch {
-        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Could not stop Custom Gift Rules', 'OK', 'Warning')
-    }
-})
-$updateManagerButton.Add_Click({
-    try {
-        $path = Join-Path $PSScriptRoot 'Open-IcePackUpdateManager.ps1'
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing Update Manager script: $path" }
-        # Separate window/process keeps the Operations Center responsive.
-        Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList @('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',('"' + $path + '"')) -WorkingDirectory $settings.repoPath
-    } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Update Manager','OK','Warning') | Out-Null }
-})
-$reportButton.Add_Click({
-    try {
-        $script = Join-Path $PSScriptRoot 'Get-IcePackInstallationReport.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing installation report script: $script" }
-        # Read-only report in a separate PowerShell window, with no impact on status polling.
-        Open-PowerShellScript $script
-    } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Installation report','OK','Warning') | Out-Null }
-})
-$baselineButton.Add_Click({
-    try {
-        $script = Join-Path $PSScriptRoot 'Get-IcePackVersionStatus.ps1'
-        if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing version status script: $script" }
-        Open-PowerShellScript $script
-    } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Version status','OK','Warning') | Out-Null }
-})
-$quietLogsButton.Add_Click({
-    try { & (Join-Path $PSScriptRoot 'Open-IcePackLogs.ps1') }
-    catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Logs unavailable','OK','Warning') | Out-Null }
-})
+if (-not $streamer) {
+    $updateManagerButton.Add_Click({
+        try {
+            $path = Join-Path $PSScriptRoot 'Open-IcePackUpdateManager.ps1'
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing Update Manager script: $path" }
+            # Separate window/process keeps the Operations Center responsive.
+            Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList @('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',('"' + $path + '"')) -WorkingDirectory $settings.repoPath
+        } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Update Manager','OK','Warning') | Out-Null }
+    })
+    $reportButton.Add_Click({
+        try {
+            $script = Join-Path $PSScriptRoot 'Get-IcePackInstallationReport.ps1'
+            if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing installation report script: $script" }
+            # Read-only report in a separate PowerShell window, with no impact on status polling.
+            Open-PowerShellScript $script
+        } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Installation report','OK','Warning') | Out-Null }
+    })
+    $baselineButton.Add_Click({
+        try {
+            $script = Join-Path $PSScriptRoot 'Get-IcePackVersionStatus.ps1'
+            if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing version status script: $script" }
+            Open-PowerShellScript $script
+        } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Version status','OK','Warning') | Out-Null }
+    })
+    $quietLogsButton.Add_Click({
+        try { & (Join-Path $PSScriptRoot 'Open-IcePackLogs.ps1') }
+        catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Logs unavailable','OK','Warning') | Out-Null }
+    })
+}
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 10000
 $timer.Add_Tick({
     # Service refresh stays active during managed startup/shutdown.
-    try { Refresh-IcePackStatus } catch { $statusLabel.Text = 'Status check failed; try Refresh status.' }
+    try { Refresh-IcePackStatus } catch { $statusLabel.Text = 'Status check failed. Retrying shortly.' }
 })
 $form.Add_Load({
     $workArea = [System.Windows.Forms.Screen]::FromControl($form).WorkingArea
@@ -751,4 +945,5 @@ $form.Add_FormClosed({
     # Existing ownership checks still govern the managed services.
     if ($null -ne $script:managedProcess) { $script:managedProcess.Dispose() }
 })
-[void]$form.ShowDialog()
+try { [void]$form.ShowDialog() }
+finally { if ($streamer) { $appMutex.Dispose() } }
