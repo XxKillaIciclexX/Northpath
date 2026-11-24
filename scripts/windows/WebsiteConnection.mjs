@@ -62,7 +62,11 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     return { revision: data.revision, draft: data.draft };
   }
 
-  function start({ dashboardUrl, localToken, readSurvivorStatus }) {
+  const readSyncDraft = (revision = null) => rpc('read_companion_sync_draft', { p_known_revision: revision }, AbortSignal.timeout(5000));
+  const reportSync = ({ account, enabled, revision = null, state = null }) =>
+    rpc('report_companion_draft_sync', { p_account: account, p_enabled: enabled, p_revision: revision, p_state: state }, AbortSignal.timeout(5000));
+
+  function start({ dashboardUrl, localToken, readSurvivorStatus, onPaired }) {
     const controller = new AbortController();
     const { signal } = controller;
     let timeout;
@@ -112,6 +116,7 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
         if (data.paired !== true && paired) console.log('Website disconnected. Pair again from the Northpath dashboard.');
         paired = data.paired === true;
         offline = false;
+        if (paired && onPaired) onPaired();
         if (!readSurvivorStatus && paired && typeof data.preview_id === 'string') {
           result = { p_preview_id: data.preview_id, p_passed: await preview().catch(() => false) };
           await report('finish_companion_preview', result);
@@ -132,5 +137,5 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     return () => { controller.abort(); clearTimeout(timeout); };
   }
 
-  return { pairingCode, start, readDraft };
+  return { pairingCode, start, readDraft, readSyncDraft, reportSync };
 }

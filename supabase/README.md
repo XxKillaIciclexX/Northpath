@@ -197,3 +197,12 @@ The regular app reports engine availability and whether the target is configured
 4. In **Operational readiness**, choose **Enable Live Custom Rules** and confirm. Check your Stone count in ARK, send a single Rose through the current TikFinity and Streamer.bot setup, and verify the count increases by exactly five. Use **Stop Custom Rules** after the test.
 
 Applying a rule takes a local recovery snapshot, checks that the approved website draft and local files are current, and verifies which files the running engine loaded. Live mode requires a separate confirmation in Operations Center and starts off after a restart.
+
+### Sync a saved account draft automatically
+
+1. Run [the account sync migration](migrations/20261123000600_sync_companion_drafts.sql) in the same Supabase project's **SQL Editor**. Publish the current Northpath `development` build from Bolt to display sync status under **Settings → Account draft**. Pull `development` on Windows, then restart Companion and reopen Operations Center.
+2. Confirm you are paired to the right Northpath account. In Operations Center choose **Northpath website → Enable account sync**. The first sync adopts entries with matching gifts or Kit IDs. Subsequent saves can remove entries managed by that account. Local-only rules and Kits are preserved, including any Kit still used by a local rule.
+3. Enable Live using the current rules. Change two working item rewards on the website, then select **Settings → Account draft → Save to account** once. Expect **Pending** while Live is on. In Operations Center select **Stop Custom Rules**, wait for **Applied to the ARK Engine** on the website, then enable Live again and test both changes. The save and sync never enable Live.
+4. If a change is blocked, use **Northpath website → Check sync status** in Operations Center to read the reason. Resolve the reported rule or Kit issue and save again. Use **Disable account sync** to pause automatic application.
+
+Companion checks which changes the installed engine can execute, backs up the prior configuration, and verifies the files the engine loaded. The desktop keeps its applied revision and recovery information across restarts.

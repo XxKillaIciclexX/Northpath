@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { appendAudit, newOperationId } from './audit.mjs';
@@ -6,13 +6,11 @@ import { resolveBackupPaths, snapshotBeforeApply } from './protected-apply.mjs';
 import { atomicApply } from './sync.mjs';
 import { getEngineTarget } from './target.mjs';
 import { assertRewardLanesIdle, selectWebsiteRule } from './website-rule.mjs';
+import { configFileHash, createAccountSync, sameRuleFiles } from './account-sync.mjs';
 
 const reviewLifetime = 120_000;
-const fingerprintKeys = ['rules', 'catalog', 'contentPrefs'];
-const sameFiles = (actual, expected) => Boolean(actual && expected &&
-  fingerprintKeys.every(key => Object.hasOwn(expected, key) && actual[key] === expected[key]));
 
-export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineState, reloadEngine, enginePost }) {
+export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineState, reloadEngine, enginePost, accountSyncDir, connectWebsite }) {
   let review;
 
   async function localRules() {
@@ -25,12 +23,37 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
   }
 
   function verifyLoaded(state, fingerprints) {
-    if (state?.loaded !== true || !sameFiles(state.loadedFingerprints, fingerprints)) {
+    if (state?.loaded !== true || !sameRuleFiles(state.loadedFingerprints, fingerprints)) {
       throw Error('The engine did not load the expected Kit Editor files. Check the engine and Kit Editor paths.');
     }
   }
 
-  return async function run(action, input) {
+  async function applyProtected(paths, before, config) {
+    const snapshot = snapshotBeforeApply(paths);
+    const operationId = newOperationId();
+    appendAudit(paths.root, { type: 'config-apply', status: 'started', operationId, snapshot: snapshot.snapshot });
+    try {
+      await atomicApply(kitDir, config, reloadEngine, result => {
+        verifyLoaded(result.customRules, { ...before, rules: configFileHash(config) });
+      });
+    } catch (error) {
+      try { appendAudit(paths.root, { type: 'config-apply', status: 'failed', operationId, snapshot: snapshot.snapshot }); } catch {}
+      throw error;
+    }
+    try { appendAudit(paths.root, { type: 'config-apply', status: 'succeeded', operationId, snapshot: snapshot.snapshot }); }
+    catch (error) { console.error('Website rules applied but audit write failed:', error.message); }
+    return { recoverySnapshot: snapshot.snapshot };
+  }
+
+  const accountSync = createAccountSync({ directory: accountSyncDir, kitDir, readEngineState, localRules, applyProtected, reloadEngine, verifyLoaded });
+
+  async function run(action, input) {
+    if (action === 'account-sync-status') return accountSync?.getStatus() ?? { enabled: false, message: 'Start Companion from Operations Center.' };
+    if (action === 'enable-account-sync' || action === 'disable-account-sync') {
+      if (!accountSync) throw Error('Start Companion from Operations Center to connect to Northpath.');
+      if (action === 'enable-account-sync') return accountSync.configure(await connectWebsite(), true);
+      return accountSync.configure(null, false);
+    }
     if (action === 'stop-live') {
       const result = await enginePost('/custom-rules-mode', { mode: 'off' });
       if (result.customRules?.mode !== 'off') throw Error('The engine did not confirm that Custom Gift Rules stopped.');
@@ -60,22 +83,8 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
       if ((await readWebsiteDraft()).revision !== approved.revision) throw Error('The saved website draft changed. Review it again.');
       assertRewardLanesIdle(await readEngineState());
       const { paths, saved } = await localRules();
-      if (!sameFiles(saved.fingerprints, approved.before)) throw Error('The local Kit Editor files changed. Review the rule again.');
-      const snapshot = snapshotBeforeApply(paths);
-      const operationId = newOperationId();
-      appendAudit(paths.root, { type: 'config-apply', status: 'started', operationId, snapshot: snapshot.snapshot });
-      try {
-        const rules = createHash('sha256').update(JSON.stringify(approved.config, null, 2) + '\n').digest('hex');
-        await atomicApply(kitDir, approved.config, reloadEngine, result => {
-          verifyLoaded(result.customRules, { ...approved.before, rules });
-        });
-      } catch (error) {
-        try { appendAudit(paths.root, { type: 'config-apply', status: 'failed', operationId, snapshot: snapshot.snapshot }); } catch {}
-        throw error;
-      }
-      try { appendAudit(paths.root, { type: 'config-apply', status: 'succeeded', operationId, snapshot: snapshot.snapshot }); }
-      catch (error) { console.error('Website rule applied but audit write failed:', error.message); }
-      return { recoverySnapshot: snapshot.snapshot };
+      if (!sameRuleFiles(saved.fingerprints, approved.before)) throw Error('The local Kit Editor files changed. Review the rule again.');
+      return applyProtected(paths, approved.before, approved.config);
     }
 
     if (action === 'enable-live') {
@@ -95,5 +104,7 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
       return { mode: 'live' };
     }
     throw Error('Unknown Operations Center action.');
-  };
+  }
+  run.tickAccountSync = (connection, tryLock) => accountSync?.tick(connection, tryLock);
+  return run;
 }

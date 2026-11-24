@@ -9,6 +9,7 @@ import '../companion/src/index.css';
 
 type Client = NonNullable<typeof websiteAuth>;
 type DraftOperation = 'load' | 'save';
+type DraftSync = { enabled?: boolean; online?: boolean; revision?: string; state?: 'pending' | 'applied' | 'blocked' | null };
 const accountDraftsEnabled = import.meta.env.VITE_SUPABASE_COMPANION_DRAFTS_ENABLED === 'true';
 const websiteLinkEnabled = import.meta.env.VITE_SUPABASE_COMPANION_LINK_ENABLED === 'true';
 const conflictMessage = 'The saved draft changed during this save. Load the latest draft before trying again.';
@@ -28,8 +29,27 @@ function accountCopy({ rules, kits }: AccountDraft): AccountDraft {
 function AccountDrafts({ client, user, draft, validateDraft, loadDraft }: AccountDraftPanelProps & { client: Client; user: Session['user'] }) {
   const [operation, setOperation] = useState<DraftOperation | null>(null);
   const [status, setStatus] = useState<{ message: string; error?: boolean }>();
+  const [sync, setSync] = useState<DraftSync>();
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    if (!websiteLinkEnabled) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    let timer: number;
+    async function refresh() {
+      try {
+        const { data, error } = await client.rpc('get_companion_draft_sync').abortSignal(signal);
+        if (!signal.aborted && !error) setSync(data);
+      } catch {
+        // Keep the last known status until the next poll succeeds.
+      } finally {
+        if (!signal.aborted) timer = window.setTimeout(() => void refresh(), 4000);
+      }
+    }
+    void refresh();
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [client, user.id]);
 
   async function run(next: DraftOperation) {
     if (request.current) return;
@@ -71,6 +91,7 @@ function AccountDrafts({ client, user, draft, validateDraft, loadDraft }: Accoun
         if (insertError) throw new Error(insertError.code === '23505' ? conflictMessage : 'Could not save your account draft. Try again later.');
       }
       setStatus({ message: 'Gift Rules and Kits saved to your account.' });
+      setSync(current => current?.enabled ? { ...current, state: 'pending' } : current);
     } catch (error) {
       if (!signal.aborted) setStatus({ message: error instanceof Error ? error.message : 'The draft request failed.', error: true });
     } finally {
@@ -91,6 +112,13 @@ function AccountDrafts({ client, user, draft, validateDraft, loadDraft }: Accoun
       </button>
     </div>
     {status && <p role={status.error ? 'alert' : 'status'} className={`mt-4 text-sm ${status.error ? 'text-rose-200' : 'text-emerald-200'}`}>{status.message}</p>}
+    {sync && <p className="mt-3 text-sm text-slate-300" aria-live="polite">
+      {!sync.enabled ? 'For automatic updates, enable account sync in Windows Operations Center.'
+        : sync.state === 'applied' ? 'Applied to the ARK Engine.'
+        : sync.state === 'blocked' ? 'Sync blocked. Open Operations Center and choose Check sync status.'
+        : sync.state === 'pending' ? (sync.online ? 'Pending. Companion applies the update when gift lanes are idle.' : 'Pending. Start Companion to apply the update.')
+        : 'Account sync is on. Save a draft to send it to Companion.'}
+    </p>}
   </>;
 }
 

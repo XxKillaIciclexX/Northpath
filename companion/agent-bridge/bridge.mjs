@@ -38,6 +38,7 @@ let restoring=false;
 let savingTarget=false;
 let websiteLink;
 let runOperations;
+let syncingAccount = false;
 const restorePreviews=new Map();
 async function enginePortListening(){return new Promise(resolve=>{const c=net.connect({host:'127.0.0.1',port:3210});let done=false;const finish=v=>{if(!done){done=true;c.destroy();resolve(v);}};c.once('connect',()=>finish(true));c.once('error',()=>finish(false));c.setTimeout(1200,()=>finish(true));});}
 // Show only a small, redacted window of recent local engine activity.
@@ -64,15 +65,44 @@ async function readEngineState() {
   return JSON.parse(raw);
 }
 async function engineState(){return pickState(await readEngineState());}
+async function desktopOperations() {
+  if (!runOperations) {
+    const { createDesktopOperations } = await import('./operations.mjs');
+    runOperations ??= createDesktopOperations({
+      kitDir: KIT_DIR, readEngineState, enginePost, reloadEngine, connectWebsite, accountSyncDir: websiteLinkDir,
+      readWebsiteDraft: async () => (await connectWebsite()).readDraft(),
+    });
+  }
+  return runOperations;
+}
+
+async function syncAccountDraft(connection) {
+  if (syncingAccount || !fs.existsSync(path.join(websiteLinkDir, 'account-sync.json'))) return;
+  syncingAccount = true;
+  try {
+    await (await desktopOperations()).tickAccountSync(connection, () => {
+      if (controlling || applying || restoring || savingTarget) return null;
+      controlling = true;
+      return () => { controlling = false; };
+    });
+  }
+  catch (error) { console.error('Account sync could not run:', error.message); }
+  finally { syncingAccount = false; }
+}
+
 function connectWebsite() {
+  if (!websiteLinkDir) throw Error('Start Companion from Operations Center to connect to Northpath.');
   websiteLink ??= (async () => {
     const { prepareWebsiteConnection } = await import('../../scripts/windows/WebsiteConnection.mjs');
     const connection = await prepareWebsiteConnection(websiteLinkDir);
     if (!connection) throw Error('Northpath website Connections is unavailable. Try again later.');
-    connection.start({ readSurvivorStatus: async () => {
-      const target = getEngineTarget(await readEngineState());
-      return { engineOnline: true, survivorConfigured: target.configured && target.laneConfigured };
-    } });
+    connection.start({
+      readSurvivorStatus: async () => {
+        const target = getEngineTarget(await readEngineState());
+        return { engineOnline: true, survivorConfigured: target.configured && target.laneConfigured };
+      },
+      onPaired: () => void syncAccountDraft(connection),
+    });
     return connection;
   })().catch(error => {
     websiteLink = undefined;
@@ -120,17 +150,8 @@ const server=http.createServer(async(req,res)=>{
     if(controlling||applying||restoring||savingTarget)return json(409,{error:'Another local operation is running'});
     controlling = true;
     try {
-      if (!runOperations) {
-        const { createDesktopOperations } = await import('./operations.mjs');
-        runOperations = createDesktopOperations({
-          kitDir: KIT_DIR, readEngineState, enginePost, reloadEngine,
-          readWebsiteDraft: async () => {
-            if (!websiteLinkDir) throw Error('Start Companion from Operations Center to connect to Northpath.');
-            return (await connectWebsite()).readDraft();
-          },
-        });
-      }
-      return json(200,{ok:true,...await runOperations(operationsAction,input)});
+      const run = await desktopOperations();
+      return json(200,{ok:true,...await run(operationsAction,input)});
     } finally { controlling = false; }
   }
   if(req.url==='/pairing/check')return json(200,{ok:true});

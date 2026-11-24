@@ -273,6 +273,10 @@ $websiteButton = New-ActionButton 'Open website Connections'
 Add-ActionRow $website @($websiteCodeButton, $websiteButton)
 $reviewWebsiteRuleButton = New-ActionButton 'Review website rule'
 Add-ActionRow $website @($reviewWebsiteRuleButton)
+$enableAccountSyncButton = New-ActionButton 'Enable account sync'
+$disableAccountSyncButton = New-ActionButton 'Disable account sync'
+$checkAccountSyncButton = New-ActionButton 'Check sync status'
+Add-ActionRow $website @($enableAccountSyncButton, $disableAccountSyncButton, $checkAccountSyncButton)
 
 $recovery = New-Card $content 'Configuration protection'
 $backupButton = New-ActionButton 'Backup now'
@@ -567,6 +571,22 @@ $websiteCodeButton.Add_Click({
     }
 })
 $websiteButton.Add_Click({ Start-Process 'https://northpath.ai/companion#connections' })
+function Invoke-IcePackAccountSyncAction([string]$Command) {
+    try {
+        $result = Invoke-IcePackBridgeAction "operations/$Command"
+        [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'Northpath account sync', 'OK', 'Information')
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Northpath account sync', 'OK', 'Warning')
+    }
+}
+$enableAccountSyncButton.Add_Click({
+    $message = 'Use the saved Northpath draft to manage matching local Gift Rules and Kits? Saving to your account will update those entries once gift lanes are idle. Local-only entries are kept.'
+    if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Enable account sync', 'YesNo', 'Question', 'Button2') -eq 'Yes') {
+        Invoke-IcePackAccountSyncAction 'enable-account-sync'
+    }
+})
+$disableAccountSyncButton.Add_Click({ Invoke-IcePackAccountSyncAction 'disable-account-sync' })
+$checkAccountSyncButton.Add_Click({ Invoke-IcePackAccountSyncAction 'account-sync-status' })
 function Format-IcePackRule($Rule) {
     if ($null -eq $Rule) { return 'No matching local rule' }
     $gift = if ($Rule.giftName) { [string]$Rule.giftName } else { "Gift $($Rule.giftId)" }
