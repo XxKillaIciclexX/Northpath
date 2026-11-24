@@ -48,6 +48,14 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
   const accountSync = createAccountSync({ directory: accountSyncDir, kitDir, readEngineState, localRules, applyProtected, reloadEngine, verifyLoaded });
 
   async function run(action, input) {
+    if (action === 'arm-tikfinity-test' || action === 'tikfinity-test-status') {
+      const state = await readEngineState();
+      if (!state.giftTest) throw Error('Install the latest direct TikFinity engine update first.');
+      if (state.giftSource !== 'tikfinity') throw Error('Select direct TikFinity and restart Companion first.');
+      if (action === 'tikfinity-test-status') return state.giftTest;
+      const result = await enginePost('/tikfinity-test-arm', { gift: input?.gift, confirmation: input?.confirmation });
+      return result.giftTest;
+    }
     if (action === 'account-sync-status') return accountSync?.getStatus() ?? { enabled: false, message: 'Start Companion from Operations Center.' };
     if (action === 'enable-account-sync' || action === 'disable-account-sync') {
       if (!accountSync) throw Error('Start Companion from Operations Center to connect to Northpath.');

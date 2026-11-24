@@ -214,6 +214,12 @@ Save the printed backup folder. Open TikFinity Desktop on the same PC and connec
 
 Enable **Live Custom Rules** and test a single gift with a known Stone reward. Then wait at least 15 seconds and test a configured streak-capable gift. Expect the mapped reward once when the streak completes. Stop Custom Rules when the test is done. To switch back, select **Use Streamer.bot**, then restart Companion. To restore the previous engine entry point, stop Companion and use `--gift-input --restore` with the saved backup path, followed by `--apply` after checking the dry run.
 
+### Test a simulated gift with direct TikFinity
+
+1. Install the latest gift input update above and start Companion with **Use direct TikFinity** selected. In TikFinity Desktop, create an action under **Actions & Events**. Enable **Third Party Action** and choose **Ice Pack Companion → Send armed test gift**. TikFinity discovers the local test action on port `8832`. Save the action and attach it to a gift event such as Rose.
+2. In Operations Center, select **Stop Custom Rules** if Live is active. Choose **Gift source → Arm TikFinity test gift** and enter `Rose`. Choose an enabled rule that prepares one reward command. The test uses the saved Survivor ID and the current rule.
+3. In TikFinity's **Event Simulator**, simulate that gift within two minutes. You can also use the Third Party Action's **Test** button to check the integration. In Windows, select **Check test status** and verify the item or spawn in ARK. Arm again for another test.
+
 The ARK Engine dashboard’s **Recent gift deliveries** section keeps the last 20 outcomes until restart. It distinguishes completed sends, partial sends stopped by the operator, RCON failures, cancellations before sending, and gifts that expired before sending. Preview events stay in the event log.
 
 After at least one real delivery outcome, expand **Recent gift deliveries** and select **Download delivery history**. Open the JSON and verify `schemaVersion` is 1 and the gift, counts, and outcome match the table. The file is generated in the browser and uses UTC timestamps. It omits command bodies, player IDs, and raw events. The history still resets when the engine restarts.

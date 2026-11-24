@@ -268,6 +268,9 @@ Add-Row $giftInputCard $giftInputLabel
 $directGiftButton = New-ActionButton 'Use direct TikFinity'
 $streamerBotGiftButton = New-ActionButton 'Use Streamer.bot'
 Add-ActionRow $giftInputCard @($directGiftButton, $streamerBotGiftButton)
+$armGiftTestButton = New-ActionButton 'Arm TikFinity test gift'
+$giftTestStatusButton = New-ActionButton 'Check test status'
+Add-ActionRow $giftInputCard @($armGiftTestButton, $giftTestStatusButton)
 
 $pairing = New-Card $content 'Bridge pairing'
 Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
@@ -575,6 +578,30 @@ function Invoke-IcePackBridgeAction([string]$Endpoint, [hashtable]$Body = @{}) {
     }
     Invoke-IcePackBridgePost $Endpoint (Read-IcePackBridgeToken) $Body
 }
+$armGiftTestButton.Add_Click({
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $gift = [Microsoft.VisualBasic.Interaction]::InputBox(
+        'Enter the name or ID of an enabled rule with one reward command.', 'Arm TikFinity test gift'
+    ).Trim()
+    if (-not $gift) { return }
+    $confirm = "Allow one TikFinity action to send the $gift reward to your saved survivor in ARK? The test expires after two minutes."
+    if ([System.Windows.Forms.MessageBox]::Show($form, $confirm, 'Arm TikFinity test gift', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
+    try {
+        $result = Invoke-IcePackBridgeAction 'operations/arm-tikfinity-test' @{ gift = $gift; confirmation = 'ARM TIKFINITY TEST' }
+        $statusLabel.Text = $result.message
+        [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'TikFinity test gift', 'OK', 'Information')
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'TikFinity test gift', 'OK', 'Warning')
+    }
+})
+$giftTestStatusButton.Add_Click({
+    try {
+        $result = Invoke-IcePackBridgeAction 'operations/tikfinity-test-status'
+        [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'TikFinity test gift', 'OK', 'Information')
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'TikFinity test gift', 'OK', 'Warning')
+    }
+})
 $survivorButton.Add_Click({
     Add-Type -AssemblyName Microsoft.VisualBasic
     $survivorId = [Microsoft.VisualBasic.Interaction]::InputBox(
