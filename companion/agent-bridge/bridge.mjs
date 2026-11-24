@@ -37,6 +37,7 @@ let applying=false;
 let restoring=false;
 let savingTarget=false;
 let websiteLink;
+let runOperations;
 const restorePreviews=new Map();
 async function enginePortListening(){return new Promise(resolve=>{const c=net.connect({host:'127.0.0.1',port:3210});let done=false;const finish=v=>{if(!done){done=true;c.destroy();resolve(v);}};c.once('connect',()=>finish(true));c.once('error',()=>finish(false));c.setTimeout(1200,()=>finish(true));});}
 // Show only a small, redacted window of recent local engine activity.
@@ -72,7 +73,7 @@ function connectWebsite() {
       const target = getEngineTarget(await readEngineState());
       return { engineOnline: true, survivorConfigured: target.configured && target.laneConfigured };
     } });
-    return connection.pairingCode;
+    return connection;
   })().catch(error => {
     websiteLink = undefined;
     throw error;
@@ -102,15 +103,36 @@ const server=http.createServer(async(req,res)=>{
   if(!['127.0.0.1:3212','localhost:3212'].includes(req.headers.host))return json(403,{error:'Invalid host'});
   if(origin&&!permittedOrigins.has(origin))return json(403,{error:'Allowed only from local dashboard'});
   if(req.method==='GET'&&req.url==='/status'){try{return json(200,await engineState());}catch(e){return json(503,{online:true,engineOnline:false,engineStatus:'Local engine unavailable',error:String(e.message).slice(0,120)});}}
+  const operationsAction = !standalonePreview && managedToken && req.url?.startsWith('/operations/')
+    ? req.url.slice('/operations/'.length) : null;
   const endpoints=standalonePreview
     ? ['/pairing/check','/simulate/preview','/draft/preview','/draft/export','/draft/rehearse','/draft/compare']
     : ['/sync/preview','/sync/apply','/sync/compare','/sync/drift','/simulate/preview','/control','/recovery/list','/recovery/compare','/recovery/preview','/recovery/restore','/recovery/audit','/target/read','/target/save'];
-  if((!endpoints.includes(req.url)&&!(websiteLinkDir&&req.url==='/website/connect'))||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
-  // No cross-origin browser access: requests through Vite's same-origin proxy include Origin on POST.
-  if(!permittedOrigins.has(origin))return json(403,{error:'A local dashboard Origin is required'});
+  if((!endpoints.includes(req.url)&&!(websiteLinkDir&&req.url==='/website/connect')&&!operationsAction)||req.method!=='POST')return json(404,{error:'Unknown endpoint'});
+  if(operationsAction ? origin || req.headers['sec-fetch-mode'] : !permittedOrigins.has(origin)) {
+    return json(403,{error:operationsAction ? 'Open this action in Windows Operations Center' : 'A local dashboard Origin is required'});
+  }
   const submitted=String(req.headers['x-icepack-sync-token']??'');
   if(!/^[a-f0-9]{48}$/.test(submitted)||!crypto.timingSafeEqual(Buffer.from(submitted),Buffer.from(TOKEN)))return json(401,{error:'Enter the pairing token from the current launcher session'});
-  if(req.url==='/website/connect')return json(200,{ok:true,pairingCode:await connectWebsite()});
+  if(req.url==='/website/connect')return json(200,{ok:true,pairingCode:(await connectWebsite()).pairingCode});
+  if(operationsAction) {
+    const input = await readJsonBody(req);
+    if(controlling||applying||restoring||savingTarget)return json(409,{error:'Another local operation is running'});
+    controlling = true;
+    try {
+      if (!runOperations) {
+        const { createDesktopOperations } = await import('./operations.mjs');
+        runOperations = createDesktopOperations({
+          kitDir: KIT_DIR, readEngineState, enginePost, reloadEngine,
+          readWebsiteDraft: async () => {
+            if (!websiteLinkDir) throw Error('Start Companion from Operations Center to connect to Northpath.');
+            return (await connectWebsite()).readDraft();
+          },
+        });
+      }
+      return json(200,{ok:true,...await runOperations(operationsAction,input)});
+    } finally { controlling = false; }
+  }
   if(req.url==='/pairing/check')return json(200,{ok:true});
   if(req.url==='/draft/preview'){
     const plan=previewDashboardDraft(await readJsonBody(req),draftCatalog);
@@ -138,9 +160,9 @@ const server=http.createServer(async(req,res)=>{
     return json(200,{ok:true,target:getEngineTarget(await readEngineState())});
   }
   if(req.url==='/target/save') {
-    if(savingTarget||applying||restoring||controlling)return json(409,{error:'Another protected operation is running'});
     const input=await readJsonBody(req);
     const playerId=validateTargetId(input.playerId);
+    if(savingTarget||applying||restoring||controlling)return json(409,{error:'Another protected operation is running'});
     savingTarget=true;
     try {
       assertTargetSaveSafe(await engineState());
@@ -218,13 +240,12 @@ const server=http.createServer(async(req,res)=>{
     return json(200,{ok:true,gift:gift.name,previewOnly:true,message:'Preview sent to engine. Check Recent engine activity for commands or rejection.'});
   }
   if(req.url==='/control') {
-    if(controlling||applying||restoring||savingTarget)return json(409,{error:'Another local operation is running'});
     const input=await readJsonBody(req);
     if(!input || typeof input.action!=='string')return json(400,{error:'Specify a control action'});
-    const before=await engineState();
-    const action=validateControl(input.action,before);
+    if(controlling||applying||restoring||savingTarget)return json(409,{error:'Another local operation is running'});
     controlling=true;
     try {
+      const action=validateControl(input.action,await engineState());
       if(action==='start-preview')await enginePost('/custom-rules-mode',{mode:'preview'});
       if(action==='stop-preview')await enginePost('/custom-rules-mode',{mode:'off'});
       if(action==='emergency-stop')await enginePost('/gift-rcon-emergency-stop',{});
@@ -274,8 +295,8 @@ const server=http.createServer(async(req,res)=>{
     previews.set(id,{hash,config:prepared.config,expiresAt:Date.now()+120000});
     return json(200,{previewId:id,hash,ruleCount:prepared.config.rules.length,kitCount:prepared.config.kits.length,warnings:prepared.warnings,expiresInSeconds:120,engineMode:status.customRulesMode});
   }
-  if(applying||restoring||savingTarget)return json(409,{error:'Another apply is running'});
   const request=await readJsonBody(req);
+  if(applying||restoring||savingTarget||controlling)return json(409,{error:'Another local operation is running'});
   if(typeof request.previewId!=='string'||typeof request.hash!=='string')return json(400,{error:'Preview is required before apply'});
   const preview=previews.get(request.previewId);
   if(!preview||preview.expiresAt<Date.now()||preview.hash!==request.hash)return json(409,{error:'Preview expired or changed. Preview again'});

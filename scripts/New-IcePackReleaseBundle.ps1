@@ -29,7 +29,7 @@ foreach($rel in $required){
   $p=Join-Path $repo ($rel.Replace('/','\'))
   if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {throw "Required application file missing: $rel"}
 }
-$fixed=@('companion/package.json','companion/package-lock.json','companion/vite.config.ts','companion/tsconfig.json','companion/tailwind.config.js','companion/postcss.config.js','companion/index.html','scripts/IcePack-OperationsTheme.cs')
+$fixed=@('companion/package.json','companion/package-lock.json','companion/vite.config.ts','companion/tsconfig.json','companion/tailwind.config.js','companion/postcss.config.js','companion/index.html','scripts/IcePack-OperationsTheme.cs','scripts/windows/WebsiteConnection.mjs')
 foreach($rel in $fixed){if(Test-Path -LiteralPath (Join-Path $repo ($rel.Replace('/','\'))) -PathType Leaf){$selected.Add($rel)}}
 $directories=@(
   @{path='companion/src';extensions=@('.tsx','.ts','.css','.json','.mjs','.mts')},

@@ -1,4 +1,4 @@
-// All bridge-issued mode transitions are restricted to OFF or PREVIEW.
+// Browser controls can switch Custom Gift Rules to Off or Preview.
 export function validateControl(action, state) {
   if (!['start-preview', 'stop-preview', 'emergency-stop'].includes(action)) throw Error('Unknown local control');
   if (!state?.engineOnline) throw Error('Local engine is not reachable');

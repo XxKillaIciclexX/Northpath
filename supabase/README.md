@@ -187,4 +187,13 @@ The Windows app checks in over HTTPS and runs the sample preview locally. The we
 3. If your Survivor ID is already saved and loaded, keep it. To set or change it, turn off the reward lanes, then select **Operational readiness → Set Survivor ID** and enter your numeric Specimen Implant ID. The local engine saves the target after the bridge takes a configuration snapshot.
 4. Select **Northpath website → Copy website pairing code**, then **Open website Connections**. Sign in, paste the code, and select **Pair Windows app**. Approve the replacement prompt if your account is still paired with the Pilot. Expect **Survivor linked** if the engine has loaded your saved target. Stop Companion and confirm the website reports it offline within about 30 seconds.
 
-The regular app reports engine availability and whether the target is configured. It keeps your Survivor ID and ARK credentials on Windows. Website Gift Rule and Kit edits remain drafts until a separate apply step.
+The regular app reports engine availability and whether the target is configured. It keeps your Survivor ID and ARK credentials on Windows.
+
+### Apply one website Gift Rule from Windows
+
+1. In the same Supabase project, run [the paired draft migration](migrations/20261123000500_read_paired_companion_draft.sql) in **SQL Editor**. Pull `development` in Northpath on Windows, restart Companion through Operations Center, and reopen Operations Center. Use the regular app paired in **Connections**.
+2. In the hosted dashboard's **Gift Rules**, set the existing **Rose** rule to give **5 Stone** at quality `0`, clear any announcement text, and leave the gift ID or name and **Enabled** setting in place. Select **Settings → Account draft → Save to account**.
+3. In Operations Center, turn off active reward lanes before applying. Choose **Northpath website → Review website rule**, enter `Rose`, and check the current and proposed rewards in the dialog. Approve the change and look for **Rule applied and loaded**. Save the displayed recovery snapshot name. The review applies one direct item or dinosaur rule and preserves the other local rules and Kits.
+4. In **Operational readiness**, choose **Enable Live Custom Rules** and confirm. Check your Stone count in ARK, send a single Rose through the current TikFinity and Streamer.bot setup, and verify the count increases by exactly five. Use **Stop Custom Rules** after the test.
+
+Applying a rule takes a local recovery snapshot, checks that the approved website draft and local files are current, and verifies which files the running engine loaded. Live mode requires a separate confirmation in Operations Center and starts off after a restart.

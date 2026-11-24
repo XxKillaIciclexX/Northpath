@@ -73,7 +73,7 @@ export function safeToApply(status) {
    throw Error('Stop all live gift lanes, disarm legacy rules, and clear queued work before applying');
  if(!status.customRulesLoaded && !['off','preview'].includes(status.customRulesMode))throw Error('Engine custom rules status unavailable');
 }
-export function atomicApply(dir,config, reload) {
+export function atomicApply(dir,config, reload, verify) {
  const target=path.join(dir,'streamer-config-v2.json');
  const backupDir=path.join(dir,'.northpath-sync-backups');
  fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
@@ -85,7 +85,10 @@ export function atomicApply(dir,config, reload) {
  const write=(payload)=>{fs.writeFileSync(pending,payload,{mode:0o600,flag:'wx'});fs.renameSync(pending,target);};
  try{
    write(JSON.stringify(config,null,2)+'\n');
-   return Promise.resolve().then(reload).then(()=>({backup:previous!==null?backup:null})).catch(async err=>{
+   return Promise.resolve().then(reload).then(async result=>{
+     await verify?.(result);
+     return {backup:previous!==null?backup:null};
+   }).catch(async err=>{
      try{
        if(previous!==null)write(previous);
        else fs.unlinkSync(target);

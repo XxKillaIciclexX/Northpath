@@ -258,6 +258,9 @@ Add-Row $readiness $safeLabel
 $readinessButton = New-ActionButton 'Run preflight'
 $survivorButton = New-ActionButton 'Set Survivor ID'
 Add-ActionRow $readiness @($survivorButton, $readinessButton)
+$liveButton = New-ActionButton 'Enable Live Custom Rules' 'Primary'
+$stopRulesButton = New-ActionButton 'Stop Custom Rules' 'Danger'
+Add-ActionRow $readiness @($liveButton, $stopRulesButton)
 
 $pairing = New-Card $content 'Bridge pairing'
 Add-Row $pairing (New-Text 'Paste the pairing token into the dashboard. Keep it private.' 10 $false $theme.Muted)
@@ -268,6 +271,8 @@ $website = New-Card $content 'Northpath website'
 $websiteCodeButton = New-ActionButton 'Copy website pairing code'
 $websiteButton = New-ActionButton 'Open website Connections'
 Add-ActionRow $website @($websiteCodeButton, $websiteButton)
+$reviewWebsiteRuleButton = New-ActionButton 'Review website rule'
+Add-ActionRow $website @($reviewWebsiteRuleButton)
 
 $recovery = New-Card $content 'Configuration protection'
 $backupButton = New-ActionButton 'Backup now'
@@ -324,6 +329,8 @@ function Refresh-IcePackStatus {
     }
     $safeLabel.Text = 'Reward lanes: ' + $health.RewardState
     $safeLabel.ForeColor = if ($health.RewardLanesOff -or $health.PreviewSafe) { $theme.Success } elseif ($health.LiveOrArmed) { $theme.Error } else { $theme.Warning }
+    $liveButton.Enabled = $health.BridgeHealthy -and $health.TargetLoaded -and -not $health.LiveOrArmed
+    $stopRulesButton.Enabled = $health.BridgeHealthy -and $health.CustomRulesMode -in @('preview', 'live')
     $statusLabel.Text = "$open of 3 services responding  /  $(Get-Date -Format 'h:mm:ss tt')"
     # Status represents endpoint health only, never live gift readiness or RCON connectivity.
 }
@@ -505,9 +512,11 @@ function Invoke-IcePackBridgeAction([string]$Endpoint, [hashtable]$Body = @{}) {
         throw 'Start Companion from Operations Center first.'
     }
     $token = Read-IcePackBridgeToken
+    $headers = @{ 'x-icepack-sync-token' = $token }
+    if (-not $Endpoint.StartsWith('operations/')) { $headers.Origin = 'http://127.0.0.1:5173' }
     try {
-        Invoke-RestMethod -Uri "http://127.0.0.1:3212/$Endpoint" -Method Post -MaximumRedirection 0 -TimeoutSec 12 `
-            -Headers @{ Origin = 'http://127.0.0.1:5173'; 'x-icepack-sync-token' = $token } `
+        Invoke-RestMethod -Uri "http://127.0.0.1:3212/$Endpoint" -Method Post -MaximumRedirection 0 -TimeoutSec 20 `
+            -Headers $headers `
             -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Compress)
     } catch {
         if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
@@ -544,6 +553,59 @@ $websiteCodeButton.Add_Click({
     }
 })
 $websiteButton.Add_Click({ Start-Process 'https://northpath.ai/companion#connections' })
+function Format-IcePackRule($Rule) {
+    if ($null -eq $Rule) { return 'No matching local rule' }
+    $gift = if ($Rule.giftName) { [string]$Rule.giftName } else { "Gift $($Rule.giftId)" }
+    if ($Rule.giftName -and $Rule.giftId) { $gift += " (ID $($Rule.giftId))" }
+    $reward = $Rule.reward
+    $description = switch ($reward.type) {
+        'kit' { "Kit $($reward.kitId)" }
+        'item' { "Give $($reward.quantity) x $($reward.itemId)" }
+        'dinosaur' { "Spawn $($reward.quantity) x $($reward.status) $($reward.creatureId), level $($reward.level)" }
+    }
+    $enabled = if ($Rule.enabled) { 'enabled' } else { 'disabled' }
+    return "$gift - $description ($enabled, $($Rule.cooldown)s cooldown)"
+}
+$reviewWebsiteRuleButton.Add_Click({
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $gift = [Microsoft.VisualBasic.Interaction]::InputBox(
+        'Enter a gift name or ID from the draft saved to your Northpath account.', 'Review website rule'
+    ).Trim()
+    if (-not $gift) { return }
+    try {
+        $review = Invoke-IcePackBridgeAction 'operations/review-rule' @{ gift = $gift }
+        $current = Format-IcePackRule $review.previous
+        $proposed = Format-IcePackRule $review.rule
+        $message = "Current rule`n$current`n`nProposed rule`n$proposed`n`nApply this rule to the local ARK Engine? A recovery snapshot is saved first."
+        if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Approve website rule', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
+        $applied = Invoke-IcePackBridgeAction 'operations/apply-rule' @{ reviewId = $review.reviewId }
+        [void][System.Windows.Forms.MessageBox]::Show($form,
+            "Rule applied and loaded.`nRecovery snapshot $($applied.recoverySnapshot)", 'Website rule applied', 'OK', 'Information')
+        Refresh-IcePackStatus
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Website rule unavailable', 'OK', 'Warning')
+    }
+})
+$liveButton.Add_Click({
+    $message = 'Enable Live Custom Rules? Incoming matching gifts can deliver rewards to your saved survivor.'
+    if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Enable Live Custom Rules', 'YesNo', 'Warning', 'Button2') -ne 'Yes') { return }
+    try {
+        Invoke-IcePackBridgeAction 'operations/enable-live' @{ confirmation = 'ENABLE LIVE CUSTOM RULES' } | Out-Null
+        Refresh-IcePackStatus
+        $statusLabel.Text = 'Live Custom Rules enabled.'
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Live Custom Rules unavailable', 'OK', 'Warning')
+    }
+})
+$stopRulesButton.Add_Click({
+    try {
+        Invoke-IcePackBridgeAction 'operations/stop-live' | Out-Null
+        Refresh-IcePackStatus
+        $statusLabel.Text = 'Custom Gift Rules stopped.'
+    } catch {
+        [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Could not stop Custom Gift Rules', 'OK', 'Warning')
+    }
+})
 $updateManagerButton.Add_Click({
     try {
         $path = Join-Path $PSScriptRoot 'Open-IcePackUpdateManager.ps1'
