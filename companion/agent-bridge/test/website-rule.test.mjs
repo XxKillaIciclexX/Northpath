@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { validateArkCatalog, validateConfiguration } from '../icepack-config-engine.mjs';
+import { createDesktopOperations } from '../operations.mjs';
 import { assertRewardLanesIdle, selectWebsiteRule } from '../website-rule.mjs';
 
 const catalog = validateArkCatalog({ schemaVersion: 2, dinosaurs: [], items: [{ id: 'Stone', name: 'Stone' }] });
@@ -44,4 +48,35 @@ test('a supported idle engine is required before applying a rule or enabling Liv
   assert.doesNotThrow(() => assertRewardLanesIdle(state));
   assert.throws(() => assertRewardLanesIdle({ ...state, active: {} }), /active deliveries/);
   assert.throws(() => assertRewardLanesIdle({ ...state, customRules: { ...state.customRules, mode: 'live' } }), /live gift lanes/);
+});
+
+test('a rule can be reviewed during Live but cannot be applied until rewards are idle', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'icepack-live-review-'));
+  const appData = process.env.LOCALAPPDATA;
+  process.env.LOCALAPPDATA = root;
+  t.after(async () => {
+    if (appData === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = appData;
+    await rm(root, { recursive: true });
+  });
+  const kit = join(root, 'kit');
+  const engine = join(root, 'engine');
+  const settings = join(root, 'IcePackCompanion');
+  await Promise.all([mkdir(kit), mkdir(engine), mkdir(settings)]);
+  await writeFile(join(settings, 'settings.json'), JSON.stringify({ enginePath: engine, kitDir: kit }));
+  const saved = { catalog, config: current, fingerprints: { rules: 'old', catalog: 'catalog', contentPrefs: null } };
+  await writeFile(join(engine, 'icepack-custom-rules.mjs'), `
+    export const loadSavedRules = () => (${JSON.stringify(saved)});
+    export const buildPlanCommands = () => ['one planned reward'];
+  `);
+  const run = createDesktopOperations({
+    kitDir: kit,
+    readWebsiteDraft: async () => ({ draft: { version: 1, rules: [selected] }, revision: 'latest' }),
+    readEngineState: async () => ({ customRules: { mode: 'live' } }),
+    reloadEngine: async () => assert.fail('Live review must not reload rules'),
+  });
+  const review = await run('review-rule', { gift: 'Rose' });
+  assert.equal(review.rule.reward.quantity, 5);
+  assert.match(review.applyBlock, /Turn off live gift lanes/);
+  await assert.rejects(run('apply-rule', { reviewId: review.reviewId }), /Turn off live gift lanes/);
 });

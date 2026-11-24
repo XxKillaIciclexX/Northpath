@@ -505,26 +505,40 @@ $copyTokenButton.Add_Click({
         $statusLabel.Text='Bridge pairing token copied to clipboard.'
     } catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Pairing token unavailable','OK','Warning') | Out-Null }
 })
+function Invoke-IcePackBridgePost([string]$Endpoint, [string]$Token, [hashtable]$Body) {
+    Add-Type -AssemblyName System.Net.Http
+    $handler = [System.Net.Http.HttpClientHandler]::new()
+    $handler.UseProxy = $false
+    $handler.AllowAutoRedirect = $false
+    $client = [System.Net.Http.HttpClient]::new($handler)
+    try {
+        $client.Timeout = [TimeSpan]::FromSeconds(20)
+        $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, "http://127.0.0.1:3212/$Endpoint")
+        try {
+            $request.Headers.Add('x-icepack-sync-token', $Token)
+            if (-not $Endpoint.StartsWith('operations/')) { $request.Headers.Add('Origin', 'http://127.0.0.1:5173') }
+            $request.Content = [System.Net.Http.StringContent]::new(($Body | ConvertTo-Json -Compress), [System.Text.Encoding]::UTF8, 'application/json')
+            $response = $client.SendAsync($request).GetAwaiter().GetResult()
+            try {
+                $raw = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                $result = $raw | ConvertFrom-Json -ErrorAction SilentlyContinue
+                if (-not $response.IsSuccessStatusCode) {
+                    if ($result -and $result.PSObject.Properties['error']) { throw ([string]$result.error) }
+                    throw "Companion bridge returned HTTP $([int]$response.StatusCode)."
+                }
+                if (-not $result) { throw 'The Companion bridge returned an unreadable response.' }
+                return $result
+            } finally { $response.Dispose() }
+        } finally { $request.Dispose() }
+    } finally { $client.Dispose() }
+}
 function Invoke-IcePackBridgeAction([string]$Endpoint, [hashtable]$Body = @{}) {
     . (Join-Path $PSScriptRoot 'IcePack-ManagedCommon.ps1')
     $definition = Get-IcePackServiceDefinition 'bridge' $settings
     if (-not (Test-IcePackOwnedProcess (Read-IcePackOwnedRecord 'bridge') $definition)) {
         throw 'Start Companion from Operations Center first.'
     }
-    $token = Read-IcePackBridgeToken
-    $headers = @{ 'x-icepack-sync-token' = $token }
-    if (-not $Endpoint.StartsWith('operations/')) { $headers.Origin = 'http://127.0.0.1:5173' }
-    try {
-        Invoke-RestMethod -Uri "http://127.0.0.1:3212/$Endpoint" -Method Post -MaximumRedirection 0 -TimeoutSec 20 `
-            -Headers $headers `
-            -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Compress)
-    } catch {
-        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
-            $result = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
-            if ($result -and $result.PSObject.Properties['error']) { throw $result.error }
-        }
-        throw
-    }
+    Invoke-IcePackBridgePost $Endpoint (Read-IcePackBridgeToken) $Body
 }
 $survivorButton.Add_Click({
     Add-Type -AssemblyName Microsoft.VisualBasic
@@ -576,7 +590,13 @@ $reviewWebsiteRuleButton.Add_Click({
         $review = Invoke-IcePackBridgeAction 'operations/review-rule' @{ gift = $gift }
         $current = Format-IcePackRule $review.previous
         $proposed = Format-IcePackRule $review.rule
-        $message = "Current rule`n$current`n`nProposed rule`n$proposed`n`nApply this rule to the local ARK Engine? A recovery snapshot is saved first."
+        $summary = "Current rule`n$current`n`nProposed rule`n$proposed"
+        if ($review.applyBlock) {
+            $message = "$summary`n`n$($review.applyBlock)`nUse Stop Custom Rules in Operational readiness, then review the rule again to apply it."
+            [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Website rule review', 'OK', 'Information')
+            return
+        }
+        $message = "$summary`n`nApply this rule to the local ARK Engine? A recovery snapshot is saved first."
         if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Approve website rule', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
         $applied = Invoke-IcePackBridgeAction 'operations/apply-rule' @{ reviewId = $review.reviewId }
         [void][System.Windows.Forms.MessageBox]::Show($form,

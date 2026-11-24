@@ -40,14 +40,15 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
     if (action === 'review-rule') {
       review = undefined;
       const { draft, revision } = await readWebsiteDraft();
-      const state = await readEngineState();
-      assertRewardLanesIdle(state);
       const { planner, saved } = await localRules();
       const { config, rule, previous } = selectWebsiteRule(draft, input?.gift, saved.config, saved.catalog);
       planner.buildPlanCommands({ actions: [rule.reward] }, saved.catalog, saved.enabledPacks, '1');
+      let applyBlock = null;
+      try { assertRewardLanesIdle(await readEngineState()); }
+      catch (error) { applyBlock = error.message; }
       const reviewId = randomBytes(16).toString('hex');
       review = { reviewId, revision, before: saved.fingerprints, config, expiresAt: Date.now() + reviewLifetime };
-      return { reviewId, rule, previous: previous ?? null };
+      return { reviewId, rule, previous: previous ?? null, applyBlock };
     }
 
     if (action === 'apply-rule') {
