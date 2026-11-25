@@ -121,10 +121,18 @@ The relay checks approval and the whitelist before the Kit begins and again befo
 
 | Hosted recipe | Settings in Gift Rules or Kit Builder |
 | --- | --- |
-| 5 Stone | Item = Stone, quantity = 5, quality = 0 |
-| Wild Dodo | Dinosaur = Dodo, quantity = 1, level = 25, wild |
+| 5 Stone, Wood, or Thatch | Select the item, quantity = 5, quality = 0 |
+| Wild Dodo, Raptor, or Rex | Select the dinosaur, quantity = 1, level = 25, wild |
 | Starter Kit | Create a Kit with 5 Stone at quality 0 first and one level-25 wild Dodo second. Select that Kit in the gift rule. |
 
 Leave announcements empty for these recipes. The relay reads the streamer’s saved draft and checks the owner’s current policy at delivery. Gift IDs refresh while the paired app is online. If the draft changes mid-delivery, the relay stops before any remaining steps. The owner’s history records the delivered reward and Kit progress.
 
 The hosted website test menu can verify the ASA mod and permissions while you are offline. Use the live gift feed to verify a streamer's Gift ID mapping.
+
+## Test the expanded hosted catalog
+
+1. Run [the expanded catalog migration](../supabase/migrations/20261125000500_expand_hosted_reward_catalog.sql) in Supabase after the streamer Gift Rules migration. It widens the allowed reward IDs and preserves the existing registrations, whitelists, and history.
+2. Redeploy Railway from `development` and publish the updated `development` build in Bolt. Use the existing v5.9 Windows app for live Gift Rules.
+3. As the owner, open **Companion → Connections → ARK server registry**. With **All supported rewards**, the new entries are available to approved streamers. With **Owner whitelist**, enable **5 Wood**, **5 Thatch**, **Wild Raptor**, or **Wild Rex** individually. Save or export a wipe-phase preset as needed.
+4. As an approved streamer, refresh **Your server access** and select a new entry under **Test reward**. Use **Send test reward** and verify the resource quantity or wild level-25 spawn in ARK. The owner’s history shows the selected reward. Use a test server with the Ice Pack Companion ASA mod for the creature rewards.
+5. To check live delivery, save a matching Gift Rule with its numeric TikFinity Gift ID and start hosted Live Rewards in the v5.9 app. A completed streak consumes one reward slot. The shared cooldown and hourly limit cover both the website test and live delivery.

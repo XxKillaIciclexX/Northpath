@@ -10,6 +10,7 @@ import { readConfig } from './config.mjs';
 import { connectRcon } from './rcon.mjs';
 import { createRelay } from './relay.mjs';
 import { createStore } from './supabase.mjs';
+import rewardCatalog from './reward-catalog.json' with { type: 'json' };
 
 const owner = '238fc7ec-c121-4ee4-8a67-f9bed33eb901';
 const streamer = '9f88f270-5f67-4ed9-b9f9-e068a46538b4';
@@ -21,6 +22,7 @@ const liveMigration = new URL('../supabase/migrations/20261125000200_create_comp
 const catalogMigration = new URL('../supabase/migrations/20261125000300_add_hosted_reward_catalog.sql', import.meta.url);
 const draftsMigration = new URL('../supabase/migrations/20261123000200_create_companion_drafts.sql', import.meta.url);
 const giftRulesMigration = new URL('../supabase/migrations/20261125000400_add_streamer_hosted_gift_rules.sql', import.meta.url);
+const expandedCatalogMigration = new URL('../supabase/migrations/20261125000500_expand_hosted_reward_catalog.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -130,6 +132,9 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   await db.query("insert into public.icepack_relay_servers (owner_id, name, listed, hourly_limit, reward_policy, rose_whitelisted) values ($1,'Existing whitelist',false,1,'whitelist',true)", [outsider]);
   await db.exec(await readFile(catalogMigration, 'utf8'));
   await db.exec(await readFile(giftRulesMigration, 'utf8'));
+  await db.exec(await readFile(expandedCatalogMigration, 'utf8'));
+  const supported = await db.query('select public.icepack_hosted_reward_ids() as ids');
+  assert.deepEqual(supported.rows[0].ids, rewardCatalog.map(entry => entry.id));
   const upgraded = await db.query('select allowed_reward_ids from public.icepack_relay_servers where owner_id = $1', [outsider]);
   assert.deepEqual(upgraded.rows[0].allowed_reward_ids, ['rose-stone']);
   await db.query('delete from public.icepack_relay_servers where owner_id = $1', [outsider]);
@@ -422,4 +427,41 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   assert.equal(newKit.status, 200);
   assert.deepEqual(await newKit.json(), { state: 'acknowledged', rewardId: 'starter-kit', acknowledged: 2, total: 2 });
   assert.equal((await ownerDashboard()).history[0].source, 'live_draft');
+
+  const reviewed = JSON.parse(await readFile(new URL('../companion/src/reviewed-catalog.json', import.meta.url), 'utf8'));
+  const extra = [
+    ['wood-5', '8813', { ...stone, catalogId: 'Wood' }],
+    ['thatch-5', '8814', { ...stone, catalogId: 'Thatch' }],
+    ['wild-raptor', '8815', { ...dodo, catalogId: 'Raptor' }],
+    ['wild-rex', '8816', { ...dodo, catalogId: 'Rex' }],
+  ];
+  draft.rules.push(...extra.map(([, giftId, action]) => ({ giftId, action, enabled: true })));
+  await db.query('update public.companion_drafts set draft = $2::jsonb where user_id = $1', [streamer, JSON.stringify(draft)]);
+  await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '2 hours'");
+  assert.equal((await saveWhitelist(['wood-5', 'wild-raptor'])).status, 200);
+  assert.equal((await deliver(reward('thatch-5'))).status, 403);
+  assert.equal(await authorizeSaved(giftGrant, '8816', 'Rex restricted'), 'ignored');
+  assert.equal((await api('owner-token', 'reward-policy', { serverId, policy: 'all_supported', allowedRewardIds: ['wood-5', 'wild-raptor'] })).status, 200);
+  const linked = (await api('streamer-token', 'dashboard')).body.linked[0];
+  assert.deepEqual(linked.allowedRewardIds, rewardCatalog.map(entry => entry.id));
+  for (const [rewardId, giftId, action] of extra) {
+    let expected;
+    if (action.type === 'item') {
+      const item = reviewed.items.find(entry => entry.id === action.catalogId);
+      assert.equal(item.verified, true);
+      const blueprint = item.blueprint.replace(/_C$/, '');
+      expected = `GiveItemToPlayer 12345 "Blueprint'${blueprint}'" 5 0 0`;
+    } else {
+      expected = `ScriptCommand IcePackSpawn,${action.catalogId},25,12345`;
+    }
+    assert.equal(await authorizeSaved(giftGrant, giftId, 'expanded catalogue ' + giftId), 'ready');
+    const liveResponse = await sendSaved(giftGrant);
+    assert.equal(liveResponse.status, 200);
+    assert.deepEqual(await liveResponse.json(), { state: 'acknowledged', rewardId, acknowledged: 1, total: 1 });
+    assert.equal(commands.at(-1), expected);
+    await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '2 hours'");
+    assert.equal((await deliver(reward(rewardId))).status, 200);
+    assert.equal(commands.at(-1), expected);
+    await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '2 hours'");
+  }
 });

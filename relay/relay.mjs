@@ -78,19 +78,22 @@ async function readBody(request) {
   throw new HttpError(400, 'Invalid JSON request.');
 }
 
-const stone = "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone'";
 const rewardIds = new Set(rewardCatalog.map(reward => reward.id));
+const hostedItems = new Map([['rose-stone', 'Stone'], ['wood-5', 'Wood'], ['thatch-5', 'Thatch']]);
+const hostedDinosaurs = new Map([['wild-dodo', 'Dodo'], ['wild-raptor', 'Raptor'], ['wild-rex', 'Rex']]);
 
 function rewardCommands(reward, playerId) {
-  const stoneCommand = 'GiveItemToPlayer ' + playerId + ' "' + stone + '" 5 0 0';
-  // Uses the same fixed v0.3 ASA mod command as the Windows engine.
-  const dodoCommand = 'ScriptCommand IcePackSpawn,Dodo,25,' + playerId;
-  switch (reward) {
-    case 'rose-stone': return [stoneCommand];
-    case 'wild-dodo': return [dodoCommand];
-    case 'starter-kit': return [stoneCommand, dodoCommand];
-    default: throw Error('Unsupported hosted reward.');
+  if (reward === 'starter-kit') return ['rose-stone', 'wild-dodo'].flatMap(id => rewardCommands(id, playerId));
+  const item = hostedItems.get(reward);
+  if (item) {
+    const asset = 'PrimalItemResource_' + item;
+    const blueprint = '/Game/PrimalEarth/CoreBlueprints/Resources/' + asset + '.' + asset;
+    return [`GiveItemToPlayer ${playerId} "Blueprint'${blueprint}'" 5 0 0`];
   }
+  const dinosaur = hostedDinosaurs.get(reward);
+  // The same supported wild-spawn command used by the Windows engine.
+  if (dinosaur) return [`ScriptCommand IcePackSpawn,${dinosaur},25,${playerId}`];
+  throw Error('Unsupported hosted reward.');
 }
 
 export function createRelay({ config, store, connect }) {
