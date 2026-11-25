@@ -19,6 +19,8 @@ const migration = new URL('../supabase/migrations/20261124000100_create_icepack_
 const desktopMigration = new URL('../supabase/migrations/20261125000100_create_companion_relay_tests.sql', import.meta.url);
 const liveMigration = new URL('../supabase/migrations/20261125000200_create_companion_live_rose.sql', import.meta.url);
 const catalogMigration = new URL('../supabase/migrations/20261125000300_add_hosted_reward_catalog.sql', import.meta.url);
+const draftsMigration = new URL('../supabase/migrations/20261123000200_create_companion_drafts.sql', import.meta.url);
+const giftRulesMigration = new URL('../supabase/migrations/20261125000400_add_streamer_hosted_gift_rules.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -75,6 +77,7 @@ const argumentsFor = {
   catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards'],
   catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward'],
   finish_catalog: ['p_actor', 'p_server', 'p_request', 'p_reward', 'p_state', 'p_acknowledged'],
+  draft_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
@@ -117,6 +120,8 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   const db = new PGlite();
   t.after(() => db.close());
   await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key, email text);');
+  await db.exec('create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;');
+  await db.exec(await readFile(draftsMigration, 'utf8'));
   await db.exec('create table public.companion_devices (user_id uuid primary key, pairing_hash text not null unique);');
   await db.query("insert into auth.users values ($1,'owner@example.test'),($2,'streamer@example.test'),($3,'outsider@example.test')", [owner, streamer, outsider]);
   await db.exec(await readFile(migration, 'utf8'));
@@ -124,6 +129,7 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   await db.exec(await readFile(liveMigration, 'utf8'));
   await db.query("insert into public.icepack_relay_servers (owner_id, name, listed, hourly_limit, reward_policy, rose_whitelisted) values ($1,'Existing whitelist',false,1,'whitelist',true)", [outsider]);
   await db.exec(await readFile(catalogMigration, 'utf8'));
+  await db.exec(await readFile(giftRulesMigration, 'utf8'));
   const upgraded = await db.query('select allowed_reward_ids from public.icepack_relay_servers where owner_id = $1', [outsider]);
   assert.deepEqual(upgraded.rows[0].allowed_reward_ids, ['rose-stone']);
   await db.query('delete from public.icepack_relay_servers where owner_id = $1', [outsider]);
@@ -339,6 +345,7 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   assert.equal((await saveWhitelist(['wild-dodo', 'starter-kit'])).status, 200);
   assert.deepEqual((await ownerDashboard()).allowedRewardIds, ['wild-dodo', 'starter-kit']);
   assert.equal((await deliver(reward('rose-stone'))).status, 403);
+  assert.equal((await deliver(reward('starter-kit'))).status, 403);
   assert.equal((await deliver(reward('rex-level-9000'))).status, 400);
   await liftCooldown();
   const spawn = reward('wild-dodo');
@@ -347,6 +354,8 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   });
   assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,25,12345');
   assert.equal((await deliver(spawn)).status, 409);
+  const allComponents = ['rose-stone', 'wild-dodo', 'starter-kit'];
+  assert.equal((await saveWhitelist(allComponents)).status, 200);
   assert.equal((await deliver(reward('starter-kit'))).status, 429);
   await liftCooldown();
   assert.deepEqual(await deliver(reward('starter-kit')), {
@@ -360,8 +369,8 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   const partial = deliver(reward('starter-kit'));
   await Promise.race([firstStep, partial.then(() => assert.fail('Kit did not reach its first RCON step.'))]);
   try {
-    assert.equal((await saveWhitelist(['wild-dodo'])).status, 200);
-    assert.equal((await saveWhitelist(['wild-dodo', 'starter-kit'])).status, 200);
+    assert.equal((await saveWhitelist(['rose-stone', 'starter-kit'])).status, 200);
+    assert.equal((await saveWhitelist(allComponents)).status, 200);
   } finally { releaseCommand(); }
   assert.deepEqual(await partial, {
     status: 200, body: { state: 'unconfirmed', rewardId: 'starter-kit', acknowledged: 1, total: 2 },
@@ -371,4 +380,46 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   assert.equal(newest.acknowledgedCommands, 1);
   assert.equal(commands.length, 7);
   assert.equal(commands.at(-1), commands[0]);
+
+  pauseAfterCommand = undefined;
+  const dodo = { type: 'dinosaur', catalogId: 'Dodo', quantity: 1, level: 25, tamed: false, announcement: '' };
+  const stone = { type: 'item', catalogId: 'Stone', quantity: 5, quality: 0, announcement: '' };
+  const kit = { type: 'kit', kitId: 'private-kit', announcement: '' };
+  const draft = {
+    version: 1,
+    rules: [{ giftId: '8811', enabled: true, action: dodo }, { giftId: '8812', enabled: true, action: kit }],
+    kits: [{ id: 'private-kit', name: 'First wipe supplies', entries: [{ action: stone }, { action: dodo }] }],
+  };
+  await db.query('insert into public.companion_drafts(user_id, draft) values ($1,$2::jsonb)', [streamer, JSON.stringify(draft)]);
+  const authorizeSaved = (secret, gift, eventKey) => db.transaction(async tx => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.authorize_companion_draft_gift($1,$2,$3,$4,$5,$6) as decision',
+      [pairingSecret, serverId, '12345', gift, hash(secret), hash(eventKey)])).rows[0].decision;
+  });
+  const eligibleIds = await db.query('select public.get_companion_relay_test_target($1) as status', [pairingSecret]);
+  assert.deepEqual(eligibleIds.rows[0].status.targets[0].hostedGiftIds, ['8811','8812']);
+  const sendSaved = secret => desktop(secret, '/v1/live-reward');
+  const giftGrant = randomBytes(32).toString('hex');
+  assert.equal(await authorizeSaved(giftGrant, '5655', 'rose has no mapping'), 'ignored');
+  assert.equal(await authorizeSaved(giftGrant, '8811', 'assigned Dodo'), 'ready');
+  assert.equal((await desktop(giftGrant)).status, 403);
+  await liftCooldown();
+  const newGift = await sendSaved(giftGrant);
+  assert.equal(newGift.status, 200);
+  assert.equal((await newGift.json()).rewardId, 'wild-dodo');
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,25,12345');
+  assert.equal(await authorizeSaved(giftGrant, '8811', 'assigned Dodo'), 'ready');
+  assert.equal((await sendSaved(giftGrant)).status, 409);
+  assert.equal(await authorizeSaved(giftGrant, '8812', 'old revision'), 'ready');
+  await db.query('update public.companion_drafts set draft = $2::jsonb where user_id = $1', [streamer, JSON.stringify(draft)]);
+  assert.equal((await sendSaved(giftGrant)).status, 409);
+  assert.equal((await saveWhitelist(['rose-stone', 'starter-kit'])).status, 200);
+  assert.equal(await authorizeSaved(giftGrant, '8812', 'Dodo restricted'), 'ignored');
+  assert.equal((await saveWhitelist(allComponents)).status, 200);
+  assert.equal(await authorizeSaved(giftGrant, '8812', 'assigned Kit'), 'ready');
+  await liftCooldown();
+  const newKit = await sendSaved(giftGrant);
+  assert.equal(newKit.status, 200);
+  assert.deepEqual(await newKit.json(), { state: 'acknowledged', rewardId: 'starter-kit', acknowledged: 2, total: 2 });
+  assert.equal((await ownerDashboard()).history[0].source, 'live_draft');
 });

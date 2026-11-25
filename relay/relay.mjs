@@ -131,7 +131,8 @@ export function createRelay({ config, store, connect }) {
   }
 
   async function simulate(authorize, rewardId) {
-    const { envelope, actor, server, request } = await authorize('reserve');
+    const { envelope, actor, server, request, rewardId: savedReward } = await authorize('reserve');
+    rewardId ??= savedReward;
     let connection;
     let state = 'cancelled';
     let acknowledged = 0;
@@ -183,14 +184,15 @@ export function createRelay({ config, store, connect }) {
     }));
   }
 
-  function simulateDesktop(req, live) {
+  function simulateDesktop(req, route) {
     const secret = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization ?? '')?.[1];
     if (req.headers.origin || !secret) {
       throw new HttpError(401, 'Arm a hosted test in Windows Companion.');
     }
     const hash = createHash('sha256').update(secret).digest('hex');
     const params = { p_token_hash: hash, p_owner: config.ownerId };
-    if (live) return simulate(phase => rpc('paired_delivery', { ...params, p_phase: phase, p_source: 'live_rose' }));
+    if (route === '/v1/live-reward') return simulate(phase => rpc('draft_delivery', { ...params, p_phase: phase }));
+    if (route === '/v1/live-rose') return simulate(phase => rpc('paired_delivery', { ...params, p_phase: phase, p_source: 'live_rose' }));
     return simulate(phase => rpc('desktop_delivery', { ...params, p_phase: phase }));
   }
 
@@ -201,9 +203,9 @@ export function createRelay({ config, store, connect }) {
     }).end(JSON.stringify(result));
     try {
       if (request.method === 'GET' && request.url === '/health') return send(200, { ok: true });
-      if (request.method === 'POST' && ['/v1/desktop-test', '/v1/live-rose'].includes(request.url)) {
+      if (request.method === 'POST' && ['/v1/desktop-test', '/v1/live-rose', '/v1/live-reward'].includes(request.url)) {
         await readBody(request);
-        return send(200, await simulateDesktop(request, request.url === '/v1/live-rose'));
+        return send(200, await simulateDesktop(request, request.url));
       }
       if (request.headers.origin && request.headers.origin !== config.origin) {
         throw new HttpError(403, 'This website is outside the relay allowlist.');

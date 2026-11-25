@@ -14,6 +14,7 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
   let review;
   let hostedTest;
   let liveSession;
+  let refreshingLive = false;
 
   async function localRules() {
     if (!kitDir) throw Error('Configure the local Kit Editor directory in Companion first.');
@@ -52,20 +53,20 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
   async function run(action, input) {
     if (action === 'hosted-test-target') return (await connectWebsite()).hostedTestTarget();
     if (action === 'start-hosted-live') {
-      if (input?.confirmation !== 'START HOSTED ROSE') throw Error('Confirm before starting hosted Live Rewards.');
+      if (input?.confirmation !== 'START HOSTED REWARDS') throw Error('Confirm before starting hosted Live Rewards.');
       const state = await readEngineState();
       if (!state.hostedLive) throw Error('Update the TikFinity engine first.');
       if (state.giftSource !== 'tikfinity') throw Error('Select direct TikFinity and restart Companion first.');
       assertRewardLanesIdle(state);
       const connection = await connectWebsite();
       const target = await connection.hostedTestTarget();
-      if (!target.liveRoseEnabled || target.serverId !== input.serverId || target.survivorId !== input.survivorId) {
-        throw Error('The approved server or survivor changed, or the owner disabled live Rose rewards.');
+      if (!target.hostedGiftIds?.length || target.serverId !== input.serverId || target.survivorId !== input.survivorId) {
+        throw Error('Check the approved survivor and save a supported Gift Rule with a TikFinity gift ID.');
       }
       const token = randomBytes(32).toString('hex');
-      liveSession = { token, connection, target };
+      liveSession = { token, connection, target, giftIds: target.hostedGiftIds };
       try {
-        await enginePost('/hosted-live-start', { token });
+        await enginePost('/hosted-live-start', { token, giftIds: target.hostedGiftIds });
         hostedTest = undefined;
         return { mode: 'live' };
       } catch (error) {
@@ -118,7 +119,7 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
         finally {
           if (current) {
             try {
-              if (await current.connection.authorizeLiveRose(current.target, null, null) !== true) {
+              if (await current.connection.authorizeLiveGift(current.target, null, null, null) !== 'stopped') {
                 throw Error('Could not confirm cancellation of the pending relay reward.');
               }
             } catch {
@@ -186,22 +187,37 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
     hostedTest = undefined;
     return connection.sendHostedTest(token);
   };
-  run.forwardLiveRose = async (sessionToken, eventHash) => {
+  run.forwardLiveGift = async (sessionToken, eventHash, giftId) => {
     const current = liveSession;
     if (!current || current.token !== sessionToken) return { state: 'stopped', message: 'Start hosted Live Rewards in Companion.' };
     if (typeof eventHash !== 'string' || !/^[a-f0-9]{64}$/.test(eventHash)) {
-      return { state: 'blocked', message: 'Live Rose skipped because the event ID was invalid.' };
+      return { state: 'blocked', message: 'Gift skipped because the event ID was invalid.' };
     }
     const token = randomBytes(32).toString('hex');
-    const allowed = await current.connection.authorizeLiveRose(current.target, token, eventHash);
+    const decision = await current.connection.authorizeLiveGift(current.target, token, eventHash, giftId);
     if (current !== liveSession) return { state: 'stopped', message: 'Hosted Live Rewards stopped.' };
-    if (allowed !== true) {
+    if (decision === 'ignored') return { state: 'blocked', message: 'Gift skipped. Check the saved Gift Rule and owner whitelist.' };
+    if (decision !== 'ready') {
       liveSession = undefined;
       return { state: 'stopped', message: 'Hosted Live Rewards stopped because server approval or reward policy changed.' };
     }
-    const result = await current.connection.sendLiveRose(token);
+    const result = await current.connection.sendLiveGift(token);
     if (result.state === 'stopped' && current === liveSession) liveSession = undefined;
     return result;
+  };
+  run.refreshLiveGiftIds = async connection => {
+    const current = liveSession;
+    if (!current || current.connection !== connection || refreshingLive) return;
+    refreshingLive = true;
+    try {
+      const target = await connection.hostedTestTarget();
+      if (current !== liveSession || target.serverId !== current.target.serverId || target.survivorId !== current.target.survivorId ||
+          target.hostedGiftIds.join(',') === current.giftIds.join(',')) return;
+      await enginePost('/hosted-live-gifts', { token: current.token, giftIds: target.hostedGiftIds });
+      current.giftIds = target.hostedGiftIds;
+    } catch {
+      // The relay rechecks the saved draft and approval before each delivery.
+    } finally { refreshingLive = false; }
   };
   run.tickAccountSync = (connection, tryLock) => accountSync?.tick(connection, tryLock);
   return run;

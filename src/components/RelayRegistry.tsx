@@ -13,7 +13,7 @@ type OwnerServer = Server & {
   roseWhitelisted?: boolean;
   allowedRewardIds?: string[];
   access: { streamerId: string; survivorId: string; state: AccessState; email: string }[];
-  history: { requestId: string; createdAt: string; state: DeliveryState; streamer: string; source?: 'test' | 'live_rose';
+  history: { requestId: string; createdAt: string; state: DeliveryState; streamer: string; source?: 'test' | 'live_rose' | 'live_draft';
     rewardId?: string; acknowledgedCommands?: number }[];
 };
 type Dashboard = {
@@ -92,14 +92,18 @@ function OwnerRewardPolicy({ initialPolicy, initialIds, catalogEnabled, busy, sa
         <option value="whitelist">Owner whitelist</option>
       </select>
     </label>
-    {policy === 'whitelist' ? <div className="space-y-2">
-      {available.map(reward => <label key={reward.id} className="flex items-center gap-2">
-        <input type="checkbox" checked={allowedRewardIds.includes(reward.id)} onChange={event => {
-          const checked = event.target.checked;
-          setAllowedRewardIds(ids => checked ? orderRewards([...ids, reward.id]) : ids.filter(id => id !== reward.id));
-        }} />
-        Allow {reward.label}
-      </label>)}
+    {policy === 'whitelist' ? <div className="space-y-3">
+      {[...new Set(available.map(reward => reward.category))].map(category => <fieldset key={category} className="space-y-1">
+        <legend className="font-semibold text-slate-200">{category}</legend>
+        {available.filter(reward => reward.category === category).map(reward => <label key={reward.id} className="flex items-center gap-2">
+          <input type="checkbox" checked={allowedRewardIds.includes(reward.id)} onChange={event => {
+            const checked = event.target.checked;
+            setAllowedRewardIds(ids => checked ? orderRewards([...ids, reward.id]) : ids.filter(id => id !== reward.id));
+          }} />
+          Allow {reward.label}
+        </label>)}
+      </fieldset>)}
+      {catalogEnabled && <p className="text-sm text-slate-300">Each Kit also requires permission for its items and dinosaurs.</p>}
     </div> : <p className="text-sm text-slate-300">{available.map(reward => reward.label).join(' / ')}</p>}
     <div className="flex flex-wrap items-center gap-2">
       <button type="submit" className="btn btn-primary"
@@ -290,7 +294,7 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
         {owned.history.length === 0 && <p className="mt-2 text-sm text-slate-300">No relay tests yet.</p>}
         <ul className="divide-y divide-slate-700">
           {owned.history.map(entry => <li key={entry.requestId + entry.streamer} className="py-2 text-sm text-slate-300">
-            <span className="text-white">{rewardLabel(entry.rewardId)}</span> · {entry.source === 'live_rose' ? 'Live gift' : 'Test'} · {deliveryLabels[entry.state]}
+            <span className="text-white">{rewardLabel(entry.rewardId)}</span> · {!entry.source || entry.source === 'test' ? 'Test' : 'Live gift'} · {deliveryLabels[entry.state]}
             {entry.rewardId === 'starter-kit' && entry.acknowledgedCommands !== undefined && <> · {entry.acknowledgedCommands}/2 steps acknowledged</>}
             {' · '}{entry.streamer} · <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
           </li>)}

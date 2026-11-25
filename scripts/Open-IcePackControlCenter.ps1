@@ -925,11 +925,11 @@ $liveButton.Add_Click({
         }
         if ($useHosted) {
             $target = Invoke-IcePackBridgeAction 'operations/hosted-test-target'
-            if (-not $target.enabled -or -not $target.liveRoseEnabled) { throw 'The owner must allow live Rose rewards in Northpath Connections.' }
-            $message = "Start live Rose rewards for survivor $($target.survivorId) on $($target.serverName)? An accepted Rose gift or completed streak delivers 5 Stone."
+            if (-not $target.enabled -or -not $target.hostedGiftIds.Count) { throw 'Save a supported Gift Rule with its TikFinity gift ID to your Northpath account first.' }
+            $message = "Start hosted rewards for survivor $($target.survivorId) on $($target.serverName)? Matching gifts use your saved Gift Rules and the owner's reward policy."
             if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Start Hosted Live Rewards', 'YesNo', 'Warning', 'Button2') -ne 'Yes') { return }
             Invoke-IcePackBridgeAction 'operations/start-hosted-live' @{
-                confirmation = 'START HOSTED ROSE'; serverId = $target.serverId; survivorId = $target.survivorId
+                confirmation = 'START HOSTED REWARDS'; serverId = $target.serverId; survivorId = $target.survivorId
             } | Out-Null
         } else {
             $message = 'Enable Live Custom Rules? Incoming matching gifts can deliver rewards to your saved survivor.'

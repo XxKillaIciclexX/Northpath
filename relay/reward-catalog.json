@@ -1,5 +1,5 @@
 [
-  { "id": "rose-stone", "label": "Rose → 5 Stone" },
-  { "id": "wild-dodo", "label": "Wild Dodo · level 25" },
-  { "id": "starter-kit", "label": "Starter Kit · 5 Stone + wild Dodo" }
+  { "id": "rose-stone", "label": "5 Stone", "category": "Items" },
+  { "id": "wild-dodo", "label": "Wild Dodo · level 25", "category": "Dinosaurs" },
+  { "id": "starter-kit", "label": "Starter Kit · 5 Stone + wild Dodo", "category": "Kits" }
 ]

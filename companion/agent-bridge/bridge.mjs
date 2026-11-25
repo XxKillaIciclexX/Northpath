@@ -101,7 +101,10 @@ function connectWebsite() {
         const target = getEngineTarget(await readEngineState());
         return { engineOnline: true, survivorConfigured: target.configured && target.laneConfigured };
       },
-      onPaired: () => void syncAccountDraft(connection),
+      onPaired: () => {
+        void syncAccountDraft(connection);
+        if (runOperations) void runOperations.refreshLiveGiftIds(connection);
+      },
     });
     return connection;
   })().catch(error => {
@@ -133,13 +136,13 @@ const server=http.createServer(async(req,res)=>{
   if(!['127.0.0.1:3212','localhost:3212'].includes(req.headers.host))return json(403,{error:'Invalid host'});
   if(origin&&!permittedOrigins.has(origin))return json(403,{error:'Allowed only from local dashboard'});
   if(req.method==='GET'&&req.url==='/status'){try{return json(200,await engineState());}catch(e){return json(503,{online:true,engineOnline:false,engineStatus:'Local engine unavailable',error:String(e.message).slice(0,120)});}}
-  if(websiteLinkDir&&req.method==='POST'&&['/hosted-rose-test','/hosted-rose-gift'].includes(req.url)) {
+  if(websiteLinkDir&&req.method==='POST'&&['/hosted-rose-test','/hosted-live-gift'].includes(req.url)) {
     const token=/^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization??'')?.[1];
     if(origin||!token)return json(403,{error:'Start in Windows Operations Center.'});
     const operations = await desktopOperations();
     if (req.url==='/hosted-rose-test') return json(200,await operations.consumeHostedTest(token));
     const input = await readJsonBody(req);
-    return json(200,await operations.forwardLiveRose(token, input?.eventHash));
+    return json(200,await operations.forwardLiveGift(token, input?.eventHash, input?.giftId));
   }
   const operationsAction = !standalonePreview && managedToken && req.url?.startsWith('/operations/')
     ? req.url.slice('/operations/'.length) : null;

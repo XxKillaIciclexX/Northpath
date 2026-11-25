@@ -75,8 +75,8 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     });
     if (!status.paired) throw Error('Pair the Windows app to your streamer account in Northpath Connections.');
     if (status.targets?.length !== 1) throw Error('Get approval for one pilot server in Northpath Connections first.');
-    const { serverId, serverName, survivorId, liveRoseEnabled } = status.targets[0];
-    return { enabled: true, serverId, serverName, survivorId, liveRoseEnabled: liveRoseEnabled === true };
+    const { serverId, serverName, survivorId, hostedGiftIds } = status.targets[0];
+    return { enabled: true, serverId, serverName, survivorId, hostedGiftIds: Array.isArray(hostedGiftIds) ? hostedGiftIds : [] };
   }
 
   async function armHostedTest(target, token) {
@@ -87,17 +87,17 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     if (armed !== true) throw Error('Check the approved server, Survivor ID, and owner reward policy in Northpath Connections before arming again.');
   }
 
-  function authorizeLiveRose(target, token, eventHash) {
-    return rpc('authorize_companion_live_rose', {
-      p_server: target.serverId, p_survivor: target.survivorId, p_event_hash: eventHash,
+  function authorizeLiveGift(target, token, eventHash, giftId) {
+    return rpc('authorize_companion_draft_gift', {
+      p_server: target.serverId, p_survivor: target.survivorId, p_event_hash: eventHash, p_gift: giftId,
       p_token_hash: token ? createHash('sha256').update(token).digest('hex') : null,
     }, AbortSignal.timeout(5000));
   }
 
   async function sendHostedReward(token, live = false) {
-    const label = live ? 'Live Rose reward' : 'Hosted Rose test';
+    const label = live ? 'Hosted gift reward' : 'Hosted Rose test';
     try {
-      const response = await fetcher(new URL(live ? '/v1/live-rose' : '/v1/desktop-test', relayUrl), {
+      const response = await fetcher(new URL(live ? '/v1/live-reward' : '/v1/desktop-test', relayUrl), {
         method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: '{}', signal: AbortSignal.timeout(28000), redirect: 'error',
       });
@@ -107,7 +107,10 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
       if (response.status === 502) return { state: 'blocked', message: 'The relay could not connect to the ARK server.' };
       const result = response.ok ? await response.json() : null;
       if (result?.state === 'acknowledged') return {
-        state: 'sent', message: live ? 'ARK acknowledged the live Rose reward. Check for 5 Stone.' : 'ARK acknowledged the hosted Rose test. Check for 5 Stone.',
+        state: 'sent', message: live ? 'ARK acknowledged the hosted gift reward. Verify it in game.' : 'ARK acknowledged the hosted Rose test. Check for 5 Stone.',
+      };
+      if (live && result?.acknowledged > 0) return {
+        state: 'unconfirmed', message: 'ARK acknowledged ' + result.acknowledged + ' of ' + result.total + ' Kit steps. Check delivery history.',
       };
     } catch { /* A lost response can follow delivery. */ }
     return { state: 'unconfirmed', message: label + ' delivery is unconfirmed. Check ARK and the owner’s delivery history.' };
@@ -185,8 +188,8 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
   }
 
   return {
-    pairingCode, start, readDraft, readSyncDraft, reportSync, hostedTestTarget, armHostedTest, authorizeLiveRose,
+    pairingCode, start, readDraft, readSyncDraft, reportSync, hostedTestTarget, armHostedTest, authorizeLiveGift,
     sendHostedTest: token => sendHostedReward(token),
-    sendLiveRose: token => sendHostedReward(token, true),
+    sendLiveGift: token => sendHostedReward(token, true),
   };
 }

@@ -65,7 +65,7 @@ The relay test uses the real SQL migration and a local mock RCON server.
    node .\scripts\Build-IcePackPilotSetup.mjs --local --streamer
    ```
 
-   Stop and close the previous Windows Companion, uninstall **Ice Pack Companion Streamer** from **Settings → Apps → Installed apps**, and run the new `IcePackCompanionStreamer-5.8-win-x64-Setup.exe` in `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. The uninstaller preserves the existing Windows data folder.
+   Stop and close the previous Windows Companion, uninstall **Ice Pack Companion Streamer** from **Settings → Apps → Installed apps**, and run the new `IcePackCompanionStreamer-5.9-win-x64-Setup.exe` in `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. The uninstaller preserves the existing Windows data folder.
 
 4. Open **Ice Pack Companion Streamer** from Start and click **Start Companion**. Sign in to Northpath as the streamer. If this app needs pairing, click **Copy website pairing code** and paste it in **Companion → Connections**. The approved server and Survivor ID come from the registry. Use an approved access request for the test survivor and keep the local reward lanes off. Previous tests still count toward the owner’s hourly limit.
 5. Click **Arm TikFinity test gift**. If local RCON is configured, choose **Yes** for the hosted route. Confirm the prompt shows the intended server and survivor. Within two minutes, in TikFinity Desktop use **Third-Party Action → Ice Pack Companion → Send armed test gift → Test**.
@@ -81,18 +81,18 @@ A disconnect, a change to the approved survivor, or a revocation invalidates an 
 
 To save a preset for a wipe phase, configure the reward entries in **Owner whitelist**, save the policy, and click **Export saved whitelist**. Rename the JSON file to identify the phase. To apply a different preset later, click **Import whitelist**, select the file, review the entries, and click **Save reward policy**. Importing stages the whitelist before it takes effect.
 
-A preset that permits Rose and the Starter Kit looks like this:
+A preset that permits Stone, Wild Dodo, and the Starter Kit looks like this:
 
 ```json
 {
   "version": 1,
-  "allowedRewardIds": ["rose-stone", "starter-kit"]
+  "allowedRewardIds": ["rose-stone", "wild-dodo", "starter-kit"]
 }
 ```
 
 Use an empty `allowedRewardIds` array to permit zero hosted rewards. The imported list is checked against the supported relay catalog.
 
-## Verify a live Rose
+## Verify the fixed live Rose rule in v5.8
 
 1. Install **Ice Pack Companion Streamer v5.8**. Start Companion and TikFinity Desktop. Confirm the Windows app is paired to an approved streamer account and the owner’s policy allows Rose.
 2. In the streamer app, click **Start Live Rewards**. If asked which route to use, choose **Yes** for the hosted route. Confirm the server and survivor are correct.
@@ -111,4 +111,20 @@ For a test outside a live stream, use the third-party simulator above. It uses t
 
 The relay checks approval and the whitelist before the Kit begins and again before its second step. If a subsequent step is interrupted, the owner’s history shows how many steps ARK acknowledged. Check the survivor in game before repeating a test.
 
-This milestone adds Dodo and Starter Kit to the website test flow. TikFinity live delivery continues to use the existing Rose rule. The next milestone is assigning these new rewards to live gift IDs.
+## Use streamer Gift Rules for hosted delivery
+
+1. In **Supabase → SQL Editor**, run [the streamer Gift Rules migration](../supabase/migrations/20261125000400_add_streamer_hosted_gift_rules.sql) after the hosted reward catalog migration above. Redeploy the current `development` build in Railway and publish the Companion website update in Bolt using the existing relay and pairing settings.
+2. As the **server owner**, open **Companion → Connections → ARK server registry**. Use **All supported rewards** or save an **Owner whitelist**. The whitelist is grouped into **Items**, **Dinosaurs**, and **Kits**. The Starter Kit requires its Kit, Stone, and Wild Dodo entries to be allowed. Existing JSON preset files use the same reward IDs.
+3. As the **streamer**, open **Companion → Gift rules**. Pick a gift and enter its numeric TikFinity Gift ID. Choose one of the supported hosted recipes below, enable the rule, then go to **Settings → Save to account**. Use one enabled rule per Gift ID. Rule names are for display.
+4. Install **Ice Pack Companion Streamer v5.9**. Pair it to the streamer account, start TikFinity Desktop, and click **Start Live Rewards** in Companion. Select the hosted route if prompted, then confirm the approved server and Survivor ID.
+5. Send the configured gift once in TikFinity’s live gift feed. Verify the expected reward in ARK and **Live gift · ARK acknowledged** in the owner’s delivery history. A completed streak counts as one reward. The server’s 15-second cooldown and hourly limit apply.
+
+| Hosted recipe | Settings in Gift Rules or Kit Builder |
+| --- | --- |
+| 5 Stone | Item = Stone, quantity = 5, quality = 0 |
+| Wild Dodo | Dinosaur = Dodo, quantity = 1, level = 25, wild |
+| Starter Kit | Create a Kit with 5 Stone at quality 0 first and one level-25 wild Dodo second. Select that Kit in the gift rule. |
+
+Leave announcements empty for these recipes. The relay reads the streamer’s saved draft and checks the owner’s current policy at delivery. Gift IDs refresh while the paired app is online. If the draft changes mid-delivery, the relay stops before any remaining steps. The owner’s history records the delivered reward and Kit progress.
+
+The hosted website test menu can verify the ASA mod and permissions while you are offline. Use the live gift feed to verify a streamer's Gift ID mapping.
