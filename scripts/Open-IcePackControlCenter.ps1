@@ -436,19 +436,22 @@ function Refresh-IcePackStatus {
     }
     $safeLabel.Text = 'Reward lanes: ' + $health.RewardState
     $safeLabel.ForeColor = if ($health.RewardLanesOff -or $health.PreviewSafe) { $theme.Success } elseif ($health.LiveOrArmed) { $theme.Error } else { $theme.Warning }
-    $script:stopRules = $engineReady -and $health.CustomRulesMode -in @('preview', 'live')
+    $script:stopRules = $engineReady -and ($health.HostedLiveEnabled -or $health.CustomRulesMode -in @('preview', 'live'))
     Set-ActionToggle $liveButton $script:stopRules $startLiveText $stopLiveText
     $liveButton.Enabled = $bridgeActionsReady -and ($script:stopRules -or ($health.TargetLoaded -and -not $health.LiveOrArmed))
     if ($streamer) {
         $validSettings = $false
         try { $validSettings = $null -ne (Read-IcePackServerSettings) } catch {}
-        $serverLabel.Text = if ($validSettings) { 'Direct ARK connection: settings saved' } else { 'Direct ARK connection: optional for the hosted test' }
+        $serverLabel.Text = if ($validSettings) { 'Direct ARK connection: settings saved' } else { 'Hosted rewards use your approved Northpath server.' }
         $serverButton.Enabled = -not $script:hasOwnedService -and $null -eq $script:managedProcess
-        $liveButton.Enabled = $liveButton.Enabled -and ($validSettings -or $script:stopRules)
+        $liveButton.Enabled = $bridgeActionsReady -and ($script:stopRules -or $health.HostedLiveReady -or
+            ($validSettings -and $health.TargetLoaded -and $health.RewardLanesOff))
         $survivorButton.Enabled = $bridgeActionsReady -and $health.RewardLanesOff
         $websiteCodeButton.Enabled = $bridgeActionsReady
         $armGiftTestButton.Enabled = $bridgeActionsReady -and $health.RewardLanesOff -and $health.GiftTestReady
-        $giftTestLabel.Text = if ($engineReady) { $health.GiftTestMessage } else { '' }
+        $giftTestLabel.Text = if ($health.HostedLiveEnabled -or $health.HostedLiveMessage -like '*because server approval*') {
+            $health.HostedLiveMessage
+        } elseif ($engineReady) { $health.GiftTestMessage } else { '' }
         if ($engineReady) { Update-IcePackGiftSourceLabel $health } else { $giftInputLabel.Text = 'Start Companion for TikFinity Desktop.' }
         $script:syncEnabled = $false
         $syncButton.Enabled = $false
@@ -901,18 +904,40 @@ $liveButton.Add_Click({
         try {
             Invoke-IcePackBridgeAction 'operations/stop-live' | Out-Null
             Refresh-IcePackStatus
-            $statusLabel.Text = 'Custom Gift Rules stopped.'
+            $statusLabel.Text = 'Live Rewards stopped.'
         } catch {
             [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Could not stop Custom Gift Rules', 'OK', 'Warning')
         }
         return
     }
-    $message = 'Enable Live Custom Rules? Incoming matching gifts can deliver rewards to your saved survivor.'
-    if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Enable Live Custom Rules', 'YesNo', 'Warning', 'Button2') -ne 'Yes') { return }
     try {
-        Invoke-IcePackBridgeAction 'operations/enable-live' @{ confirmation = 'ENABLE LIVE CUSTOM RULES' } | Out-Null
+        $useHosted = $streamer
+        if ($streamer) {
+            $localConfigured = $false
+            try { $localConfigured = $null -ne (Read-IcePackServerSettings) } catch {}
+            if ($localConfigured) {
+                $route = [System.Windows.Forms.MessageBox]::Show($form,
+                    "Use your Northpath server approval?`nYes for Hosted Live Rewards. No for direct ARK connection.",
+                    'Live Rewards route', 'YesNoCancel', 'Question', 'Button1')
+                if ($route -eq 'Cancel') { return }
+                $useHosted = $route -eq 'Yes'
+            }
+        }
+        if ($useHosted) {
+            $target = Invoke-IcePackBridgeAction 'operations/hosted-test-target'
+            if (-not $target.enabled -or -not $target.liveRoseEnabled) { throw 'The owner must allow live Rose rewards in Northpath Connections.' }
+            $message = "Start live Rose rewards for survivor $($target.survivorId) on $($target.serverName)? An accepted Rose gift or completed streak delivers 5 Stone."
+            if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Start Hosted Live Rewards', 'YesNo', 'Warning', 'Button2') -ne 'Yes') { return }
+            Invoke-IcePackBridgeAction 'operations/start-hosted-live' @{
+                confirmation = 'START HOSTED ROSE'; serverId = $target.serverId; survivorId = $target.survivorId
+            } | Out-Null
+        } else {
+            $message = 'Enable Live Custom Rules? Incoming matching gifts can deliver rewards to your saved survivor.'
+            if ([System.Windows.Forms.MessageBox]::Show($form, $message, 'Enable Live Custom Rules', 'YesNo', 'Warning', 'Button2') -ne 'Yes') { return }
+            Invoke-IcePackBridgeAction 'operations/enable-live' @{ confirmation = 'ENABLE LIVE CUSTOM RULES' } | Out-Null
+        }
         Refresh-IcePackStatus
-        $statusLabel.Text = 'Live Custom Rules enabled.'
+        $statusLabel.Text = 'Live Rewards enabled.'
     } catch {
         [void][System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Live Custom Rules unavailable', 'OK', 'Warning')
     }

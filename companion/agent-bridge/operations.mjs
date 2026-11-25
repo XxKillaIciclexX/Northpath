@@ -13,6 +13,7 @@ const reviewLifetime = 120_000;
 export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineState, reloadEngine, enginePost, accountSyncDir, connectWebsite }) {
   let review;
   let hostedTest;
+  let liveSession;
 
   async function localRules() {
     if (!kitDir) throw Error('Configure the local Kit Editor directory in Companion first.');
@@ -50,6 +51,28 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
 
   async function run(action, input) {
     if (action === 'hosted-test-target') return (await connectWebsite()).hostedTestTarget();
+    if (action === 'start-hosted-live') {
+      if (input?.confirmation !== 'START HOSTED ROSE') throw Error('Confirm before starting hosted Live Rewards.');
+      const state = await readEngineState();
+      if (!state.hostedLive) throw Error('Update the TikFinity engine first.');
+      if (state.giftSource !== 'tikfinity') throw Error('Select direct TikFinity and restart Companion first.');
+      assertRewardLanesIdle(state);
+      const connection = await connectWebsite();
+      const target = await connection.hostedTestTarget();
+      if (!target.liveRoseEnabled || target.serverId !== input.serverId || target.survivorId !== input.survivorId) {
+        throw Error('The approved server or survivor changed, or the owner disabled live Rose rewards.');
+      }
+      const token = randomBytes(32).toString('hex');
+      liveSession = { token, connection, target };
+      try {
+        await enginePost('/hosted-live-start', { token });
+        hostedTest = undefined;
+        return { mode: 'live' };
+      } catch (error) {
+        liveSession = undefined;
+        throw error;
+      }
+    }
     if (action === 'arm-hosted-tikfinity-test') {
       if (input?.confirmation !== 'ARM HOSTED ROSE') throw Error('Confirm before arming the hosted Rose test.');
       const state = await readEngineState();
@@ -88,6 +111,23 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
       return accountSync.configure(null, false);
     }
     if (action === 'stop-live') {
+      const current = liveSession;
+      liveSession = undefined;
+      if (current || (await readEngineState()).hostedLive?.enabled) {
+        try { await enginePost('/hosted-live-stop', {}); }
+        finally {
+          if (current) {
+            try {
+              if (await current.connection.authorizeLiveRose(current.target, null, null) !== true) {
+                throw Error('Could not confirm cancellation of the pending relay reward.');
+              }
+            } catch {
+              throw Error('Companion stopped accepting new gifts. Check delivery history for the last reward.');
+            }
+          }
+        }
+        return { mode: 'off' };
+      }
       const result = await enginePost('/custom-rules-mode', { mode: 'off' });
       if (result.customRules?.mode !== 'off') throw Error('The engine did not confirm that Custom Gift Rules stopped.');
       return { mode: 'off' };
@@ -145,6 +185,23 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
     const { connection } = hostedTest;
     hostedTest = undefined;
     return connection.sendHostedTest(token);
+  };
+  run.forwardLiveRose = async (sessionToken, eventHash) => {
+    const current = liveSession;
+    if (!current || current.token !== sessionToken) return { state: 'stopped', message: 'Start hosted Live Rewards in Companion.' };
+    if (typeof eventHash !== 'string' || !/^[a-f0-9]{64}$/.test(eventHash)) {
+      return { state: 'blocked', message: 'Live Rose skipped because the event ID was invalid.' };
+    }
+    const token = randomBytes(32).toString('hex');
+    const allowed = await current.connection.authorizeLiveRose(current.target, token, eventHash);
+    if (current !== liveSession) return { state: 'stopped', message: 'Hosted Live Rewards stopped.' };
+    if (allowed !== true) {
+      liveSession = undefined;
+      return { state: 'stopped', message: 'Hosted Live Rewards stopped because server approval or reward policy changed.' };
+    }
+    const result = await current.connection.sendLiveRose(token);
+    if (result.state === 'stopped' && current === liveSession) liveSession = undefined;
+    return result;
   };
   run.tickAccountSync = (connection, tryLock) => accountSync?.tick(connection, tryLock);
   return run;

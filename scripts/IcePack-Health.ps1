@@ -52,18 +52,24 @@ function Get-IcePackHealth([switch]$Hosted, [switch]$SkipEngine, [switch]$SkipBr
     $giftSource = $null
     $giftSourceStatus = $null
     $giftTest = $null
+    $hostedLive = $null
     if ($engineHealthy) {
         $giftSource = if ($engine.Data.PSObject.Properties['giftSource']) { [string]$engine.Data.giftSource } else { 'streamerbot' }
         $giftSourceStatus = if ($engine.Data.PSObject.Properties['giftSourceStatus']) { [string]$engine.Data.giftSourceStatus } else { 'ready' }
         if ($engine.Data.PSObject.Properties['giftTest']) { $giftTest = $engine.Data.giftTest }
+        if ($engine.Data.PSObject.Properties['hostedLive']) { $hostedLive = $engine.Data.hostedLive }
     }
     # Preview must not be mistaken for Live, and unknown mode values must not be treated as safe.
     $knownModes = @('off','preview','live')
     $modesKnown = ($engineHealthy -and $customMode -cin $knownModes -and $experimentalMode -cin $knownModes)
-    $liveActive = ($engineHealthy -and ($legacyArmed -or $customMode -eq 'live' -or $experimentalMode -eq 'live'))
-    $safeForSetup = ($modesKnown -and -not $liveActive -and $customMode -eq 'off' -and $experimentalMode -eq 'off')
+    $hostedEnabled = $null -ne $hostedLive -and $hostedLive.enabled -eq $true
+    $hostedBusy = $null -ne $hostedLive -and $hostedLive.busy -eq $true
+    $liveActive = ($engineHealthy -and ($hostedEnabled -or $legacyArmed -or $customMode -eq 'live' -or $experimentalMode -eq 'live'))
+    $safeForSetup = ($modesKnown -and -not $liveActive -and -not $hostedBusy -and $customMode -eq 'off' -and $experimentalMode -eq 'off')
     $previewSafe = ($modesKnown -and -not $liveActive -and ($customMode -eq 'preview' -or $experimentalMode -eq 'preview'))
     $rewardState = if (-not $engineHealthy -or -not $modesKnown) { 'UNKNOWN' }
+      elseif ($hostedEnabled) { 'LIVE VIA NORTHPATH' }
+      elseif ($hostedBusy) { 'FINISHING HOSTED DELIVERY' }
       elseif ($liveActive) { 'LIVE OR ARMED' }
       elseif ($previewSafe) { 'PREVIEW (NO RCON FROM PREVIEW)' }
       else { 'OFF' }
@@ -84,6 +90,9 @@ function Get-IcePackHealth([switch]$Hosted, [switch]$SkipEngine, [switch]$SkipBr
         GiftSourceStatus = $giftSourceStatus
         GiftTestReady = ($null -ne $giftTest -and $giftTest.state -notin @('unavailable','armed','sending') -and $giftSource -eq 'tikfinity')
         GiftTestMessage = $(if ($null -ne $giftTest) { [string]$giftTest.message } else { '' })
+        HostedLiveEnabled = $hostedEnabled
+        HostedLiveReady = ($null -ne $hostedLive -and $giftSourceStatus -eq 'connected' -and $safeForSetup)
+        HostedLiveMessage = $(if ($null -ne $hostedLive) { [string]$hostedLive.message } else { '' })
         PreviewSafe = [bool]$previewSafe
         LiveOrArmed = [bool]$liveActive
         ReadyForPreviewSetup = [bool]($servicesReady -and $safeForSetup)

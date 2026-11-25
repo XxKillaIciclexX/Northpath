@@ -37,7 +37,7 @@ export function assertRewardLanesIdle(state) {
   const experimental = state?.giftRcon;
   if (!['off', 'preview'].includes(custom?.mode) || custom.queued !== 0 || custom.inflight !== false ||
       experimental?.mode !== 'off' || experimental.queued !== 0 || experimental.inflight !== false ||
-      state.armed !== false || state.autoEnabled !== false || state.pending !== 0 || state.rewardPending !== 0 || state.active !== null) {
+      state.hostedLive?.enabled || state.armed !== false || state.autoEnabled !== false || state.pending !== 0 || state.rewardPending !== 0 || state.active !== null) {
     throw Error('Turn off live gift lanes, disarm legacy rewards, and wait for active deliveries to finish.');
   }
 }

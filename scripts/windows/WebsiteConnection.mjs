@@ -75,8 +75,8 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     });
     if (!status.paired) throw Error('Pair the Windows app to your streamer account in Northpath Connections.');
     if (status.targets?.length !== 1) throw Error('Get approval for one pilot server in Northpath Connections first.');
-    const { serverId, serverName, survivorId } = status.targets[0];
-    return { enabled: true, serverId, serverName, survivorId };
+    const { serverId, serverName, survivorId, liveRoseEnabled } = status.targets[0];
+    return { enabled: true, serverId, serverName, survivorId, liveRoseEnabled: liveRoseEnabled === true };
   }
 
   async function armHostedTest(target, token) {
@@ -84,22 +84,33 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
       p_server: target.serverId, p_survivor: target.survivorId,
       p_token_hash: createHash('sha256').update(token).digest('hex'),
     }, AbortSignal.timeout(5000));
-    if (armed !== true) throw Error('Server access or Survivor ID changed. Check Northpath Connections and arm again.');
+    if (armed !== true) throw Error('Check the approved server, Survivor ID, and owner reward policy in Northpath Connections before arming again.');
   }
 
-  async function sendHostedTest(token) {
+  function authorizeLiveRose(target, token, eventHash) {
+    return rpc('authorize_companion_live_rose', {
+      p_server: target.serverId, p_survivor: target.survivorId, p_event_hash: eventHash,
+      p_token_hash: token ? createHash('sha256').update(token).digest('hex') : null,
+    }, AbortSignal.timeout(5000));
+  }
+
+  async function sendHostedReward(token, live = false) {
+    const label = live ? 'Live Rose reward' : 'Hosted Rose test';
     try {
-      const response = await fetcher(new URL('/v1/desktop-test', relayUrl), {
+      const response = await fetcher(new URL(live ? '/v1/live-rose' : '/v1/desktop-test', relayUrl), {
         method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: '{}', signal: AbortSignal.timeout(28000), redirect: 'error',
       });
-      if ([401, 403].includes(response.status)) return { state: 'blocked', message: 'Hosted Rose test blocked. Check your pairing and server approval.' };
-      if (response.status === 429) return { state: 'blocked', message: 'Hosted Rose test blocked by the server cooldown or hourly limit.' };
+      if ([401, 403].includes(response.status)) return { state: live ? 'stopped' : 'blocked', message: label + ' blocked. Check your pairing, server approval, and reward policy.' };
+      if (response.status === 409) return { state: 'blocked', message: label + ' already submitted or cancelled.' };
+      if (response.status === 429) return { state: 'blocked', message: label + ' blocked by the server cooldown or hourly limit.' };
       if (response.status === 502) return { state: 'blocked', message: 'The relay could not connect to the ARK server.' };
       const result = response.ok ? await response.json() : null;
-      if (result?.state === 'acknowledged') return { state: 'sent', message: 'ARK acknowledged the hosted Rose test. Check for 5 Stone.' };
+      if (result?.state === 'acknowledged') return {
+        state: 'sent', message: live ? 'ARK acknowledged the live Rose reward. Check for 5 Stone.' : 'ARK acknowledged the hosted Rose test. Check for 5 Stone.',
+      };
     } catch { /* A lost response can follow delivery. */ }
-    return { state: 'unconfirmed', message: 'Hosted Rose delivery is unconfirmed. Check ARK and the owner’s delivery history.' };
+    return { state: 'unconfirmed', message: label + ' delivery is unconfirmed. Check ARK and the owner’s delivery history.' };
   }
 
   function start({ dashboardUrl, localToken, readSurvivorStatus, onPaired }) {
@@ -173,5 +184,9 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     return () => { controller.abort(); clearTimeout(timeout); };
   }
 
-  return { pairingCode, start, readDraft, readSyncDraft, reportSync, hostedTestTarget, armHostedTest, sendHostedTest };
+  return {
+    pairingCode, start, readDraft, readSyncDraft, reportSync, hostedTestTarget, armHostedTest, authorizeLiveRose,
+    sendHostedTest: token => sendHostedReward(token),
+    sendLiveRose: token => sendHostedReward(token, true),
+  };
 }

@@ -1,18 +1,21 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 type AccessState = 'requested' | 'approved' | 'revoked';
+type RewardPolicy = 'whitelist' | 'all_supported';
 type DeliveryState = 'pending' | 'sending' | 'cancelled' | 'unconfirmed' | 'acknowledged';
 type Server = { id: string; name: string };
 type OwnerServer = Server & {
   listed: boolean;
   hourlyLimit: number;
+  rewardPolicy?: RewardPolicy;
+  roseWhitelisted?: boolean;
   access: { streamerId: string; survivorId: string; state: AccessState; email: string }[];
-  history: { requestId: string; createdAt: string; state: DeliveryState; streamer: string }[];
+  history: { requestId: string; createdAt: string; state: DeliveryState; streamer: string; source?: 'test' | 'live_rose' }[];
 };
 type Dashboard = {
   canRegister: boolean;
   owned: OwnerServer | null;
-  linked: (Server & { state: AccessState; survivorId: string })[];
+  linked: (Server & { state: AccessState; survivorId: string; roseAllowed?: boolean })[];
   results: Server[];
 };
 type Props = { token: string; relayUrl: string };
@@ -23,6 +26,82 @@ const deliveryLabels: Record<DeliveryState, string> = {
 };
 const field = 'mt-1 block w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-slate-100';
 const card = 'card space-y-4 p-5';
+const roseRewardId = 'rose-stone';
+
+function parseOwnerWhitelist(raw: string): boolean {
+  const config = JSON.parse(raw);
+  if (!config || config.version !== 1 || !Array.isArray(config.allowedRewardIds) ||
+      Object.keys(config).some(key => key !== 'version' && key !== 'allowedRewardIds')) {
+    throw new Error('Choose a version 1 Northpath owner whitelist.');
+  }
+  if (config.allowedRewardIds.some((id: unknown) => id !== roseRewardId)) {
+    throw new Error('This whitelist includes a reward the relay does not support yet.');
+  }
+  if (config.allowedRewardIds.length > 1) throw new Error('Remove duplicate reward IDs from the whitelist.');
+  return config.allowedRewardIds.includes(roseRewardId);
+}
+
+function exportOwnerWhitelist(roseWhitelisted: boolean) {
+  const json = JSON.stringify({ version: 1, allowedRewardIds: roseWhitelisted ? [roseRewardId] : [] }, null, 2) + '\n';
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'northpath-owner-whitelist.json';
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function OwnerRewardPolicy({ initialPolicy, initialRose, busy, save }: {
+  initialPolicy: RewardPolicy;
+  initialRose: boolean;
+  busy: boolean;
+  save: (policy: RewardPolicy, roseWhitelisted: boolean) => void;
+}) {
+  const [policy, setPolicy] = useState(initialPolicy);
+  const [roseWhitelisted, setRoseWhitelisted] = useState(initialRose);
+  const [fileStatus, setFileStatus] = useState<{ text: string; error?: boolean }>();
+
+  async function importWhitelist(file: File) {
+    try {
+      if (file.size > 16_384) throw new Error('The whitelist file is too large.');
+      const allowed = parseOwnerWhitelist(await file.text());
+      setRoseWhitelisted(allowed);
+      setPolicy('whitelist');
+      setFileStatus({ text: 'Whitelist loaded. Review it and save the reward policy to activate it.' });
+    } catch (error) {
+      setFileStatus({ text: error instanceof SyntaxError ? 'The whitelist file contains invalid JSON.'
+        : error instanceof Error ? error.message : 'Could not open the whitelist file.', error: true });
+    }
+  }
+  return <form className="space-y-3" onSubmit={event => {
+    event.preventDefault();
+    save(policy, roseWhitelisted);
+  }}>
+    <label className="block max-w-sm font-semibold text-white">Reward policy
+      <select className={field} value={policy} onChange={event => setPolicy(event.target.value as RewardPolicy)}>
+        <option value="all_supported">All supported rewards</option>
+        <option value="whitelist">Owner whitelist</option>
+      </select>
+    </label>
+    {policy === 'whitelist' ? <label className="flex items-center gap-2">
+      <input type="checkbox" checked={roseWhitelisted} onChange={event => setRoseWhitelisted(event.target.checked)} />
+      Allow Rose → 5 Stone
+    </label> : <p className="text-sm text-slate-300">The current catalog supports Rose → 5 Stone.</p>}
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="submit" className="btn btn-primary" disabled={busy || (policy === initialPolicy && roseWhitelisted === initialRose)}>Save reward policy</button>
+      <label className={'btn btn-ghost relative cursor-pointer' + (busy ? ' opacity-60' : '')}>
+        Import whitelist
+        <input type="file" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" accept=".json,application/json" disabled={busy} onChange={event => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = '';
+          if (file) void importWhitelist(file);
+        }} />
+      </label>
+      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => exportOwnerWhitelist(initialRose)}>Export saved whitelist</button>
+    </div>
+    {fileStatus && <p role={fileStatus.error ? 'alert' : 'status'} className={fileStatus.error ? 'text-rose-300' : 'text-sm text-slate-300'}>{fileStatus.text}</p>}
+  </form>;
+}
 
 async function relay<T>({ token, relayUrl }: Props, payload: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   const timeout = AbortSignal.timeout(30000);
@@ -120,7 +199,7 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
         <label>RCON host<input className={field} name="host" autoComplete="off" maxLength={253} required /></label>
         <label>RCON port<input className={field} name="port" type="number" min={1} max={65535} required /></label>
         <label>RCON password<input className={field} name="password" type="password" autoComplete="new-password" maxLength={128} required /></label>
-        <label>Tests per hour<input className={field} name="hourlyLimit" type="number" min={1} max={10} defaultValue={1} required /></label>
+        <label>Rewards per hour<input className={field} name="hourlyLimit" type="number" min={1} max={10} defaultValue={1} required /></label>
       </div>
       <label className="flex items-center gap-2"><input name="listed" type="checkbox" /> Show this server in search</label>
       <button type="submit" className="btn btn-primary" disabled={busy}>Test connection and register</button>
@@ -136,9 +215,12 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
         const hourlyLimit = Number(new FormData(event.currentTarget).get('hourlyLimit'));
         void run({ action: 'limit', serverId: owned.id, hourlyLimit }, 'Saved the hourly limit.');
       }}>
-        <label>Tests per hour<input className={field} name="hourlyLimit" type="number" min={1} max={10} defaultValue={owned.hourlyLimit} required /></label>
+        <label>Rewards per hour<input className={field} name="hourlyLimit" type="number" min={1} max={10} defaultValue={owned.hourlyLimit} required /></label>
         <button type="submit" disabled={busy} className="btn btn-ghost">Save limit</button>
       </form>
+      {owned.rewardPolicy && <OwnerRewardPolicy key={owned.id + owned.rewardPolicy + String(owned.roseWhitelisted)}
+        initialPolicy={owned.rewardPolicy} initialRose={owned.roseWhitelisted === true} busy={busy}
+        save={(policy, roseWhitelisted) => void run({ action: 'reward-policy', serverId: owned.id, policy, roseWhitelisted }, 'Saved the reward policy.')} />}
       <div>
         <h4 className="font-semibold text-white">Streamer access</h4>
         {owned.access.length === 0 && <p className="mt-2 text-sm text-slate-300">No access requests yet.</p>}
@@ -163,7 +245,7 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
         {owned.history.length === 0 && <p className="mt-2 text-sm text-slate-300">No relay tests yet.</p>}
         <ul className="divide-y divide-slate-700">
           {owned.history.map(entry => <li key={entry.requestId + entry.streamer} className="py-2 text-sm text-slate-300">
-            <span className="text-white">Rose → 5 Stone</span> · {deliveryLabels[entry.state]} · {entry.streamer} · <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
+            <span className="text-white">Rose → 5 Stone</span> · {entry.source === 'live_rose' ? 'Live gift' : 'Test'} · {deliveryLabels[entry.state]} · {entry.streamer} · <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
           </li>)}
         </ul>
         <button type="button" className="btn btn-ghost mt-2" disabled={busy} onClick={() => void run({ action: 'dashboard' })}>Refresh status</button>
@@ -198,7 +280,8 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
       <ul className="divide-y divide-slate-700">
         {dashboard.linked.map(server => <li key={server.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
           <div><p>{server.name}</p><p className="text-sm text-slate-300">Survivor {server.survivorId} · {server.state}</p></div>
-          {server.state === 'approved' && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => {
+          {server.state === 'approved' && server.roseAllowed === false && <p className="text-sm text-slate-300">Rose is outside the owner’s whitelist.</p>}
+          {server.state === 'approved' && server.roseAllowed !== false && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => {
             if (window.confirm('Send 5 Stone to your linked survivor on ' + server.name + '?')) {
               void run({ action: 'simulate', serverId: server.id, requestId: crypto.randomUUID() });
             }

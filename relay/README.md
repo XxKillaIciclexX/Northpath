@@ -4,7 +4,7 @@ The pilot registers one verified ARK endpoint for one designated owner. A stream
 
 The relay authenticates the owner to ARK before registration. It encrypts the RCON host, port, and password with AES-256-GCM, storing the ciphertext in a private Supabase table and the key in the relay host’s secret settings. Keep a secure backup of that key for the pilot environment. The relay uses the deployment’s pinned IPv4 address and port for outbound RCON.
 
-The owner controls an hourly limit of 1–10 tests for the server. Each server also has a 15-second cooldown. Requests are recorded before dispatch, and the relay checks approval again immediately before sending the command. Tests that have already been dispatched may complete after revocation. An RCON acknowledgment confirms a response from ARK. Check the survivor’s inventory to confirm delivery.
+The owner controls an hourly limit of 1–10 rewards for the server. Live rewards and test deliveries share that limit. Each server also has a 15-second cooldown. Requests are recorded before dispatch, and the relay checks approval again immediately before sending the command. Tests that have already been dispatched may complete after revocation. An RCON acknowledgment confirms a response from ARK. Check the survivor’s inventory to confirm delivery.
 
 ## Test locally
 
@@ -65,7 +65,7 @@ The relay test uses the real SQL migration and a local mock RCON server.
    node .\scripts\Build-IcePackPilotSetup.mjs --local --streamer
    ```
 
-   Stop and close the previous Windows Companion, uninstall **Ice Pack Companion Streamer** from **Settings → Apps → Installed apps**, and run the new `IcePackCompanionStreamer-5.7-win-x64-Setup.exe` in `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. The uninstaller preserves the existing Windows data folder.
+   Stop and close the previous Windows Companion, uninstall **Ice Pack Companion Streamer** from **Settings → Apps → Installed apps**, and run the new `IcePackCompanionStreamer-5.8-win-x64-Setup.exe` in `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. The uninstaller preserves the existing Windows data folder.
 
 4. Open **Ice Pack Companion Streamer** from Start and click **Start Companion**. Sign in to Northpath as the streamer. If this app needs pairing, click **Copy website pairing code** and paste it in **Companion → Connections**. The approved server and Survivor ID come from the registry. Use an approved access request for the test survivor and keep the local reward lanes off. Previous tests still count toward the owner’s hourly limit.
 5. Click **Arm TikFinity test gift**. If local RCON is configured, choose **Yes** for the hosted route. Confirm the prompt shows the intended server and survivor. Within two minutes, in TikFinity Desktop use **Third-Party Action → Ice Pack Companion → Send armed test gift → Test**.
@@ -73,4 +73,30 @@ The relay test uses the real SQL migration and a local mock RCON server.
 
 A disconnect, a change to the approved survivor, or a revocation invalidates an armed test. The relay checks that the original device pairing and server approval still match before dispatch. The one-shot test credential expires after two minutes. Each hosted test uses the same owner cooldown and hourly cap as a website test.
 
-The next milestone is routing a supported real TikFinity gift through the relay with an owner-approved reward rule.
+## Set the owner reward policy
+
+1. In the same **Supabase → SQL Editor**, run [the live Rose and whitelist migration](../supabase/migrations/20261125000200_create_companion_live_rose.sql). If you are setting up a fresh database, apply the registry and Companion relay test migrations first.
+2. Deploy Railway from the latest `development` commit. Publish the current `development` build in Bolt. Keep the existing website and relay URLs.
+3. Sign in as the owner and open **Companion → Connections → ARK server registry**. **All supported rewards** is the default. It enables the current relay catalog of Rose → 5 Stone for approved streamers. Switch to **Owner whitelist** and select which rewards to allow, then click **Save reward policy**. A whitelist with no entries pauses Rose delivery, including the website and TikFinity tests.
+
+To save a preset for a wipe phase, configure the reward entries in **Owner whitelist**, save the policy, and click **Export saved whitelist**. Rename the JSON file to identify the phase. To apply a different preset later, click **Import whitelist**, select the file, review the entries, and click **Save reward policy**. Importing stages the whitelist before it takes effect.
+
+A preset that permits the current reward looks like this:
+
+```json
+{
+  "version": 1,
+  "allowedRewardIds": ["rose-stone"]
+}
+```
+
+Use an empty `allowedRewardIds` array to permit zero hosted rewards. The imported list is checked against the supported relay catalog.
+
+## Verify a live Rose
+
+1. Install **Ice Pack Companion Streamer v5.8**. Start Companion and TikFinity Desktop. Confirm the Windows app is paired to an approved streamer account and the owner’s policy allows Rose.
+2. In the streamer app, click **Start Live Rewards**. If asked which route to use, choose **Yes** for the hosted route. Confirm the server and survivor are correct.
+3. Send one real Rose during a TikTok LIVE. A completed Rose streak counts as one reward. Confirm the approved survivor receives **5 Stone** and the owner’s delivery history shows **Live gift · ARK acknowledged**. The hourly cap and 15-second cooldown also apply.
+4. Click **Stop Live Rewards** after the test. If you want to exercise the owner control, import and save an empty whitelist before the next test. Confirm it blocks both a live Rose and a Rose test. Re-import your approved preset when ready to resume.
+
+For a test outside a live stream, use the third-party simulator above. It uses the same owner policy and records the delivery as a test.

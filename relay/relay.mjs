@@ -150,13 +150,15 @@ export function createRelay({ config, store, connect }) {
     }));
   }
 
-  function simulateDesktop(req) {
+  function simulateDesktop(req, live) {
     const secret = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization ?? '')?.[1];
     if (req.headers.origin || !secret) {
       throw new HttpError(401, 'Arm a hosted test in Windows Companion.');
     }
     const hash = createHash('sha256').update(secret).digest('hex');
-    return simulate(phase => rpc('desktop_delivery', { p_token_hash: hash, p_owner: config.ownerId, p_phase: phase }));
+    const params = { p_token_hash: hash, p_owner: config.ownerId };
+    if (live) return simulate(phase => rpc('paired_delivery', { ...params, p_phase: phase, p_source: 'live_rose' }));
+    return simulate(phase => rpc('desktop_delivery', { ...params, p_phase: phase }));
   }
 
   return createServer({ requestTimeout: 15000, headersTimeout: 5000 }, async (request, response) => {
@@ -166,9 +168,9 @@ export function createRelay({ config, store, connect }) {
     }).end(JSON.stringify(result));
     try {
       if (request.method === 'GET' && request.url === '/health') return send(200, { ok: true });
-      if (request.method === 'POST' && request.url === '/v1/desktop-test') {
+      if (request.method === 'POST' && ['/v1/desktop-test', '/v1/live-rose'].includes(request.url)) {
         await readBody(request);
-        return send(200, await simulateDesktop(request));
+        return send(200, await simulateDesktop(request, request.url === '/v1/live-rose'));
       }
       if (request.headers.origin && request.headers.origin !== config.origin) {
         throw new HttpError(403, 'This website is outside the relay allowlist.');
@@ -197,6 +199,15 @@ export function createRelay({ config, store, connect }) {
           break;
         }
         case 'register': result = await register(actor, input); break;
+        case 'reward-policy': {
+          const server = uuid(input.serverId, 'Select a server.');
+          requireInput(['all_supported', 'whitelist'].includes(input.policy) && typeof input.roseWhitelisted === 'boolean',
+            'Select a supported reward policy.');
+          result = await rpc('live_rose_policy', {
+            p_actor: actor, p_server: server, p_policy: input.policy, p_enabled: input.roseWhitelisted,
+          });
+          break;
+        }
         case 'request': case 'approve': case 'revoke': case 'limit':
           result = await manage(actor, input, input.action);
           break;

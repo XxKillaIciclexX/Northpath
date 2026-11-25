@@ -17,6 +17,7 @@ const outsider = '81543bf4-4118-41fe-991b-fa537ed6434b';
 const password = 'fixture-rcon-password';
 const migration = new URL('../supabase/migrations/20261124000100_create_icepack_relay_pilot.sql', import.meta.url);
 const desktopMigration = new URL('../supabase/migrations/20261125000100_create_companion_relay_tests.sql', import.meta.url);
+const liveMigration = new URL('../supabase/migrations/20261125000200_create_companion_live_rose.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -68,6 +69,8 @@ const argumentsFor = {
   manage: ['p_actor', 'p_server', 'p_action', 'p_streamer', 'p_value'],
   delivery: ['p_actor', 'p_server', 'p_request', 'p_phase'],
   desktop_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
+  paired_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_source'],
+  live_rose_policy: ['p_actor', 'p_server', 'p_policy', 'p_enabled'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
@@ -114,6 +117,7 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   await db.query("insert into auth.users values ($1,'owner@example.test'),($2,'streamer@example.test'),($3,'outsider@example.test')", [owner, streamer, outsider]);
   await db.exec(await readFile(migration, 'utf8'));
   await db.exec(await readFile(desktopMigration, 'utf8'));
+  await db.exec(await readFile(liveMigration, 'utf8'));
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await assert.rejects(db.transaction(async tx => {
       await tx.exec('set local role ' + role);
@@ -209,8 +213,8 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
 
   pauseConnection = undefined;
   await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'");
-  async function desktop(token) {
-    return fetch('http://127.0.0.1:' + port + '/v1/desktop-test', {
+  async function desktop(token, path = '/v1/desktop-test') {
+    return fetch('http://127.0.0.1:' + port + path, {
       method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: '{}',
       signal: AbortSignal.timeout(5000),
     });
@@ -253,4 +257,57 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   await db.query('insert into public.companion_devices values ($1,$2)', [streamer, hash(pairingSecret)]);
   assert.equal((await desktop(disconnected)).status, 403);
   assert.equal(commands.length, 2);
+
+  const ownerDashboard = () => api('owner-token', 'dashboard').then(result => result.body.owned);
+  assert.equal((await ownerDashboard()).rewardPolicy, 'all_supported');
+  assert.equal((await ownerDashboard()).roseWhitelisted, false);
+  const policy = (mode, allowed, actor = 'owner-token') =>
+    api(actor, 'reward-policy', { serverId, policy: mode, roseWhitelisted: allowed });
+  const live = (secret, hashOfEvent) => db.transaction(async tx => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.authorize_companion_live_rose($1,$2,$3,$4,$5) as allowed',
+      [pairingSecret, serverId, '12345', secret ? hash(secret) : null, hashOfEvent])).rows[0].allowed;
+  });
+  const realGift = (secret) => desktop(secret, '/v1/live-rose');
+  const event = hash('one stable finalized Rose streak');
+  assert.equal((await api('owner-token', 'limit', { serverId, hourlyLimit: 10 })).status, 200);
+  await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'");
+  const liveToken = randomBytes(32).toString('hex');
+  assert.equal(await live(liveToken, event), true);
+  assert.equal((await desktop(liveToken)).status, 403);
+  const liveResult = await realGift(liveToken);
+  assert.equal(liveResult.status, 200);
+  assert.deepEqual(await liveResult.json(), { state: 'acknowledged' });
+  assert.equal((await ownerDashboard()).history[0].source, 'live_rose');
+  const replay = randomBytes(32).toString('hex');
+  assert.equal(await live(replay, event), true);
+  assert.equal((await realGift(replay)).status, 409);
+  assert.equal((await policy('whitelist', false, 'outsider-token')).status, 403);
+  assert.equal((await policy('whitelist', false)).status, 200);
+  assert.equal(await live(randomBytes(32).toString('hex'), hash('second event')), false);
+  assert.equal(await arm(randomBytes(32).toString('hex')), false);
+  assert.equal((await api('streamer-token', 'simulate', { serverId, requestId: crypto.randomUUID() })).status, 403);
+  assert.equal((await policy('whitelist', true)).status, 200);
+
+  const testToken = randomBytes(32).toString('hex');
+  assert.equal(await arm(testToken), true);
+  assert.equal((await realGift(testToken)).status, 403);
+  await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'");
+  const inFlight = randomBytes(32).toString('hex');
+  assert.equal(await live(inFlight, hash('second event')), true);
+  const reachedRcon = new Promise(resolve => {
+    pauseConnection = () => new Promise(release => { releaseConnection = release; resolve(); });
+  });
+  const sending = realGift(inFlight);
+  await Promise.race([reachedRcon, sending.then(() => assert.fail('Live gift did not reach RCON authentication.'))]);
+  try { assert.equal((await policy('whitelist', false)).status, 200); } finally { releaseConnection(); }
+  assert.equal((await sending).status, 403);
+  assert.equal(commands.length, 3);
+
+  assert.equal((await policy('whitelist', true)).status, 200);
+  const stopped = randomBytes(32).toString('hex');
+  assert.equal(await live(stopped, hash('another event')), true);
+  assert.equal(await live(null, null), true);
+  assert.equal((await realGift(stopped)).status, 403);
+  assert.equal(commands.length, 3);
 });

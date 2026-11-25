@@ -133,10 +133,13 @@ const server=http.createServer(async(req,res)=>{
   if(!['127.0.0.1:3212','localhost:3212'].includes(req.headers.host))return json(403,{error:'Invalid host'});
   if(origin&&!permittedOrigins.has(origin))return json(403,{error:'Allowed only from local dashboard'});
   if(req.method==='GET'&&req.url==='/status'){try{return json(200,await engineState());}catch(e){return json(503,{online:true,engineOnline:false,engineStatus:'Local engine unavailable',error:String(e.message).slice(0,120)});}}
-  if(websiteLinkDir&&req.method==='POST'&&req.url==='/hosted-rose-test') {
+  if(websiteLinkDir&&req.method==='POST'&&['/hosted-rose-test','/hosted-rose-gift'].includes(req.url)) {
     const token=/^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization??'')?.[1];
-    if(origin||!token)return json(403,{error:'Arm a hosted test in Windows Operations Center.'});
-    return json(200,await (await desktopOperations()).consumeHostedTest(token));
+    if(origin||!token)return json(403,{error:'Start in Windows Operations Center.'});
+    const operations = await desktopOperations();
+    if (req.url==='/hosted-rose-test') return json(200,await operations.consumeHostedTest(token));
+    const input = await readJsonBody(req);
+    return json(200,await operations.forwardLiveRose(token, input?.eventHash));
   }
   const operationsAction = !standalonePreview && managedToken && req.url?.startsWith('/operations/')
     ? req.url.slice('/operations/'.length) : null;
