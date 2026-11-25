@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 type AccessState = 'requested' | 'approved' | 'revoked';
 type RewardPolicy = 'whitelist' | 'all_supported';
@@ -24,7 +24,7 @@ const deliveryLabels: Record<DeliveryState, string> = {
   pending: 'Preparing', sending: 'Sending', cancelled: 'Cancelled',
   unconfirmed: 'Delivery unconfirmed', acknowledged: 'ARK acknowledged',
 };
-const field = 'mt-1 block w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-slate-100';
+const field = 'field mt-1 block';
 const card = 'card space-y-4 p-5';
 const roseRewardId = 'rose-stone';
 
@@ -60,6 +60,7 @@ function OwnerRewardPolicy({ initialPolicy, initialRose, busy, save }: {
   const [policy, setPolicy] = useState(initialPolicy);
   const [roseWhitelisted, setRoseWhitelisted] = useState(initialRose);
   const [fileStatus, setFileStatus] = useState<{ text: string; error?: boolean }>();
+  const fileInput = useRef<HTMLInputElement>(null);
 
   async function importWhitelist(file: File) {
     try {
@@ -89,14 +90,12 @@ function OwnerRewardPolicy({ initialPolicy, initialRose, busy, save }: {
     </label> : <p className="text-sm text-slate-300">The current catalog supports Rose → 5 Stone.</p>}
     <div className="flex flex-wrap items-center gap-2">
       <button type="submit" className="btn btn-primary" disabled={busy || (policy === initialPolicy && roseWhitelisted === initialRose)}>Save reward policy</button>
-      <label className={'btn btn-ghost relative cursor-pointer' + (busy ? ' opacity-60' : '')}>
-        Import whitelist
-        <input type="file" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" accept=".json,application/json" disabled={busy} onChange={event => {
-          const file = event.currentTarget.files?.[0];
-          event.currentTarget.value = '';
-          if (file) void importWhitelist(file);
-        }} />
-      </label>
+      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => fileInput.current?.click()}>Import whitelist</button>
+      <input ref={fileInput} type="file" hidden accept=".json,application/json" disabled={busy} onChange={event => {
+        const file = event.currentTarget.files?.[0];
+        event.currentTarget.value = '';
+        if (file) void importWhitelist(file);
+      }} />
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => exportOwnerWhitelist(initialRose)}>Export saved whitelist</button>
     </div>
     {fileStatus && <p role={fileStatus.error ? 'alert' : 'status'} className={fileStatus.error ? 'text-rose-300' : 'text-sm text-slate-300'}>{fileStatus.text}</p>}
