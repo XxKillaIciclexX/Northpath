@@ -30,7 +30,7 @@ The hosted dashboard supports [account drafts](supabase/README.md#7-save-compani
 
 ## Hosted ARK relay pilot
 
-The [relay guide](relay/README.md) covers server registration, access approval, the hosted Rose test, live Rose delivery, and importing and exporting owner whitelists.
+The [relay guide](relay/README.md) covers server registration, access approval, live Rose delivery, hosted reward tests, and importing and exporting owner whitelists.
 
 ## Windows streamer setup
 

@@ -77,16 +77,16 @@ A disconnect, a change to the approved survivor, or a revocation invalidates an 
 
 1. In the same **Supabase → SQL Editor**, run [the live Rose and whitelist migration](../supabase/migrations/20261125000200_create_companion_live_rose.sql). If you are setting up a fresh database, apply the registry and Companion relay test migrations first.
 2. Deploy Railway from the latest `development` commit. Publish the current `development` build in Bolt. Keep the existing website and relay URLs.
-3. Sign in as the owner and open **Companion → Connections → ARK server registry**. **All supported rewards** is the default. It enables the current relay catalog of Rose → 5 Stone for approved streamers. Switch to **Owner whitelist** and select which rewards to allow, then click **Save reward policy**. A whitelist with no entries pauses Rose delivery, including the website and TikFinity tests.
+3. Sign in as the owner and open **Companion → Connections → ARK server registry**. **All supported rewards** is the default. It enables the hosted reward catalog for approved streamers. Switch to **Owner whitelist** and select which rewards to allow, then click **Save reward policy**. A whitelist with no entries pauses hosted delivery, including the website and TikFinity tests.
 
 To save a preset for a wipe phase, configure the reward entries in **Owner whitelist**, save the policy, and click **Export saved whitelist**. Rename the JSON file to identify the phase. To apply a different preset later, click **Import whitelist**, select the file, review the entries, and click **Save reward policy**. Importing stages the whitelist before it takes effect.
 
-A preset that permits the current reward looks like this:
+A preset that permits Rose and the Starter Kit looks like this:
 
 ```json
 {
   "version": 1,
-  "allowedRewardIds": ["rose-stone"]
+  "allowedRewardIds": ["rose-stone", "starter-kit"]
 }
 ```
 
@@ -100,3 +100,15 @@ Use an empty `allowedRewardIds` array to permit zero hosted rewards. The importe
 4. Click **Stop Live Rewards** after the test. If you want to exercise the owner control, import and save an empty whitelist before the next test. Confirm it blocks both a live Rose and a Rose test. Re-import your approved preset when ready to resume.
 
 For a test outside a live stream, use the third-party simulator above. It uses the same owner policy and records the delivery as a test.
+
+## Test hosted dinosaurs and Kits
+
+1. In **Supabase → SQL Editor**, run [the hosted reward catalog migration](../supabase/migrations/20261125000300_add_hosted_reward_catalog.sql). It extends the existing registry, pairing, and live Rose migrations. Existing whitelists keep their saved Rose setting.
+2. In Railway, deploy the latest `development` build to the existing relay and check that `/health` returns `{"ok":true}`. In Bolt, publish the current `development` build with your existing Supabase and relay settings.
+3. On a test Nitrado server running the Ice Pack Companion ASA mod, approve the streamer’s Survivor ID. In **Companion → Connections → ARK server registry**, leave **All supported rewards** selected or explicitly allow **Wild Dodo** and **Starter Kit** in the owner's whitelist. Each consumes one delivery slot. For two tests within one hour, set a limit with enough room and wait at least 15 seconds between tests.
+4. As the streamer, refresh **Your server access**, select **Wild Dodo · level 25**, and click **Send test reward**. Verify a wild level-25 Dodo spawns for the approved survivor. Then select **Starter Kit · 5 Stone + wild Dodo**, send it once, and verify both pieces in game. The owner’s history shows the reward name and the Kit step count.
+5. For a wipe-phase check, export the current whitelist. Save a whitelist that includes only **Wild Dodo** and refresh the streamer view. **Starter Kit** should be unavailable. Import and save the previous file to restore your preset.
+
+The relay checks approval and the whitelist before the Kit begins and again before its second step. If a subsequent step is interrupted, the owner’s history shows how many steps ARK acknowledged. Check the survivor in game before repeating a test.
+
+This milestone adds Dodo and Starter Kit to the website test flow. TikFinity live delivery continues to use the existing Rose rule. The next milestone is assigning these new rewards to live gift IDs.

@@ -18,6 +18,7 @@ const password = 'fixture-rcon-password';
 const migration = new URL('../supabase/migrations/20261124000100_create_icepack_relay_pilot.sql', import.meta.url);
 const desktopMigration = new URL('../supabase/migrations/20261125000100_create_companion_relay_tests.sql', import.meta.url);
 const liveMigration = new URL('../supabase/migrations/20261125000200_create_companion_live_rose.sql', import.meta.url);
+const catalogMigration = new URL('../supabase/migrations/20261125000300_add_hosted_reward_catalog.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -71,6 +72,9 @@ const argumentsFor = {
   desktop_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
   paired_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_source'],
   live_rose_policy: ['p_actor', 'p_server', 'p_policy', 'p_enabled'],
+  catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards'],
+  catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward'],
+  finish_catalog: ['p_actor', 'p_server', 'p_request', 'p_reward', 'p_state', 'p_acknowledged'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
@@ -118,6 +122,11 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   await db.exec(await readFile(migration, 'utf8'));
   await db.exec(await readFile(desktopMigration, 'utf8'));
   await db.exec(await readFile(liveMigration, 'utf8'));
+  await db.query("insert into public.icepack_relay_servers (owner_id, name, listed, hourly_limit, reward_policy, rose_whitelisted) values ($1,'Existing whitelist',false,1,'whitelist',true)", [outsider]);
+  await db.exec(await readFile(catalogMigration, 'utf8'));
+  const upgraded = await db.query('select allowed_reward_ids from public.icepack_relay_servers where owner_id = $1', [outsider]);
+  assert.deepEqual(upgraded.rows[0].allowed_reward_ids, ['rose-stone']);
+  await db.query('delete from public.icepack_relay_servers where owner_id = $1', [outsider]);
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await assert.rejects(db.transaction(async tx => {
       await tx.exec('set local role ' + role);
@@ -136,7 +145,10 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   const config = readConfig({ ...env, SUPABASE_URL: 'http://127.0.0.1:' + backendPort });
   let pauseConnection;
   let releaseConnection;
+  let pauseAfterCommand;
+  let releaseCommand;
   t.after(() => releaseConnection?.());
+  t.after(() => releaseCommand?.());
   const port = await listen(t, createRelay({
     config, store: createStore(config),
     async connect(details) {
@@ -144,7 +156,11 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
       assert.equal(details.port, Number(env.ICEPACK_RELAY_TARGET_PORT));
       const connection = await connectRcon({ ...details, address: '127.0.0.1', port: rconPort });
       if (pauseConnection) await pauseConnection();
-      return connection;
+      return { ...connection, async send(command) {
+        const result = await connection.send(command);
+        if (pauseAfterCommand) await pauseAfterCommand();
+        return result;
+      } };
     },
   }));
 
@@ -310,4 +326,49 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   assert.equal(await live(null, null), true);
   assert.equal((await realGift(stopped)).status, 403);
   assert.equal(commands.length, 3);
+
+  pauseConnection = undefined;
+  const saveWhitelist = ids => api('owner-token', 'reward-policy', {
+    serverId, policy: 'whitelist', allowedRewardIds: ids,
+  });
+  const reward = id => ({ serverId, requestId: crypto.randomUUID(), rewardId: id });
+  const deliver = input => api('streamer-token', 'simulate', input);
+  const liftCooldown = () => db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'");
+  assert.equal((await saveWhitelist(['starter-kit', 'unapproved'])).status, 400);
+  assert.equal((await saveWhitelist(['wild-dodo', 'wild-dodo'])).status, 400);
+  assert.equal((await saveWhitelist(['wild-dodo', 'starter-kit'])).status, 200);
+  assert.deepEqual((await ownerDashboard()).allowedRewardIds, ['wild-dodo', 'starter-kit']);
+  assert.equal((await deliver(reward('rose-stone'))).status, 403);
+  assert.equal((await deliver(reward('rex-level-9000'))).status, 400);
+  await liftCooldown();
+  const spawn = reward('wild-dodo');
+  assert.deepEqual(await deliver({ ...spawn, survivorId: '99999', command: 'arbitrary' }), {
+    status: 200, body: { state: 'acknowledged', rewardId: 'wild-dodo', acknowledged: 1, total: 1 },
+  });
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,25,12345');
+  assert.equal((await deliver(spawn)).status, 409);
+  assert.equal((await deliver(reward('starter-kit'))).status, 429);
+  await liftCooldown();
+  assert.deepEqual(await deliver(reward('starter-kit')), {
+    status: 200, body: { state: 'acknowledged', rewardId: 'starter-kit', acknowledged: 2, total: 2 },
+  });
+  assert.deepEqual(commands.slice(-2), [commands[0], 'ScriptCommand IcePackSpawn,Dodo,25,12345']);
+  await liftCooldown();
+  const firstStep = new Promise(resolve => {
+    pauseAfterCommand = () => new Promise(release => { releaseCommand = release; resolve(); });
+  });
+  const partial = deliver(reward('starter-kit'));
+  await Promise.race([firstStep, partial.then(() => assert.fail('Kit did not reach its first RCON step.'))]);
+  try {
+    assert.equal((await saveWhitelist(['wild-dodo'])).status, 200);
+    assert.equal((await saveWhitelist(['wild-dodo', 'starter-kit'])).status, 200);
+  } finally { releaseCommand(); }
+  assert.deepEqual(await partial, {
+    status: 200, body: { state: 'unconfirmed', rewardId: 'starter-kit', acknowledged: 1, total: 2 },
+  });
+  const newest = (await ownerDashboard()).history[0];
+  assert.equal(newest.rewardId, 'starter-kit');
+  assert.equal(newest.acknowledgedCommands, 1);
+  assert.equal(commands.length, 7);
+  assert.equal(commands.at(-1), commands[0]);
 });

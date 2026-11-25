@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { isUuid } from './config.mjs';
+import rewardCatalog from './reward-catalog.json' with { type: 'json' };
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -78,6 +79,19 @@ async function readBody(request) {
 }
 
 const stone = "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone'";
+const rewardIds = new Set(rewardCatalog.map(reward => reward.id));
+
+function rewardCommands(reward, playerId) {
+  const stoneCommand = 'GiveItemToPlayer ' + playerId + ' "' + stone + '" 5 0 0';
+  // Uses the same fixed v0.3 ASA mod command as the Windows engine.
+  const dodoCommand = 'ScriptCommand IcePackSpawn,Dodo,25,' + playerId;
+  switch (reward) {
+    case 'rose-stone': return [stoneCommand];
+    case 'wild-dodo': return [dodoCommand];
+    case 'starter-kit': return [stoneCommand, dodoCommand];
+    default: throw Error('Unsupported hosted reward.');
+  }
+}
 
 export function createRelay({ config, store, connect }) {
   async function rpc(name, params) {
@@ -116,27 +130,38 @@ export function createRelay({ config, store, connect }) {
     return rpc('manage', { p_actor: actor, p_server: server, p_action: action, p_streamer: streamer, p_value: value });
   }
 
-  async function simulate(authorize) {
+  async function simulate(authorize, rewardId) {
     const { envelope, actor, server, request } = await authorize('reserve');
     let connection;
     let state = 'cancelled';
+    let acknowledged = 0;
     try {
       try {
         const details = connectionDetails(unseal(envelope, config.key, config.ownerId), config);
         connection = await openRcon(details);
       } catch { throw new HttpError(502, 'The relay could not connect to ARK. Check the server with its owner.'); }
       const approved = await authorize('dispatch');
+      const playerId = survivor(approved.survivorId);
+      const commands = rewardCommands(rewardId ?? 'rose-stone', playerId);
       state = 'unconfirmed';
       try {
-        await connection.send('GiveItemToPlayer ' + survivor(approved.survivorId) + ' "' + stone + '" 5 0 0');
-        state = 'acknowledged';
+        for (const command of commands) {
+          if (acknowledged > 0 && (await authorize('continue')).survivorId !== playerId) break;
+          await connection.send(command);
+          acknowledged++;
+        }
+        if (acknowledged === commands.length) state = 'acknowledged';
       } catch {
         // A dropped RCON reply can follow a successful send. Treat it as unknown.
       }
-      return { state };
+      return rewardId ? { state, rewardId, acknowledged, total: commands.length } : { state };
     } finally {
       connection?.close();
-      try { await rpc('finish', { p_actor: actor, p_server: server, p_request: request, p_state: state }); }
+      const outcome = { p_actor: actor, p_server: server, p_request: request, p_state: state };
+      try {
+        if (rewardId) await rpc('finish_catalog', { ...outcome, p_reward: rewardId, p_acknowledged: acknowledged });
+        else await rpc('finish', outcome);
+      }
       catch { console.error('Relay could not finalize a delivery record.'); }
     }
   }
@@ -144,6 +169,14 @@ export function createRelay({ config, store, connect }) {
   function simulateWebsite(actor, input) {
     const server = uuid(input.serverId, 'Select an approved server.');
     const request = uuid(input.requestId, 'Invalid test request ID.');
+    if (input.rewardId !== undefined) {
+      const reward = input.rewardId;
+      requireInput(rewardIds.has(reward), 'Choose a supported hosted reward.');
+      return simulate(async phase => ({
+        ...await rpc('catalog_delivery', { p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_reward: reward }),
+        actor, server, request,
+      }), reward);
+    }
     return simulate(async phase => ({
       ...await rpc('delivery', { p_actor: actor, p_server: server, p_request: request, p_phase: phase }),
       actor, server, request,
@@ -201,8 +234,15 @@ export function createRelay({ config, store, connect }) {
         case 'register': result = await register(actor, input); break;
         case 'reward-policy': {
           const server = uuid(input.serverId, 'Select a server.');
-          requireInput(['all_supported', 'whitelist'].includes(input.policy) && typeof input.roseWhitelisted === 'boolean',
-            'Select a supported reward policy.');
+          requireInput(['all_supported', 'whitelist'].includes(input.policy), 'Select a supported reward policy.');
+          if (input.allowedRewardIds !== undefined) {
+            const ids = input.allowedRewardIds;
+            requireInput(Array.isArray(ids) && ids.length <= rewardIds.size && ids.every(id => rewardIds.has(id)) &&
+              new Set(ids).size === ids.length, 'Choose a valid hosted reward whitelist.');
+            result = await rpc('catalog_policy', { p_actor: actor, p_server: server, p_policy: input.policy, p_rewards: ids });
+            break;
+          }
+          requireInput(typeof input.roseWhitelisted === 'boolean', 'Select a supported reward policy.');
           result = await rpc('live_rose_policy', {
             p_actor: actor, p_server: server, p_policy: input.policy, p_enabled: input.roseWhitelisted,
           });
