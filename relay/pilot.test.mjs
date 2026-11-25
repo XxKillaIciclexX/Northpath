@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
@@ -15,6 +16,7 @@ const streamer = '9f88f270-5f67-4ed9-b9f9-e068a46538b4';
 const outsider = '81543bf4-4118-41fe-991b-fa537ed6434b';
 const password = 'fixture-rcon-password';
 const migration = new URL('../supabase/migrations/20261124000100_create_icepack_relay_pilot.sql', import.meta.url);
+const desktopMigration = new URL('../supabase/migrations/20261125000100_create_companion_relay_tests.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -65,6 +67,7 @@ const argumentsFor = {
   register: ['p_actor', 'p_name', 'p_listed', 'p_limit', 'p_envelope'],
   manage: ['p_actor', 'p_server', 'p_action', 'p_streamer', 'p_value'],
   delivery: ['p_actor', 'p_server', 'p_request', 'p_phase'],
+  desktop_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
@@ -107,8 +110,10 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   const db = new PGlite();
   t.after(() => db.close());
   await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key, email text);');
+  await db.exec('create table public.companion_devices (user_id uuid primary key, pairing_hash text not null unique);');
   await db.query("insert into auth.users values ($1,'owner@example.test'),($2,'streamer@example.test'),($3,'outsider@example.test')", [owner, streamer, outsider]);
   await db.exec(await readFile(migration, 'utf8'));
+  await db.exec(await readFile(desktopMigration, 'utf8'));
   for (const role of ['anon', 'authenticated', 'service_role']) {
     await assert.rejects(db.transaction(async tx => {
       await tx.exec('set local role ' + role);
@@ -201,4 +206,51 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   assert.equal((await api('streamer-token', 'simulate', { serverId, requestId: crypto.randomUUID() })).status, 403);
   assert.equal(commands.length, 1);
   assert.deepEqual((await api('owner-token', 'dashboard')).body.owned.history.map(entry => entry.state), ['cancelled','acknowledged']);
+
+  pauseConnection = undefined;
+  await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'");
+  async function desktop(token) {
+    return fetch('http://127.0.0.1:' + port + '/v1/desktop-test', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: '{}',
+      signal: AbortSignal.timeout(5000),
+    });
+  }
+  const hash = value => createHash('sha256').update(value).digest('hex');
+  const pairingSecret = randomBytes(32).toString('hex');
+  const token = randomBytes(32).toString('hex');
+  const arm = async secret => db.transaction(async tx => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.arm_companion_relay_test($1,$2,$3,$4) as armed',
+      [pairingSecret, serverId, '12345', hash(secret)])).rows[0].armed;
+  });
+  await db.query('insert into public.companion_devices values ($1,$2)', [streamer, hash(pairingSecret)]);
+  assert.equal(await arm(token), false);
+  assert.equal((await api('streamer-token', 'request', { serverId, survivorId: '12345' })).status, 200);
+  assert.equal((await api('owner-token', 'approve', approval)).status, 200);
+  assert.equal(await arm(token), true);
+  await assert.rejects(db.transaction(async tx => {
+    await tx.exec('set local role anon');
+    await tx.query('select * from public.companion_relay_tests');
+  }), /permission denied/);
+  assert.equal((await desktop(pairingSecret)).status, 403);
+  const desktopResult = await desktop(token);
+  assert.equal(desktopResult.status, 200);
+  assert.deepEqual(await desktopResult.json(), { state: 'acknowledged' });
+  assert.equal((await desktop(token)).status, 409);
+  assert.equal(commands.length, 2);
+  assert.equal(commands[0], commands[1]);
+
+  const stale = randomBytes(32).toString('hex');
+  assert.equal(await arm(stale), true);
+  assert.equal((await api('owner-token', 'revoke', approval)).status, 200);
+  assert.equal((await api('streamer-token', 'request', { serverId, survivorId: '12345' })).status, 200);
+  assert.equal((await api('owner-token', 'approve', approval)).status, 200);
+  assert.equal((await desktop(stale)).status, 403);
+  const disconnected = randomBytes(32).toString('hex');
+  assert.equal(await arm(disconnected), true);
+  await db.query('delete from public.companion_devices where user_id = $1', [streamer]);
+  assert.equal((await desktop(disconnected)).status, 403);
+  await db.query('insert into public.companion_devices values ($1,$2)', [streamer, hash(pairingSecret)]);
+  assert.equal((await desktop(disconnected)).status, 403);
+  assert.equal(commands.length, 2);
 });

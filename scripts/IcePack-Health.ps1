@@ -82,7 +82,7 @@ function Get-IcePackHealth([switch]$Hosted, [switch]$SkipEngine, [switch]$SkipBr
         LegacyArmed = [bool]$legacyArmed
         GiftSource = $giftSource
         GiftSourceStatus = $giftSourceStatus
-        GiftTestReady = ($null -ne $giftTest -and $giftTest.state -notin @('unavailable','armed'))
+        GiftTestReady = ($null -ne $giftTest -and $giftTest.state -notin @('unavailable','armed','sending') -and $giftSource -eq 'tikfinity')
         GiftTestMessage = $(if ($null -ne $giftTest) { [string]$giftTest.message } else { '' })
         PreviewSafe = [bool]$previewSafe
         LiveOrArmed = [bool]$liveActive

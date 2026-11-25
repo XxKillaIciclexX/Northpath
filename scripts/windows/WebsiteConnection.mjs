@@ -43,6 +43,8 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
   if (!url || url.protocol !== 'https:' || url.href !== `${url.origin}/` || !isPublicKey(key)) return null;
   const secret = await deviceSecret(root);
   const pairingCode = createHash('sha256').update(secret).digest('hex');
+  const relayUrl = URL.canParse(config.relayUrl) ? new URL(config.relayUrl) : null;
+  const hostedTestEnabled = relayUrl?.protocol === 'https:' && relayUrl.href === relayUrl.origin + '/';
 
   async function rpc(name, body, signal) {
     const response = await fetcher(new URL(`/rest/v1/rpc/${name}`, url), {
@@ -65,6 +67,40 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
   const readSyncDraft = (revision = null) => rpc('read_companion_sync_draft', { p_known_revision: revision }, AbortSignal.timeout(5000));
   const reportSync = ({ account, enabled, revision = null, state = null }) =>
     rpc('report_companion_draft_sync', { p_account: account, p_enabled: enabled, p_revision: revision, p_state: state }, AbortSignal.timeout(5000));
+
+  async function hostedTestTarget() {
+    if (!hostedTestEnabled) return { enabled: false };
+    const status = await rpc('get_companion_relay_test_target', {}, AbortSignal.timeout(5000)).catch(() => {
+      throw Error('Hosted test setup is unavailable. Check the Companion relay migration.');
+    });
+    if (!status.paired) throw Error('Pair the Windows app to your streamer account in Northpath Connections.');
+    if (status.targets?.length !== 1) throw Error('Get approval for one pilot server in Northpath Connections first.');
+    const { serverId, serverName, survivorId } = status.targets[0];
+    return { enabled: true, serverId, serverName, survivorId };
+  }
+
+  async function armHostedTest(target, token) {
+    const armed = await rpc('arm_companion_relay_test', {
+      p_server: target.serverId, p_survivor: target.survivorId,
+      p_token_hash: createHash('sha256').update(token).digest('hex'),
+    }, AbortSignal.timeout(5000));
+    if (armed !== true) throw Error('Server access or Survivor ID changed. Check Northpath Connections and arm again.');
+  }
+
+  async function sendHostedTest(token) {
+    try {
+      const response = await fetcher(new URL('/v1/desktop-test', relayUrl), {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: '{}', signal: AbortSignal.timeout(28000), redirect: 'error',
+      });
+      if ([401, 403].includes(response.status)) return { state: 'blocked', message: 'Hosted Rose test blocked. Check your pairing and server approval.' };
+      if (response.status === 429) return { state: 'blocked', message: 'Hosted Rose test blocked by the server cooldown or hourly limit.' };
+      if (response.status === 502) return { state: 'blocked', message: 'The relay could not connect to the ARK server.' };
+      const result = response.ok ? await response.json() : null;
+      if (result?.state === 'acknowledged') return { state: 'sent', message: 'ARK acknowledged the hosted Rose test. Check for 5 Stone.' };
+    } catch { /* A lost response can follow delivery. */ }
+    return { state: 'unconfirmed', message: 'Hosted Rose delivery is unconfirmed. Check ARK and the owner’s delivery history.' };
+  }
 
   function start({ dashboardUrl, localToken, readSurvivorStatus, onPaired }) {
     const controller = new AbortController();
@@ -137,5 +173,5 @@ export async function prepareWebsiteConnection(root, fetcher = fetch) {
     return () => { controller.abort(); clearTimeout(timeout); };
   }
 
-  return { pairingCode, start, readDraft, readSyncDraft, reportSync };
+  return { pairingCode, start, readDraft, readSyncDraft, reportSync, hostedTestTarget, armHostedTest, sendHostedTest };
 }

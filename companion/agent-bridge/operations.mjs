@@ -12,6 +12,7 @@ const reviewLifetime = 120_000;
 
 export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineState, reloadEngine, enginePost, accountSyncDir, connectWebsite }) {
   let review;
+  let hostedTest;
 
   async function localRules() {
     if (!kitDir) throw Error('Configure the local Kit Editor directory in Companion first.');
@@ -48,12 +49,36 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
   const accountSync = createAccountSync({ directory: accountSyncDir, kitDir, readEngineState, localRules, applyProtected, reloadEngine, verifyLoaded });
 
   async function run(action, input) {
+    if (action === 'hosted-test-target') return (await connectWebsite()).hostedTestTarget();
+    if (action === 'arm-hosted-tikfinity-test') {
+      if (input?.confirmation !== 'ARM HOSTED ROSE') throw Error('Confirm before arming the hosted Rose test.');
+      const state = await readEngineState();
+      if (state.hostedGiftTest !== true) throw Error('Install the latest TikFinity engine update first.');
+      if (state.giftSource !== 'tikfinity') throw Error('Select direct TikFinity and restart Companion first.');
+      assertRewardLanesIdle(state);
+      const connection = await connectWebsite();
+      const target = await connection.hostedTestTarget();
+      if (!target.enabled || target.serverId !== input.serverId || target.survivorId !== input.survivorId) {
+        throw Error('Server access or Survivor ID changed. Review the approved server and try again.');
+      }
+      const token = randomBytes(32).toString('hex');
+      await connection.armHostedTest(target, token);
+      hostedTest = { token, connection, expiresAt: Date.now() + 120000 };
+      try {
+        const result = await enginePost('/tikfinity-test-arm', { hostedToken: token, confirmation: 'ARM TIKFINITY TEST' });
+        return { ...result.giftTest, message: 'Hosted Rose armed for ' + target.serverName + '. Trigger the TikFinity action within two minutes.' };
+      } catch (error) {
+        hostedTest = undefined;
+        throw error;
+      }
+    }
     if (action === 'arm-tikfinity-test' || action === 'tikfinity-test-status') {
       const state = await readEngineState();
       if (!state.giftTest) throw Error('Install the latest direct TikFinity engine update first.');
       if (state.giftSource !== 'tikfinity') throw Error('Select direct TikFinity and restart Companion first.');
       if (action === 'tikfinity-test-status') return state.giftTest;
       const result = await enginePost('/tikfinity-test-arm', { gift: input?.gift, confirmation: input?.confirmation });
+      hostedTest = undefined;
       return result.giftTest;
     }
     if (action === 'account-sync-status') return accountSync?.getStatus() ?? { enabled: false, message: 'Start Companion from Operations Center.' };
@@ -113,6 +138,14 @@ export function createDesktopOperations({ kitDir, readWebsiteDraft, readEngineSt
     }
     throw Error('Unknown Operations Center action.');
   }
+  run.consumeHostedTest = async token => {
+    if (!hostedTest || hostedTest.expiresAt <= Date.now() || hostedTest.token !== token) {
+      return { state: 'blocked', message: 'The hosted Rose test expired. Arm it again in Operations Center.' };
+    }
+    const { connection } = hostedTest;
+    hostedTest = undefined;
+    return connection.sendHostedTest(token);
+  };
   run.tickAccountSync = (connection, tryLock) => accountSync?.tick(connection, tryLock);
   return run;
 }

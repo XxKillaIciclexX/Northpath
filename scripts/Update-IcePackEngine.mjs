@@ -28,11 +28,12 @@ const updates = [
 ];
 const giftInputUpdate = {
   path: 'server.mjs',
-  current: 'be5eac7a1d4cb9bb7f2e9af060c2dfc4ada72a33ccb1c44e22e08efdf12f2d03',
+  current: '595a25ea3fe972c662bfa0033e218b41dbac48298d92dcfd262611be9e77b041',
   original: ['4d48d81bb3d984513a1daae69aa266e580659ccf350259f8edda70165e9cb985',
     '59e8780acb206d4e7d2e4c5c1a36fc563efaef887b6e8dfaadd867f3685deeda',
     'fe05149327738297a566b473bab5df17e50b1faf201720681e82b818effab966',
-    '83c633e4257304c7c25ed6d9b70adfb4eaea69c612a610d060f4c738446cdb33'],
+    '83c633e4257304c7c25ed6d9b70adfb4eaea69c612a610d060f4c738446cdb33',
+    'be5eac7a1d4cb9bb7f2e9af060c2dfc4ada72a33ccb1c44e22e08efdf12f2d03'],
 };
 
 const backupPrefix = '.icepack-engine-backup-';

@@ -3,7 +3,7 @@ import { normalizePath, type Plugin } from 'vite';
 
 export const companionIndex = fileURLToPath(new URL('./index.html', import.meta.url));
 
-export function hostedCompanion(accountOrigin?: string, agentConfig?: { supabaseUrl: string; publishableKey: string }, relayOrigin?: string): Plugin {
+export function hostedCompanion(accountOrigin?: string, agentConfig?: { supabaseUrl: string; publishableKey: string; relayUrl?: string }, relayOrigin?: string): Plugin {
   let building = false;
   return {
     name: 'hosted-companion',

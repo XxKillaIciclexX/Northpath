@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { isUuid } from './config.mjs';
 
@@ -116,12 +116,8 @@ export function createRelay({ config, store, connect }) {
     return rpc('manage', { p_actor: actor, p_server: server, p_action: action, p_streamer: streamer, p_value: value });
   }
 
-  async function simulate(actor, input) {
-    const params = {
-      p_actor: actor, p_server: uuid(input.serverId, 'Select an approved server.'),
-      p_request: uuid(input.requestId, 'Invalid test request ID.'),
-    };
-    const { envelope } = await rpc('delivery', { ...params, p_phase: 'reserve' });
+  async function simulate(authorize) {
+    const { envelope, actor, server, request } = await authorize('reserve');
     let connection;
     let state = 'cancelled';
     try {
@@ -129,7 +125,7 @@ export function createRelay({ config, store, connect }) {
         const details = connectionDetails(unseal(envelope, config.key, config.ownerId), config);
         connection = await openRcon(details);
       } catch { throw new HttpError(502, 'The relay could not connect to ARK. Check the server with its owner.'); }
-      const approved = await rpc('delivery', { ...params, p_phase: 'dispatch' });
+      const approved = await authorize('dispatch');
       state = 'unconfirmed';
       try {
         await connection.send('GiveItemToPlayer ' + survivor(approved.survivorId) + ' "' + stone + '" 5 0 0');
@@ -140,9 +136,27 @@ export function createRelay({ config, store, connect }) {
       return { state };
     } finally {
       connection?.close();
-      try { await rpc('finish', { ...params, p_state: state }); }
+      try { await rpc('finish', { p_actor: actor, p_server: server, p_request: request, p_state: state }); }
       catch { console.error('Relay could not finalize a delivery record.'); }
     }
+  }
+
+  function simulateWebsite(actor, input) {
+    const server = uuid(input.serverId, 'Select an approved server.');
+    const request = uuid(input.requestId, 'Invalid test request ID.');
+    return simulate(async phase => ({
+      ...await rpc('delivery', { p_actor: actor, p_server: server, p_request: request, p_phase: phase }),
+      actor, server, request,
+    }));
+  }
+
+  function simulateDesktop(req) {
+    const secret = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization ?? '')?.[1];
+    if (req.headers.origin || !secret) {
+      throw new HttpError(401, 'Arm a hosted test in Windows Companion.');
+    }
+    const hash = createHash('sha256').update(secret).digest('hex');
+    return simulate(phase => rpc('desktop_delivery', { p_token_hash: hash, p_owner: config.ownerId, p_phase: phase }));
   }
 
   return createServer({ requestTimeout: 15000, headersTimeout: 5000 }, async (request, response) => {
@@ -152,6 +166,10 @@ export function createRelay({ config, store, connect }) {
     }).end(JSON.stringify(result));
     try {
       if (request.method === 'GET' && request.url === '/health') return send(200, { ok: true });
+      if (request.method === 'POST' && request.url === '/v1/desktop-test') {
+        await readBody(request);
+        return send(200, await simulateDesktop(request));
+      }
       if (request.headers.origin && request.headers.origin !== config.origin) {
         throw new HttpError(403, 'This website is outside the relay allowlist.');
       }
@@ -182,7 +200,7 @@ export function createRelay({ config, store, connect }) {
         case 'request': case 'approve': case 'revoke': case 'limit':
           result = await manage(actor, input, input.action);
           break;
-        case 'simulate': result = await simulate(actor, input); break;
+        case 'simulate': result = await simulateWebsite(actor, input); break;
         default: throw new HttpError(400, 'Unknown relay action.');
       }
       return send(200, result);

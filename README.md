@@ -30,7 +30,7 @@ The hosted dashboard supports [account drafts](supabase/README.md#7-save-compani
 
 ## Hosted ARK relay pilot
 
-The [staging guide](relay/README.md) covers server registration, access approval, and a fixed Rose reward through the Northpath relay.
+The [relay guide](relay/README.md) covers server registration, access approval, and the hosted Rose test from the website or the Windows Companion’s TikFinity simulator.
 
 ## Windows streamer setup
 
@@ -46,11 +46,11 @@ git pull --ff-only origin development
 node .\scripts\Build-IcePackPilotSetup.mjs --local --streamer
 ```
 
-The builder uses the verified ARK engine ZIP already in `%LOCALAPPDATA%\IcePackCompanion\releases`. Use `--engine "C:\path\to\engine-source.zip"` if you moved it. It writes `IcePackCompanionStreamer-5.6-win-x64-Setup.exe` and its SHA-256 file under `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. Copy both to the test PC.
+The builder uses the verified ARK engine ZIP already in `%LOCALAPPDATA%\IcePackCompanion\releases`. Use `--engine "C:\path\to\engine-source.zip"` if you moved it. It writes `IcePackCompanionStreamer-5.7-win-x64-Setup.exe` and its SHA-256 file under `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. Copy both to the test PC.
 
 ### Test first launch and gift delivery
 
-1. Compare `Get-FileHash -Algorithm SHA256 .\IcePackCompanionStreamer-5.6-win-x64-Setup.exe` with the SHA-256 file. Run the unsigned internal test setup. In Start, open **Ice Pack Companion Streamer**. On a PC with an older Companion installation, stop its services before starting this one.
+1. Compare `Get-FileHash -Algorithm SHA256 .\IcePackCompanionStreamer-5.7-win-x64-Setup.exe` with the SHA-256 file. Run the unsigned internal test setup. In Start, open **Ice Pack Companion Streamer**. On a PC with an older Companion installation, stop its services before starting this one.
 2. Click **Set ARK Server**. Enter the RCON host, RCON port, and RCON password for the ASA server that has the IcePackCompanion mod. Click **Start Companion**. Verify the engine and bridge report **Responding** and the button turns red and reads **Stop Companion**. Click **Set Survivor ID** and enter your numeric Specimen Implant ID.
 3. Click **Open dashboard** and sign in. Click **Copy website pairing code**, paste it into Northpath **Connections**, and select **Pair Windows app**. Confirm that the website shows the app and engine connected and the survivor linked.
 4. Save an enabled Rose rule for **5 Stone** to your Northpath account. In the Windows app, click **Enable account sync** and wait for the app to report the saved rules are applied. The sync button should read **Disable account sync**.
@@ -65,12 +65,12 @@ To test uninstall, stop Companion and close the app. Remove **Ice Pack Companion
 
 ## Windows pilot setup
 
-`IcePackCompanionPilot-5.6-win-x64-Setup.exe` installs the Windows preview for the current user under `%LOCALAPPDATA%\IcePackCompanionPilot\v5.6`. It includes Node.js and uses a separate Start menu shortcut. Use the unsigned setup and its SHA-256 file for the internal clean-PC test.
+`IcePackCompanionPilot-5.7-win-x64-Setup.exe` installs the Windows preview for the current user under `%LOCALAPPDATA%\IcePackCompanionPilot\v5.7`. It includes Node.js and uses a separate Start menu shortcut. Use the unsigned setup and its SHA-256 file for the internal clean-PC test.
 
-1. On Windows x64, verify the setup hash with `Get-FileHash -Algorithm SHA256 .\IcePackCompanionPilot-5.6-win-x64-Setup.exe`, then run setup. Open **Ice Pack Companion Pilot 5.6** from Start. Keep the launcher running. If the browser stays closed, open the dashboard URL shown in the launcher.
+1. On Windows x64, verify the setup hash with `Get-FileHash -Algorithm SHA256 .\IcePackCompanionPilot-5.7-win-x64-Setup.exe`, then run setup. Open **Ice Pack Companion Pilot 5.7** from Start. Keep the launcher running. If the browser stays closed, open the dashboard URL shown in the launcher.
 2. When [website Connections](supabase/README.md#8-connect-the-windows-companion-to-the-website) is enabled, the launcher opens Northpath. Paste the **Website pairing code** under **Connections**, wait for **Preview ready**, then click **Run Heart Me Preview**. Expect a plan for **25 Stone**. If website Connections is unavailable, open `http://127.0.0.1:5176/first-run.html` and use the local pairing token printed by the launcher. The full pilot dashboard also has a **Connections** link to that page.
 3. For the local preview test, export a draft from `https://northpath.ai/companion` and load it under **Preview your Gift Rules and Kits** on the local pilot page. The installer includes the reviewed catalog.
-4. Press **Ctrl+C** in the launcher window and check that `Get-NetTCPConnection -State Listen -LocalPort 3210,3212,5176 -ErrorAction SilentlyContinue` returns no listeners from the pilot. Remove **Ice Pack Companion Pilot 5.6** in **Settings → Apps → Installed apps** and verify its Start menu shortcut is gone.
+4. Press **Ctrl+C** in the launcher window and check that `Get-NetTCPConnection -State Listen -LocalPort 3210,3212,5176 -ErrorAction SilentlyContinue` returns no listeners from the pilot. Remove **Ice Pack Companion Pilot 5.7** in **Settings → Apps → Installed apps** and verify its Start menu shortcut is gone.
 
 To build the setup from `development`, use Node.js 22.12 or newer and NSIS 3. Use the verified Companion and engine source ZIPs from the alpha installation. Download the Windows x64 `node.exe` and license for Node.js 24.22.3. The builder checks all four files and writes setup plus the SHA-256 file to a directory you choose. [Node.js Windows binary](https://nodejs.org/dist/v24.22.3/win-x64/node.exe) · [Node.js license file](https://raw.githubusercontent.com/nodejs/node/v24.22.3/LICENSE) · [NSIS](https://nsis.sourceforge.io/Download)
 

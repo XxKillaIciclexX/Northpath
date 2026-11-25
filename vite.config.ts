@@ -61,6 +61,7 @@ export default defineConfig(({ mode }) => {
   const agentConfig = linkEnabled && project && configuredKeys.length ? {
     supabaseUrl: project.origin,
     publishableKey: env[configuredKeys[0]].trim(),
+    ...(relay?.protocol === 'https:' ? { relayUrl: relay.origin } : {}),
   } : undefined;
 
   return {

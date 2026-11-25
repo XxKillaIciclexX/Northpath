@@ -53,4 +53,24 @@ The relay test uses the real SQL migration and a local mock RCON server.
 3. As the owner, refresh status, verify the ID in ARK, and approve the request. As the streamer, refresh access and click **Send Rose test**. Confirm exactly five Stone in the survivor’s inventory and **ARK acknowledged** in the owner’s delivery history.
 4. Revoke access as the owner. Refresh the streamer’s dashboard to see **revoked**. For a check against stale permissions, leave a second streamer tab open on the approved view and attempt the reward from that tab after revocation. Expect an approval error and no additional Stone.
 
-After the real-server test, the next milestone is routing the Windows Companion’s TikFinity simulator to the relay using its account pairing. That will let the streamer test from TikFinity with the selected server and the owner’s existing approval.
+## Test from TikFinity Desktop
+
+1. In the same **Supabase → SQL Editor**, run [the Companion relay test migration](../supabase/migrations/20261125000100_create_companion_relay_tests.sql). This uses the existing website pairing. Keep the server and permissions from the earlier relay pilot.
+2. In Railway, deploy the latest `development` commit to the existing relay and verify its `/health` URL returns `{"ok":true}`. In Bolt, build and publish `development` with both `VITE_SUPABASE_COMPANION_LINK_ENABLED=true` and your existing `VITE_ICEPACK_RELAY_URL`. The existing Windows pairing settings URL will include the relay address.
+3. From the Northpath checkout in Windows PowerShell, build the updated streamer installer:
+
+   ```powershell
+   git switch development
+   git pull --ff-only origin development
+   node .\scripts\Build-IcePackPilotSetup.mjs --local --streamer
+   ```
+
+   Stop and close the previous Windows Companion, uninstall **Ice Pack Companion Streamer** from **Settings → Apps → Installed apps**, and run the new `IcePackCompanionStreamer-5.7-win-x64-Setup.exe` in `%USERPROFILE%\Downloads\IcePackCompanionStreamer`. The uninstaller preserves the existing Windows data folder.
+
+4. Open **Ice Pack Companion Streamer** from Start and click **Start Companion**. Sign in to Northpath as the streamer. If this app needs pairing, click **Copy website pairing code** and paste it in **Companion → Connections**. The approved server and Survivor ID come from the registry. Use an approved access request for the test survivor and keep the local reward lanes off. Previous tests still count toward the owner’s hourly limit.
+5. Click **Arm TikFinity test gift**. If local RCON is configured, choose **Yes** for the hosted route. Confirm the prompt shows the intended server and survivor. Within two minutes, in TikFinity Desktop use **Third-Party Action → Ice Pack Companion → Send armed test gift → Test**.
+6. Verify **5 Stone** in ARK, **ARK acknowledged** in the owner's history, and the hosted acknowledgment in the Companion window. Trigger the same TikFinity action again and confirm the inventory stays the same. For the revocation check, arm a new test, revoke the streamer in the owner view, and trigger the action once. Companion should report a blocked hosted test.
+
+A disconnect, a change to the approved survivor, or a revocation invalidates an armed test. The relay checks that the original device pairing and server approval still match before dispatch. The one-shot test credential expires after two minutes. Each hosted test uses the same owner cooldown and hourly cap as a website test.
+
+The next milestone is routing a supported real TikFinity gift through the relay with an owner-approved reward rule.

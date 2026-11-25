@@ -442,12 +442,12 @@ function Refresh-IcePackStatus {
     if ($streamer) {
         $validSettings = $false
         try { $validSettings = $null -ne (Read-IcePackServerSettings) } catch {}
-        $serverLabel.Text = if ($validSettings) { 'ARK server: settings saved' } else { 'ARK server: set your RCON details' }
+        $serverLabel.Text = if ($validSettings) { 'Direct ARK connection: settings saved' } else { 'Direct ARK connection: optional for the hosted test' }
         $serverButton.Enabled = -not $script:hasOwnedService -and $null -eq $script:managedProcess
         $liveButton.Enabled = $liveButton.Enabled -and ($validSettings -or $script:stopRules)
         $survivorButton.Enabled = $bridgeActionsReady -and $health.RewardLanesOff
         $websiteCodeButton.Enabled = $bridgeActionsReady
-        $armGiftTestButton.Enabled = $bridgeActionsReady -and $validSettings -and $health.TargetLoaded -and $health.RewardLanesOff -and $health.GiftTestReady
+        $armGiftTestButton.Enabled = $bridgeActionsReady -and $health.RewardLanesOff -and $health.GiftTestReady
         $giftTestLabel.Text = if ($engineReady) { $health.GiftTestMessage } else { '' }
         if ($engineReady) { Update-IcePackGiftSourceLabel $health } else { $giftInputLabel.Text = 'Start Companion for TikFinity Desktop.' }
         $script:syncEnabled = $false
@@ -753,15 +753,36 @@ if ($streamer) {
     })
 }
 $armGiftTestButton.Add_Click({
-    Add-Type -AssemblyName Microsoft.VisualBasic
-    $gift = [Microsoft.VisualBasic.Interaction]::InputBox(
-        'Enter the name or ID of an enabled rule with one reward command.', 'Arm TikFinity test gift'
-    ).Trim()
-    if (-not $gift) { return }
-    $confirm = "Allow one TikFinity action to send the $gift reward to your saved survivor in ARK? The test expires after two minutes."
-    if ([System.Windows.Forms.MessageBox]::Show($form, $confirm, 'Arm TikFinity test gift', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
     try {
-        $result = Invoke-IcePackBridgeAction 'operations/arm-tikfinity-test' @{ gift = $gift; confirmation = 'ARM TIKFINITY TEST' }
+        $useHosted = $streamer
+        if ($streamer) {
+            $localConfigured = $false
+            try { $localConfigured = $null -ne (Read-IcePackServerSettings) } catch {}
+            if ($localConfigured) {
+                $routeMessage = "Use your Northpath server approval?`nYes for Hosted Rose test. No for direct ARK connection."
+                $route = [System.Windows.Forms.MessageBox]::Show($form, $routeMessage, 'TikFinity test route', 'YesNoCancel', 'Question', 'Button1')
+                if ($route -eq 'Cancel') { return }
+                $useHosted = $route -eq 'Yes'
+            }
+        }
+        if ($useHosted) {
+            $target = Invoke-IcePackBridgeAction 'operations/hosted-test-target'
+            if (-not $target.enabled) { throw 'The Northpath website has not enabled hosted tests. Check the website relay configuration.' }
+            $confirm = "Allow one TikFinity test to send 5 Stone to survivor $($target.survivorId) on $($target.serverName)? The test expires after two minutes."
+            if ([System.Windows.Forms.MessageBox]::Show($form, $confirm, 'Arm hosted Rose test', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
+            $result = Invoke-IcePackBridgeAction 'operations/arm-hosted-tikfinity-test' @{
+                serverId = $target.serverId; survivorId = $target.survivorId; confirmation = 'ARM HOSTED ROSE'
+            }
+        } else {
+            Add-Type -AssemblyName Microsoft.VisualBasic
+            $gift = [Microsoft.VisualBasic.Interaction]::InputBox(
+                'Enter the name or ID of an enabled rule with one reward command.', 'Arm TikFinity test gift'
+            ).Trim()
+            if (-not $gift) { return }
+            $confirm = "Allow one TikFinity action to send the $gift reward to your saved survivor in ARK? The test expires after two minutes."
+            if ([System.Windows.Forms.MessageBox]::Show($form, $confirm, 'Arm TikFinity test gift', 'YesNo', 'Question', 'Button2') -ne 'Yes') { return }
+            $result = Invoke-IcePackBridgeAction 'operations/arm-tikfinity-test' @{ gift = $gift; confirmation = 'ARM TIKFINITY TEST' }
+        }
         Refresh-IcePackStatus
         $statusLabel.Text = $result.message
         [void][System.Windows.Forms.MessageBox]::Show($form, $result.message, 'TikFinity test gift', 'OK', 'Information')
