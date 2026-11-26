@@ -339,42 +339,42 @@
     {
       "id": "Araneo",
       "name": "Araneo",
-      "blueprint": "/Game/PrimalEarth/Dinos/Spider/SpiderS_Character_BP.SpiderS_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Spider-Small/SpiderS_Character_BP.SpiderS_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Archaeopteryx",
       "name": "Archaeopteryx",
-      "blueprint": "/Game/PrimalEarth/Dinos/Archa/Archa_Character_BP.Archa_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Archaeopteryx/Archa_Character_BP.Archa_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Flier",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Arthropluera",
       "name": "Arthropluera",
-      "blueprint": "/Game/PrimalEarth/Dinos/Arthro/Arthro_Character_BP.Arthro_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Arthropluera/Arthro_Character_BP.Arthro_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Beelzebufo",
@@ -420,15 +420,15 @@
     {
       "id": "Chalicotherium",
       "name": "Chalicotherium",
-      "blueprint": "/Game/PrimalEarth/Dinos/Chalico/Chalico_Character_BP.Chalico_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Chalicotherium/Chalico_Character_BP.Chalico_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Compy",
@@ -459,15 +459,15 @@
     {
       "id": "Dimetrodon",
       "name": "Dimetrodon",
-      "blueprint": "/Game/PrimalEarth/Dinos/Dimetrodon/Dimetrodon_Character_BP.Dimetrodon_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dimetrodon/Dimetro_Character_BP.Dimetro_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Dimorphodon",
@@ -568,29 +568,29 @@
     {
       "id": "Gallimimus",
       "name": "Gallimimus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Galli/Galli_Character_BP.Galli_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Gallimimus/Galli_Character_BP.Galli_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Giganotosaurus",
       "name": "Giganotosaurus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Gigant/Gigant_Character_BP.Gigant_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Giganotosaurus/Gigant_Character_BP.Gigant_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Tank",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Gigantopithecus",
@@ -649,15 +649,15 @@
     {
       "id": "Jerboa",
       "name": "Jerboa",
-      "blueprint": "/Game/PrimalEarth/Dinos/Jerboa/Jerboa_Character_BP.Jerboa_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Jerboa/Jerboa_Character_BP.Jerboa_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Kairuku",
@@ -690,28 +690,28 @@
     {
       "id": "Kentrosaurus",
       "name": "Kentrosaurus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Kentro/Kentro_Character_BP.Kentro_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Kentrosaurus/Kentro_Character_BP.Kentro_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Tank"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Lystrosaurus",
       "name": "Lystrosaurus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Lystro/Lystro_Character_BP.Lystro_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Lystrosaurus/Lystro_Character_BP.Lystro_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Megalania",
@@ -877,29 +877,29 @@
     {
       "id": "Pachyrhinosaurus",
       "name": "Pachyrhinosaurus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Pachyrhino/Pachyrhino_Character_BP.Pachyrhino_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Pachyrhinosaurus/Pachyrhino_Character_BP.Pachyrhino_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Paraceratherium",
       "name": "Paraceratherium",
-      "blueprint": "/Game/PrimalEarth/Dinos/Paracer/Paracer_Character_BP.Paracer_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Paraceratherium/Paracer_Character_BP.Paracer_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Tank",
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Pegomastax",
@@ -917,16 +917,16 @@
     {
       "id": "Pelagornis",
       "name": "Pelagornis",
-      "blueprint": "/Game/PrimalEarth/Dinos/Pela/Pela_Character_BP.Pela_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Pelagornis/Pela_Character_BP.Pela_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "Aquatic"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Phiomia",
@@ -983,16 +983,16 @@
     {
       "id": "Quetzal",
       "name": "Quetzal",
-      "blueprint": "/Game/PrimalEarth/Dinos/Quetz/Quetz_Character_BP.Quetz_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Quetzalcoatlus/Quetz_Character_BP.Quetz_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Sarco",
@@ -1038,16 +1038,16 @@
     {
       "id": "Therizinosaurus",
       "name": "Therizinosaurus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Therizino/Therizino_Character_BP.Therizino_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Therizinosaurus/Therizino_Character_BP.Therizino_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "DPS",
         "Gatherer"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Thylacoleo",
@@ -1092,16 +1092,16 @@
     {
       "id": "Trilobite",
       "name": "Trilobite",
-      "blueprint": "/Game/PrimalEarth/Dinos/Trilobite/Trilobite_Character_BP.Trilobite_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Trilobite/Trilobite_Character.Trilobite_Character_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Aquatic",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Troodon",
@@ -1133,30 +1133,30 @@
     {
       "id": "WoollyRhino",
       "name": "Woolly Rhinoceros",
-      "blueprint": "/Game/PrimalEarth/Dinos/Rhino/Rhino_Character_BP.Rhino_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/WoollyRhino/Rhino_Character_BP.Rhino_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Tank",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Anglerfish",
       "name": "Anglerfish",
-      "blueprint": "/Game/PrimalEarth/Dinos/Angler/Angler_Character_BP.Angler_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Anglerfish/Angler_Character_BP.Angler_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Aquatic",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Basilosaurus",
@@ -1189,29 +1189,29 @@
     {
       "id": "Coelacanth",
       "name": "Coelacanth",
-      "blueprint": "/Game/PrimalEarth/Dinos/Coel/Coel_Character_BP.Coel_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Coelacanth/Coel_Character_BP.Coel_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Aquatic"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Dunkleosteus",
       "name": "Dunkleosteus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Dunkle/Dunkle_Character_BP.Dunkle_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Dunkleosteus/Dunkle_Character_BP.Dunkle_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Aquatic",
         "Gatherer"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Electrophorus",
@@ -1300,16 +1300,16 @@
     {
       "id": "Mosasaurus",
       "name": "Mosasaurus",
-      "blueprint": "/Game/PrimalEarth/Dinos/Mosa/Mosa_Character_BP.Mosa_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Mosasaurus/Mosa_Character_BP.Mosa_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Aquatic",
         "Tank"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Piranha",
@@ -1355,385 +1355,385 @@
     {
       "id": "Ammonite",
       "name": "Ammonite",
-      "blueprint": "/Game/PrimalEarth/Dinos/Ammonite/Ammonite_Character_BP.Ammonite_Character_BP_C",
+      "blueprint": "/Game/PrimalEarth/Dinos/Ammonite/Ammonite_Character.Ammonite_Character_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Aquatic"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Deathworm",
       "name": "Deathworm",
-      "blueprint": "/Game/PrimalEarth/Dinos/Deathworm/Deathworm_Character_BP.Deathworm_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Deathworm/Deathworm_Character_BP.Deathworm_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Lymantria",
       "name": "Lymantria",
-      "blueprint": "/Game/PrimalEarth/Dinos/Moth/Moth_Character_BP.Moth_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Moth/Moth_Character_BP.Moth_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Flier",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Mantis",
       "name": "Mantis",
-      "blueprint": "/Game/PrimalEarth/Dinos/Mantis/Mantis_Character_BP.Mantis_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Mantis/Mantis_Character_BP.Mantis_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "DPS",
         "Gatherer"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Morellatops",
       "name": "Morellatops",
-      "blueprint": "/Game/PrimalEarth/Dinos/Camelsaurus/Camelsaurus_Character_BP.Camelsaurus_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Camelsaurus/camelsaurus_Character_BP.camelsaurus_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Transport",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Phoenix",
       "name": "Phoenix",
-      "blueprint": "/Game/PrimalEarth/Dinos/Phoenix/Phoenix_Character_BP.Phoenix_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Phoenix/Phoenix_Character_BP.Phoenix_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Flier",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "RockGolem",
       "name": "Rock Golem",
-      "blueprint": "/Game/PrimalEarth/Dinos/RockGolem/RockGolem_Character_BP.RockGolem_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/RockGolem/RockGolem_Character_BP.RockGolem_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Tank",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "ThornyDragon",
       "name": "Thorny Dragon",
-      "blueprint": "/Game/PrimalEarth/Dinos/SpineyLizard/SpineyLizard_Character_BP.SpineyLizard_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/SpineyLizard/SpineyLizard_Character_BP.SpineyLizard_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Utility",
         "Gatherer"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Vulture",
       "name": "Vulture",
-      "blueprint": "/Game/PrimalEarth/Dinos/Vulture/Vulture_Character_BP.Vulture_Character_BP_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Vulture/Vulture_Character_BP.Vulture_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "WyvernFire",
       "name": "Fire Wyvern",
-      "blueprint": "/Game/PrimalEarth/Dinos/Wyvern/Wyvern_Character_BP_Fire.Wyvern_Character_BP_Fire_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Wyvern/Wyvern_Character_BP_Fire.Wyvern_Character_BP_Fire_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "WyvernLightning",
       "name": "Lightning Wyvern",
-      "blueprint": "/Game/PrimalEarth/Dinos/Wyvern/Wyvern_Character_BP_Lightning.Wyvern_Character_BP_Lightning_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Wyvern/Wyvern_Character_BP_Lightning.Wyvern_Character_BP_Lightning_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "WyvernPoison",
       "name": "Poison Wyvern",
-      "blueprint": "/Game/PrimalEarth/Dinos/Wyvern/Wyvern_Character_BP_Poison.Wyvern_Character_BP_Poison_C",
+      "blueprint": "/Game/ScorchedEarth/Dinos/Wyvern/Wyvern_Character_BP_Poison.Wyvern_Character_BP_Poison_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Basilisk",
       "name": "Basilisk",
-      "blueprint": "/Game/PrimalEarth/Dinos/Basilisk/Basilisk_Character_BP.Basilisk_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/Basilisk/Basilisk_Character_BP.Basilisk_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Tank",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Bulbdog",
       "name": "Bulbdog",
-      "blueprint": "/Game/PrimalEarth/Dinos/LanternPug/LanternPug_Character_BP.LanternPug_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/LanternPug/LanternPug_Character_BP.LanternPug_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Featherlight",
       "name": "Featherlight",
-      "blueprint": "/Game/PrimalEarth/Dinos/LanternBird/LanternBird_Character_BP.LanternBird_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/LanternBird/LanternBird_Character_BP.LanternBird_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Flier",
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Glowtail",
       "name": "Glowtail",
-      "blueprint": "/Game/PrimalEarth/Dinos/LanternLizard/LanternLizard_Character_BP.LanternLizard_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/LanternLizard/LanternLizard_Character_BP.LanternLizard_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Karkinos",
       "name": "Karkinos",
-      "blueprint": "/Game/PrimalEarth/Dinos/MegaCrab/MegaCrab_Character_BP.MegaCrab_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/Crab/Crab_Character_BP.Crab_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Aquatic",
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Ravager",
       "name": "Ravager",
-      "blueprint": "/Game/PrimalEarth/Dinos/CaveWolf/CaveWolf_Character_BP.CaveWolf_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/CaveWolf/CaveWolf_Character_BP.CaveWolf_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Transport",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "RockDrake",
       "name": "Rock Drake",
-      "blueprint": "/Game/PrimalEarth/Dinos/RockDrake/RockDrake_Character_BP.RockDrake_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/RockDrake/RockDrake_Character_BP.RockDrake_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "DPS",
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "RollRat",
       "name": "Roll Rat",
-      "blueprint": "/Game/PrimalEarth/Dinos/MoleRat/MoleRat_Character_BP.MoleRat_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/MoleRat/MoleRat_Character_BP.MoleRat_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Utility",
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Shinehorn",
       "name": "Shinehorn",
-      "blueprint": "/Game/PrimalEarth/Dinos/LanternGoat/LanternGoat_Character_BP.LanternGoat_Character_BP_C",
+      "blueprint": "/Game/Aberration/Dinos/LanternGoat/LanternGoat_Character_BP.LanternGoat_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Reaper",
       "name": "Reaper King",
-      "blueprint": "/Game/PrimalEarth/Dinos/Xenomorph/Xenomorph_Character_BP_Male.Xenomorph_Character_BP_Male_C",
+      "blueprint": "/Game/Aberration/Dinos/Nameless/Xenomorph_Character_BP_Male_Tamed.Xenomorph_Character_BP_Male_Tamed_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Tank",
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Enforcer",
       "name": "Enforcer",
-      "blueprint": "/Game/PrimalEarth/Dinos/Enforcer/Enforcer_Character_BP.Enforcer_Character_BP_C",
+      "blueprint": "/Game/Extinction/Dinos/Enforcer/Enforcer_Character_BP.Enforcer_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Gacha",
       "name": "Gacha",
-      "blueprint": "/Game/PrimalEarth/Dinos/Gacha/Gacha_Character_BP.Gacha_Character_BP_C",
+      "blueprint": "/Game/Extinction/Dinos/Gacha/Gacha_Character_BP.Gacha_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Other / Omnivores",
       "tags": [
         "Utility"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Gasbags",
       "name": "Gasbags",
-      "blueprint": "/Game/PrimalEarth/Dinos/GasBags/GasBags_Character_BP.GasBags_Character_BP_C",
+      "blueprint": "/Game/Extinction/Dinos/GasBag/GasBags_Character_BP.GasBags_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Herbivores",
       "tags": [
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Managarmr",
       "name": "Managarmr",
-      "blueprint": "/Game/PrimalEarth/Dinos/IceJumper/IceJumper_Character_BP.IceJumper_Character_BP_C",
+      "blueprint": "/Game/Extinction/Dinos/IceJumper/IceJumper_Character_BP.IceJumper_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "DPS",
         "Transport"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "SnowOwl",
       "name": "Snow Owl",
-      "blueprint": "/Game/PrimalEarth/Dinos/Owl/Owl_Character_BP.Owl_Character_BP_C",
+      "blueprint": "/Game/Extinction/Dinos/Owl/Owl_Character_BP.Owl_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "Flier",
         "Support"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Velonasaur",
       "name": "Velonasaur",
-      "blueprint": "/Game/PrimalEarth/Dinos/Spindles/Spindles_Character_BP.Spindles_Character_BP_C",
+      "blueprint": "/Game/Extinction/Dinos/Spindles/Spindles_Character_BP.Spindles_Character_BP_C",
       "contentPack": "base-game",
-      "verified": false,
+      "verified": true,
       "enabled": true,
       "category": "Carnivores",
       "tags": [
         "DPS"
       ],
-      "source": "candidate-path-inferred-not-DevKit-verified"
+      "source": "Beacon Ark Official v7"
     },
     {
       "id": "Bison",

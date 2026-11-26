@@ -1,0 +1,10 @@
+{
+  "additions": [
+    { "id": "Ankylosaurus", "testLevel": 25 },
+    { "id": "Argentavis", "testLevel": 25 },
+    { "id": "Doedicurus", "testLevel": 25 },
+    { "id": "Stegosaurus", "testLevel": 25 },
+    { "id": "Iguanodon", "testLevel": 25 },
+    { "id": "Carno", "testLevel": 25 }
+  ]
+}
