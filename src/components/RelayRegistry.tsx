@@ -6,6 +6,8 @@ type RewardPolicy = 'whitelist' | 'all_supported';
 type DeliveryState = 'pending' | 'sending' | 'cancelled' | 'unconfirmed' | 'acknowledged';
 type Server = { id: string; name: string };
 type LinkedServer = Server & { state: AccessState; survivorId: string; roseAllowed?: boolean; allowedRewardIds?: string[] };
+type SavedKit = { id: string; name: string; rewardIds: string[]; revision: string };
+type TestReward = { rewardId?: string; kitId?: string; kitRevision?: string };
 type OwnerServer = Server & {
   listed: boolean;
   hourlyLimit: number;
@@ -14,13 +16,14 @@ type OwnerServer = Server & {
   allowedRewardIds?: string[];
   access: { streamerId: string; survivorId: string; state: AccessState; email: string }[];
   history: { requestId: string; createdAt: string; state: DeliveryState; streamer: string; source?: 'test' | 'live_rose' | 'live_draft';
-    rewardId?: string; acknowledgedCommands?: number }[];
+    rewardId?: string; acknowledgedCommands?: number; totalCommands?: number; kitName?: string | null; kitRewardIds?: string[] | null }[];
 };
 type Dashboard = {
   canRegister: boolean;
   owned: OwnerServer | null;
   linked: LinkedServer[];
   results: Server[];
+  savedKits?: SavedKit[];
 };
 type Props = { token: string; relayUrl: string };
 
@@ -31,6 +34,7 @@ const deliveryLabels: Record<DeliveryState, string> = {
 const field = 'field mt-1 block';
 const card = 'card space-y-4 p-5';
 const roseRewardId = 'rose-stone';
+const customKitId = 'custom-kit';
 const rewardLabel = (id = roseRewardId) => rewardCatalog.find(reward => reward.id === id)?.label ?? 'Hosted reward';
 const orderRewards = (ids: string[]) => rewardCatalog.filter(reward => ids.includes(reward.id)).map(reward => reward.id);
 
@@ -120,24 +124,36 @@ function OwnerRewardPolicy({ initialPolicy, initialIds, catalogEnabled, busy, sa
   </form>;
 }
 
-function HostedRewardTest({ server, busy, send }: { server: LinkedServer; busy: boolean; send: (rewardId?: string) => void }) {
+function HostedRewardTest({ server, kits, busy, send }: {
+  server: LinkedServer; kits: SavedKit[]; busy: boolean; send: (test: TestReward) => void;
+}) {
   const [selected, setSelected] = useState(roseRewardId);
   const ids = server.allowedRewardIds ?? (server.roseAllowed === false ? [] : [roseRewardId]);
-  const available = rewardCatalog.filter(reward => ids.includes(reward.id));
+  const available: { id: string; label: string; test: TestReward; components?: string[] }[] = rewardCatalog
+    .filter(reward => reward.id !== customKitId && ids.includes(reward.id))
+    .map(reward => ({ id: reward.id, label: reward.label, test: { rewardId: server.allowedRewardIds ? reward.id : undefined } }));
+  if (ids.includes(customKitId)) {
+    available.push(...kits.filter(kit => kit.rewardIds.every(id => ids.includes(id))).map(kit => ({
+      id: 'kit:' + kit.id, label: 'Kit: ' + kit.name, test: { kitId: kit.id, kitRevision: kit.revision }, components: kit.rewardIds,
+    })));
+  }
   const reward = available.find(option => option.id === selected) ?? available[0];
-  if (!reward) return <p className="text-sm text-slate-300">The owner’s whitelist is empty.</p>;
-  return <div className="flex flex-wrap items-end gap-2">
-    {available.length === 1 && reward.id !== roseRewardId && <p className="text-sm text-slate-300">{reward.label}</p>}
-    {available.length > 1 && <label>Test reward
-      <select className={field} value={reward.id} disabled={busy} onChange={event => setSelected(event.target.value)}>
-        {available.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-      </select>
-    </label>}
-    <button type="button" className="btn btn-primary" disabled={busy} onClick={() => {
-      if (window.confirm('Send ' + reward.label + ' to your linked survivor on ' + server.name + '?')) {
-        send(server.allowedRewardIds ? reward.id : undefined);
-      }
-    }}>{available.length === 1 && reward.id === roseRewardId ? 'Send Rose test' : 'Send test reward'}</button>
+  if (!reward) return <p className="text-sm text-slate-300">The server has no rewards you can test.</p>;
+  const components = reward.components?.map(rewardLabel).join(' + ');
+  return <div className="min-w-0 space-y-2">
+    <div className="flex flex-wrap items-end gap-2">
+      {available.length === 1 && reward.id !== roseRewardId && <p className="break-words text-sm text-slate-300">{reward.label}</p>}
+      {available.length > 1 && <label className="min-w-0 max-w-full">Test reward
+        <select className={field + ' max-w-full'} value={reward.id} disabled={busy} onChange={event => setSelected(event.target.value)}>
+          {available.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+        </select>
+      </label>}
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => {
+        const detail = components ? ' (' + components + ')' : '';
+        if (window.confirm('Send ' + reward.label + detail + ' to your linked survivor on ' + server.name + '?')) send(reward.test);
+      }}>{available.length === 1 && reward.id === roseRewardId ? 'Send Rose test' : 'Send test reward'}</button>
+    </div>
+    {components && <p className="text-sm text-slate-300">{components}</p>}
   </div>;
 }
 
@@ -185,11 +201,11 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
     let message = success;
     try {
       if (payload.action !== 'dashboard') {
-        const result = await relay<{ state?: DeliveryState; rewardId?: string; acknowledged?: number; total?: number }>(credentials, payload);
+        const result = await relay<{ state?: DeliveryState; rewardId?: string; acknowledged?: number; total?: number; kitName?: string }>(credentials, payload);
         if (payload.action === 'simulate') {
           if (result.state === 'acknowledged') {
             message = result.rewardId && result.rewardId !== roseRewardId
-              ? 'ARK acknowledged ' + rewardLabel(result.rewardId) + '. Verify the reward in game.'
+              ? 'ARK acknowledged ' + (result.kitName ? 'Kit “' + result.kitName + '”' : rewardLabel(result.rewardId)) + '. Verify the reward in game.'
               : 'ARK acknowledged the test. Check your inventory for 5 Stone.';
           } else if (result.acknowledged && result.total && result.acknowledged < result.total) {
             message = 'ARK acknowledged ' + result.acknowledged + ' of ' + result.total +
@@ -293,11 +309,15 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
         <h4 className="font-semibold text-white">Delivery history</h4>
         {owned.history.length === 0 && <p className="mt-2 text-sm text-slate-300">No relay tests yet.</p>}
         <ul className="divide-y divide-slate-700">
-          {owned.history.map(entry => <li key={entry.requestId + entry.streamer} className="py-2 text-sm text-slate-300">
-            <span className="text-white">{rewardLabel(entry.rewardId)}</span> · {!entry.source || entry.source === 'test' ? 'Test' : 'Live gift'} · {deliveryLabels[entry.state]}
-            {entry.rewardId === 'starter-kit' && entry.acknowledgedCommands !== undefined && <> · {entry.acknowledgedCommands}/2 steps acknowledged</>}
-            {' · '}{entry.streamer} · <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
-          </li>)}
+          {owned.history.map(entry => {
+            const total = entry.totalCommands ?? (entry.rewardId === 'starter-kit' ? 2 : 1);
+            return <li key={entry.requestId + entry.streamer} className="break-words py-2 text-sm text-slate-300">
+              <span className="text-white">{entry.kitName ? 'Kit: ' + entry.kitName : rewardLabel(entry.rewardId)}</span> · {!entry.source || entry.source === 'test' ? 'Test' : 'Live gift'} · {deliveryLabels[entry.state]}
+              {total > 1 && entry.acknowledgedCommands !== undefined && <> · {entry.acknowledgedCommands}/{total} steps acknowledged</>}
+              {' · '}{entry.streamer} · <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
+              {entry.kitRewardIds && <p className="mt-1">{entry.kitRewardIds.map(rewardLabel).join(' + ')}</p>}
+            </li>;
+          })}
         </ul>
         <button type="button" className="btn btn-ghost mt-2" disabled={busy} onClick={() => void run({ action: 'dashboard' })}>Refresh status</button>
       </div>
@@ -331,8 +351,8 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
       <ul className="divide-y divide-slate-700">
         {dashboard.linked.map(server => <li key={server.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
           <div><p>{server.name}</p><p className="text-sm text-slate-300">Survivor {server.survivorId} · {server.state}</p></div>
-          {server.state === 'approved' && <HostedRewardTest server={server} busy={busy}
-            send={rewardId => void run({ action: 'simulate', serverId: server.id, requestId: crypto.randomUUID(), rewardId })} />}
+          {server.state === 'approved' && <HostedRewardTest server={server} kits={dashboard.savedKits ?? []} busy={busy}
+            send={test => void run({ action: 'simulate', serverId: server.id, requestId: crypto.randomUUID(), ...test })} />}
         </li>)}
       </ul>
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void run({ action: 'dashboard' })}>Refresh access</button>

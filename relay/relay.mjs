@@ -134,7 +134,7 @@ export function createRelay({ config, store, connect }) {
   }
 
   async function simulate(authorize, rewardId) {
-    const { envelope, actor, server, request, rewardId: savedReward } = await authorize('reserve');
+    const { envelope, actor, server, request, rewardId: savedReward, kitRewardIds, kitName } = await authorize('reserve');
     rewardId ??= savedReward;
     let connection;
     let state = 'cancelled';
@@ -144,13 +144,14 @@ export function createRelay({ config, store, connect }) {
         const details = connectionDetails(unseal(envelope, config.key, config.ownerId), config);
         connection = await openRcon(details);
       } catch { throw new HttpError(502, 'The relay could not connect to ARK. Check the server with its owner.'); }
-      const approved = await authorize('dispatch');
-      const playerId = survivor(approved.survivorId);
-      const commands = rewardCommands(rewardId ?? 'rose-stone', playerId);
+      const approved = await authorize('dispatch', request);
       state = 'unconfirmed';
+      const playerId = survivor(approved.survivorId);
+      const steps = rewardId === 'custom-kit' ? kitRewardIds : [rewardId ?? 'rose-stone'];
+      const commands = steps.flatMap(id => rewardCommands(id, playerId));
       try {
         for (const command of commands) {
-          if (acknowledged > 0 && (await authorize('continue')).survivorId !== playerId) break;
+          if (acknowledged > 0 && (await authorize('continue', request)).survivorId !== playerId) break;
           await connection.send(command);
           acknowledged++;
         }
@@ -158,7 +159,9 @@ export function createRelay({ config, store, connect }) {
       } catch {
         // A dropped RCON reply can follow a successful send. Treat it as unknown.
       }
-      return rewardId ? { state, rewardId, acknowledged, total: commands.length } : { state };
+      return rewardId
+        ? { state, rewardId, acknowledged, total: commands.length, ...(kitName ? { kitName } : {}) }
+        : { state };
     } finally {
       connection?.close();
       const outcome = { p_actor: actor, p_server: server, p_request: request, p_state: state };
@@ -173,9 +176,21 @@ export function createRelay({ config, store, connect }) {
   function simulateWebsite(actor, input) {
     const server = uuid(input.serverId, 'Select an approved server.');
     const request = uuid(input.requestId, 'Invalid test request ID.');
+    if (input.kitId !== undefined) {
+      const kitId = input.kitId;
+      requireInput(input.rewardId === undefined && typeof kitId === 'string' && kitId.length > 0 && kitId.length <= 120,
+        'Choose a saved custom Kit.');
+      const revision = uuid(input.kitRevision, 'Refresh server access and choose a saved Kit.');
+      return simulate(async phase => ({
+        ...await rpc('saved_kit_delivery', {
+          p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_kit_id: kitId, p_revision: revision,
+        }),
+        actor, server, request,
+      }), 'custom-kit');
+    }
     if (input.rewardId !== undefined) {
       const reward = input.rewardId;
-      requireInput(rewardIds.has(reward), 'Choose a supported hosted reward.');
+      requireInput(reward !== 'custom-kit' && rewardIds.has(reward), 'Choose a supported hosted reward.');
       return simulate(async phase => ({
         ...await rpc('catalog_delivery', { p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_reward: reward }),
         actor, server, request,
@@ -194,7 +209,8 @@ export function createRelay({ config, store, connect }) {
     }
     const hash = createHash('sha256').update(secret).digest('hex');
     const params = { p_token_hash: hash, p_owner: config.ownerId };
-    if (route === '/v1/live-reward') return simulate(phase => rpc('draft_delivery', { ...params, p_phase: phase }));
+    if (route === '/v1/live-reward') return simulate((phase, request) =>
+      rpc('hosted_gift_delivery', { ...params, p_phase: phase, p_request: request ?? null }));
     if (route === '/v1/live-rose') return simulate(phase => rpc('paired_delivery', { ...params, p_phase: phase, p_source: 'live_rose' }));
     return simulate(phase => rpc('desktop_delivery', { ...params, p_phase: phase }));
   }

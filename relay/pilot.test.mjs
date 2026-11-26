@@ -23,6 +23,7 @@ const catalogMigration = new URL('../supabase/migrations/20261125000300_add_host
 const draftsMigration = new URL('../supabase/migrations/20261123000200_create_companion_drafts.sql', import.meta.url);
 const giftRulesMigration = new URL('../supabase/migrations/20261125000400_add_streamer_hosted_gift_rules.sql', import.meta.url);
 const expandedCatalogMigration = new URL('../supabase/migrations/20261125000500_expand_hosted_reward_catalog.sql', import.meta.url);
+const customKitsMigration = new URL('../supabase/migrations/20261125000600_add_custom_hosted_kits.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -79,7 +80,8 @@ const argumentsFor = {
   catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards'],
   catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward'],
   finish_catalog: ['p_actor', 'p_server', 'p_request', 'p_reward', 'p_state', 'p_acknowledged'],
-  draft_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
+  saved_kit_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_kit_id', 'p_revision'],
+  hosted_gift_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_request'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
@@ -118,7 +120,7 @@ test('relay pins a public target and rejects local, shared, and reserved RCON ad
   assert.equal(readConfig(env).address, env.ICEPACK_RELAY_TARGET_IPV4);
 });
 
-test('owner registration, discovery, one Rose delivery, history, and revoke across HTTP, SQL and RCON', async t => {
+test('server registration, policies, saved Gift Rules and Kit delivery across HTTP, SQL and RCON', async t => {
   const db = new PGlite();
   t.after(() => db.close());
   await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key, email text);');
@@ -133,6 +135,7 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   await db.exec(await readFile(catalogMigration, 'utf8'));
   await db.exec(await readFile(giftRulesMigration, 'utf8'));
   await db.exec(await readFile(expandedCatalogMigration, 'utf8'));
+  await db.exec(await readFile(customKitsMigration, 'utf8'));
   const supported = await db.query('select public.icepack_hosted_reward_ids() as ids');
   assert.deepEqual(supported.rows[0].ids, rewardCatalog.map(entry => entry.id));
   const upgraded = await db.query('select allowed_reward_ids from public.icepack_relay_servers where owner_id = $1', [outsider]);
@@ -344,7 +347,10 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
   });
   const reward = id => ({ serverId, requestId: crypto.randomUUID(), rewardId: id });
   const deliver = input => api('streamer-token', 'simulate', input);
-  const liftCooldown = () => db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'");
+  const liftCooldown = () => db.exec(`
+    update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '16 seconds'
+    where created_at > clock_timestamp() - interval '16 seconds'
+  `);
   assert.equal((await saveWhitelist(['starter-kit', 'unapproved'])).status, 400);
   assert.equal((await saveWhitelist(['wild-dodo', 'wild-dodo'])).status, 400);
   assert.equal((await saveWhitelist(['wild-dodo', 'starter-kit'])).status, 200);
@@ -464,4 +470,127 @@ test('owner registration, discovery, one Rose delivery, history, and revoke acro
     assert.equal(commands.at(-1), expected);
     await db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '2 hours'");
   }
+
+  const wood = extra[0][2];
+  const thatch = extra[1][2];
+  const raptor = extra[2][2];
+  const rex = extra[3][2];
+  const bundle = (id, name, actions) => ({ id, name, entries: actions.map(action => ({ action })) });
+  const custom = bundle('wipe-supplies', 'Wipe Supplies', [wood, stone, thatch, raptor]);
+  const bundleIds = ['wood-5', 'rose-stone', 'thatch-5', 'wild-raptor'];
+  const allowedKit = ['custom-kit', ...bundleIds];
+  function assignKit(kitId, giftId) {
+    draft.rules.push({ giftId, enabled: true, action: { ...kit, kitId } });
+  }
+  async function saveDraft() {
+    const saved = await db.query('update public.companion_drafts set draft = $2::jsonb where user_id = $1 returning revision',
+      [streamer, JSON.stringify(draft)]);
+    return saved.rows[0].revision;
+  }
+  draft.kits.push(custom, bundle('two-creatures', 'Two creatures', [raptor, rex]),
+    bundle('duplicate-material', 'Duplicate material', [wood, wood]),
+    bundle('oversized-stack', 'Oversized stack', [{ ...wood, quantity: 10 }, raptor]),
+    bundle('duplicate-id', 'One', [wood, raptor]), bundle('duplicate-id', 'Two', [stone, raptor]),
+    bundle('nested', 'Nested', [kit, raptor]));
+  assignKit(custom.id, '8817');
+  assignKit('two-creatures', '8818');
+  assignKit('duplicate-material', '8819');
+  assignKit('oversized-stack', '8820');
+  assignKit('duplicate-id', '8821');
+  assignKit('nested', '8822');
+  assignKit(custom.id, '8823');
+  assignKit('nested', '8823');
+  let revision = await saveDraft();
+  const knownKits = async (token = 'streamer-token') => (await api(token, 'dashboard')).body.savedKits;
+  const giftIds = async () => (await db.query('select public.get_companion_relay_test_target($1) as status',
+    [pairingSecret])).rows[0].status.targets[0].hostedGiftIds;
+  const testKit = () => ({ serverId, requestId: crypto.randomUUID(), kitId: custom.id, kitRevision: revision });
+  assert.deepEqual(await knownKits(), [{ id: custom.id, name: custom.name, rewardIds: bundleIds, revision }]);
+  assert.deepEqual(await knownKits('owner-token'), []);
+  assert.deepEqual(await knownKits('outsider-token'), []);
+  assert.deepEqual(await giftIds(), ['8811','8812','8813','8814','8815','8816','8817']);
+  for (const invalid of ['8818','8819','8820','8821','8822','8823']) {
+    assert.equal(await authorizeSaved(giftGrant, invalid, 'invalid Kit ' + invalid), 'ignored');
+  }
+  assert.equal((await deliver(reward('custom-kit'))).status, 400);
+  assert.equal((await deliver({ ...testKit(), kitId: 'bad-kit' })).status, 409);
+  assert.equal((await api('outsider-token', 'simulate', testKit())).status, 409);
+  assert.equal((await deliver({ ...testKit(), kitRevision: crypto.randomUUID() })).status, 409);
+  assert.equal((await saveWhitelist(bundleIds)).status, 200);
+  assert.deepEqual(await knownKits(), []);
+  assert.equal((await deliver(testKit())).status, 403);
+  assert.equal(await authorizeSaved(giftGrant, '8817', 'custom Kits disabled'), 'ignored');
+  assert.equal((await saveWhitelist(allowedKit.filter(id => id !== 'wild-raptor'))).status, 200);
+  assert.deepEqual(await knownKits(), []);
+  assert.equal((await deliver(testKit())).status, 403);
+  assert.equal(await authorizeSaved(giftGrant, '8817', 'one component disabled'), 'ignored');
+  assert.equal((await saveWhitelist(allowedKit)).status, 200);
+  const allowedTest = testKit();
+  const completed = { state: 'acknowledged', rewardId: 'custom-kit', acknowledged: 4, total: 4, kitName: custom.name };
+  assert.deepEqual(await deliver({ ...allowedTest, kitRewardIds: ['wild-rex'], survivorId: '9' }), { status: 200, body: completed });
+  const customCommands = commands.slice(-4);
+  assert.deepEqual(customCommands, [
+    'GiveItemToPlayer 12345 "Blueprint\'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood\'" 5 0 0',
+    commands[0],
+    'GiveItemToPlayer 12345 "Blueprint\'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Thatch.PrimalItemResource_Thatch\'" 5 0 0',
+    'ScriptCommand IcePackSpawn,Raptor,25,12345',
+  ]);
+  const testedHistory = (await ownerDashboard()).history[0];
+  assert.equal(testedHistory.kitName, custom.name);
+  assert.deepEqual(testedHistory.kitRewardIds, bundleIds);
+  assert.equal(testedHistory.acknowledgedCommands, 4);
+  assert.equal(testedHistory.totalCommands, 4);
+  assert.equal(testedHistory.source, 'test');
+  assert.equal((await deliver(allowedTest)).status, 409);
+  assert.equal((await deliver(testKit())).status, 429);
+  await liftCooldown();
+  assert.equal(await authorizeSaved(giftGrant, '8817', 'successful live custom Kit'), 'ready');
+  const liveKit = await sendSaved(giftGrant);
+  assert.equal(liveKit.status, 200);
+  assert.deepEqual(await liveKit.json(), completed);
+  assert.deepEqual(commands.slice(-4), customCommands);
+  assert.equal((await ownerDashboard()).history[0].source, 'live_draft');
+
+  async function stopAfterFirst(send, stop) {
+    await liftCooldown();
+    const before = commands.length;
+    const sentFirst = new Promise(resolve => {
+      pauseAfterCommand = () => new Promise(release => { releaseCommand = release; resolve(); });
+    });
+    const delivering = send();
+    await Promise.race([sentFirst, delivering.then(() => assert.fail('Custom Kit did not reach its first step.'))]);
+    try { await stop(); } finally { pauseAfterCommand = undefined; releaseCommand(); }
+    const response = await delivering;
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, { ...completed, state: 'unconfirmed', acknowledged: 1 });
+    assert.deepEqual(commands.slice(before), customCommands.slice(0, 1));
+    const latest = (await ownerDashboard()).history[0];
+    assert.equal(latest.state, 'unconfirmed');
+    assert.equal(latest.acknowledgedCommands, 1);
+    assert.equal(latest.totalCommands, 4);
+  }
+
+  await stopAfterFirst(() => deliver(testKit()), async () => {
+    assert.equal((await saveWhitelist(allowedKit.filter(id => id !== 'thatch-5'))).status, 200);
+    assert.equal((await saveWhitelist(allowedKit)).status, 200);
+  });
+  await stopAfterFirst(() => deliver(testKit()), async () => { revision = await saveDraft(); });
+  assert.equal(await authorizeSaved(giftGrant, '8817', 'paused live custom Kit'), 'ready');
+  await stopAfterFirst(async () => {
+    const response = await sendSaved(giftGrant);
+    return { status: response.status, body: await response.json() };
+  }, async () => {
+    assert.equal(await authorizeSaved(giftGrant, '8817', 'replacement grant with same token'), 'ready');
+  });
+  assert.equal((await sendSaved(giftGrant)).status, 429);
+  await stopAfterFirst(() => deliver(testKit()), async () => {
+    assert.equal((await api('owner-token', 'revoke', { serverId, streamerId: streamer })).status, 200);
+    assert.equal((await api('streamer-token', 'request', { serverId, survivorId: '12345' })).status, 200);
+    assert.equal((await api('owner-token', 'approve', { serverId, streamerId: streamer, survivorId: '12345' })).status, 200);
+  });
+  await assert.rejects(db.transaction(async tx => {
+    await tx.exec('set local role authenticated');
+    await tx.query("select public.icepack_relay_saved_kit_delivery($1,$2,$3,'reserve',$4,$5)",
+      [streamer, serverId, crypto.randomUUID(), custom.id, revision]);
+  }), /permission denied/);
 });
