@@ -6,7 +6,7 @@ import secondBatch from '../mod-devkit/spawn-batch-02.json' with { type: 'json' 
 
 const help = [
   'Usage: node scripts/Prepare-IcePackSpawnBatch.mjs [--batch 01|02] [--player-id <Specimen Implant ID>]',
-  '       node scripts/Prepare-IcePackSpawnBatch.mjs --csv [--pack <catalog pack ID>] [--batch 01|02]',
+  '       node scripts/Prepare-IcePackSpawnBatch.mjs --csv [--pack <catalog pack ID>] [--batch 01|02] [--hard-class]',
   '       node scripts/Prepare-IcePackSpawnBatch.mjs --check-csv <file> [--pack <catalog pack ID>] [--batch 01|02]',
 ].join('\n');
 
@@ -51,8 +51,8 @@ async function checkCsv(path, rows) {
   const [header, ...lines] = decodeCsv(await readFile(path)).trim().split(/\r?\n/);
   const columns = parseCsvPair(header);
   if (!columns || !['name', '---', ''].includes(columns[0].toLowerCase()) ||
-    !/^spawn\s*class(?:_\d+_[a-f0-9]{32})?$/i.test(columns[1])) {
-    throw new Error('Expected a DevKit export with row names followed by the SpawnClass column.');
+    !/^(?:soft\s*)?spawn\s*class(?:_\d+_[a-f0-9]{32})?$/i.test(columns[1])) {
+    throw new Error('Expected a DevKit export with row names followed by the SoftSpawnClass or SpawnClass column.');
   }
   const expected = new Map(rows.map(row => [row.id.toLowerCase(), row]));
   const seen = new Set();
@@ -108,9 +108,10 @@ function printTests(batchNumber, rows, playerId) {
   for (const { id, testLevel } of rows) console.log(`ScriptCommand IcePackSpawn,${id},${testLevel},${playerId}`);
 }
 
-async function prepare({ 'player-id': selectedId, 'check-csv': checkPath, batch, pack, csv }) {
+async function prepare({ 'player-id': selectedId, 'check-csv': checkPath, 'hard-class': hardClass, batch, pack, csv }) {
   const tableMode = csv || checkPath !== undefined;
   if (csv && checkPath !== undefined) throw new Error('Choose either --csv or --check-csv.');
+  if (hardClass && !csv) throw new Error('Use --hard-class with --csv to generate a hard-reference table.');
   if (tableMode && selectedId !== undefined) throw new Error('Use --player-id when generating spawn test commands.');
   if (pack !== undefined && (!tableMode || !catalog.packs.some(entry => entry.id === pack))) {
     throw new Error('Use a catalog pack ID with --csv or --check-csv.');
@@ -132,15 +133,17 @@ async function prepare({ 'player-id': selectedId, 'check-csv': checkPath, batch,
   if (checkPath !== undefined) {
     await checkCsv(checkPath, rows);
   } else {
-    console.log(['Name,SpawnClass', ...rows.map(({ id, blueprint }) =>
-      `${id},"/Script/Engine.BlueprintGeneratedClass'${blueprint}'"`)].join('\n'));
+    const heading = hardClass ? 'Name,SpawnClass' : 'Name,SoftSpawnClass';
+    const cells = rows.map(({ id, blueprint }) =>
+      hardClass ? `${id},"/Script/Engine.BlueprintGeneratedClass'${blueprint}'"` : `${id},${blueprint}`);
+    console.log([heading, ...cells].join('\n'));
   }
 }
 
 try {
   const { values } = parseArgs({ options: {
     'player-id': { type: 'string' }, 'check-csv': { type: 'string' }, batch: { type: 'string' },
-    pack: { type: 'string' }, csv: { type: 'boolean' }, help: { type: 'boolean' },
+    pack: { type: 'string' }, csv: { type: 'boolean' }, 'hard-class': { type: 'boolean' }, help: { type: 'boolean' },
   } });
   if (values.help) console.log(help);
   else await prepare(values);
