@@ -3,6 +3,8 @@ import items from './hosted-items.json' with { type: 'json' };
 
 export const defaultItemQuantity = 5;
 export const maxItemQuantity = 100;
+export const defaultDinosaurLevel = 25;
+export const maxDinosaurLevel = 150;
 const legacyItemIds = new Map([['Stone', 'rose-stone'], ['Wood', 'wood-5'], ['Thatch', 'thatch-5']]);
 const byCatalogId = new Map(items.map(entry => [entry.id, entry]));
 

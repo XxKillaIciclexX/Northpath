@@ -157,11 +157,20 @@ Custom hosted Kits use two to four distinct catalog rewards, including at most o
 4. In **Kit Builder**, enable **Show hosted rewards only** to find the new items. Build a Kit with **7 Crystal** and **3 Cooked Meat** at quality 0, then choose **Settings → Save to account**. The owner can allow **Custom Kits** and both items. After refreshing access, the Kit appears among the streamer’s tests. Lower the Crystal cap to **6** and refresh to confirm the Kit disappears. The saved Kit becomes available again when the owner raises or clears the cap.
 5. Export the owner’s saved whitelist and import it again. The version 2 preset restores the selected policy, allowed rewards, and optional limits after you review and save it. Version 1 presets are accepted with no item limits.
 
-Hosted items come from the reviewed catalog’s verified, enabled base-game entries. The hosted creature set is wild level-25 Dodo, Raptor, and Rex. The relay checks the configured item amount against the owner’s current limits before dispatch and each remaining Kit step. A reward above the limit is blocked in full before delivery begins.
+Hosted items come from the reviewed catalog’s verified, enabled base-game entries. The hosted creature set is wild Dodo, Raptor, and Rex. The relay checks the configured item amount against the owner’s current limits before dispatch and each remaining Kit step. A reward above the limit is blocked in full before delivery begins.
 
 ## Manage rewards by category or group
 
 1. In **Companion → Connections → ARK server registry → Reward policy**, search by reward name or blueprint. Use **Category** for catalog types such as Structures, Armor, Resources, Dinosaurs, or Kits. Use **Item group** for Tek, Flak / Metal, or Cosmetics. Filters can be combined. Tek includes Tek-named items and Element resources. Cosmetics includes catalog-tagged cosmetics and chibis, skins, costumes, and dyes.
 2. Use a card’s checkbox to allow or block a single entry. Use **Allow all matches** or **Block all matches** to apply the action across every page of the current search and filters. The count above the cards shows the size of the selection.
-3. Blocking a reward from **All supported rewards** starts an **Owner whitelist** with the rest of the catalog allowed. Choose **Save reward policy** when the selection is ready. Use **Reward status → Blocked** to review or restore rewards later.
+3. Choose **Owner whitelist** to display the reward cards. If the server is switching from **All supported rewards** with an empty saved selection, the editor starts with every reward allowed. Choose **Save reward policy** when the selection is ready. Use **Reward status → Blocked** to review or restore rewards later.
 4. Turn on **Show optional item quantity limits** to edit caps on allowed item cards. Export a saved whitelist to preserve a wipe-phase preset, then import and review it before saving it again.
+
+## Test hosted dinosaur level caps
+
+1. In **Supabase → SQL Editor**, run [the dinosaur level caps migration](../supabase/migrations/20261126000200_add_hosted_dinosaur_level_limits.sql) after the item quantity limits migration. Check that Railway deployed the matching `development` commit, then publish the website in **Bolt**. Use the current ASA mod and the v5.9 Windows app.
+2. As the owner, open **Companion → Connections → ARK server registry → Reward policy**. With **All supported rewards**, the cards are hidden. Check **Show optional dinosaur level limits** and set **Wild Raptor** to **60**. Leave Dodo and Rex blank for a maximum of **150**. Save the policy.
+3. As an approved streamer, click **Refresh access**, search for **Wild Raptor**, and try entering level **61**. The send button should be disabled. Enter **60**, send the test, and verify one wild level-60 Raptor spawns beside your linked survivor. The owner’s **Delivery history** should show **Wild Raptor · level 60 · Test**.
+4. To verify saved Gift Rules and Kits, save a draft with a wild Raptor at or below the cap, then use it in an enabled rule. A Gift Rule or Kit above the cap is blocked. Wait at least 15 seconds between deliveries and allow enough room in the owner’s hourly limit.
+
+Hosted creatures use levels **1–150**. The test picker starts at **25** or the owner’s cap when that cap is lower. The fixed Starter Kit contains a level-25 Dodo and requires a Dodo cap of at least **25**. Version 3 whitelist presets include level caps. Version 1 and 2 presets load with the default dinosaur cap of **150**.

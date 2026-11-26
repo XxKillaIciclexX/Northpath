@@ -28,6 +28,7 @@ const giftRulesMigration = new URL('../supabase/migrations/20261125000400_add_st
 const expandedCatalogMigration = new URL('../supabase/migrations/20261125000500_expand_hosted_reward_catalog.sql', import.meta.url);
 const customKitsMigration = new URL('../supabase/migrations/20261125000600_add_custom_hosted_kits.sql', import.meta.url);
 const quantitiesMigration = new URL('../supabase/migrations/20261126000100_expand_hosted_items_and_quantity_limits.sql', import.meta.url);
+const dinosaurLevelsMigration = new URL('../supabase/migrations/20261126000200_add_hosted_dinosaur_level_limits.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -81,15 +82,15 @@ const argumentsFor = {
   desktop_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
   paired_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_source'],
   live_rose_policy: ['p_actor', 'p_server', 'p_policy', 'p_enabled'],
-  catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards', 'p_limits'],
-  catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward', 'p_quantity'],
+  catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards', 'p_limits', 'p_level_limits'],
+  catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward', 'p_quantity', 'p_level'],
   finish_catalog: ['p_actor', 'p_server', 'p_request', 'p_reward', 'p_state', 'p_acknowledged'],
-  saved_kit_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_kit_id', 'p_revision', 'p_supports_quantities'],
-  hosted_gift_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_request', 'p_supports_quantities'],
+  saved_kit_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_kit_id', 'p_revision', 'p_supports_quantities', 'p_supports_levels'],
+  hosted_gift_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_request', 'p_supports_quantities', 'p_supports_levels'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
-function fakeSupabase(db) {
+function fakeSupabase(db, hasLevelMigration) {
   return createHttpServer(async (request, response) => {
     const send = (status, result) => response.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(result));
     try {
@@ -103,7 +104,8 @@ function fakeSupabase(db) {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks));
-      const keys = argumentsFor[name];
+      if (!hasLevelMigration() && Object.hasOwn(body, 'p_supports_levels')) return send(404, { code: 'PGRST202' });
+      const keys = argumentsFor[name].filter(key => Object.hasOwn(body, key));
       const result = await db.transaction(async tx => {
         await tx.exec('set local role service_role');
         return tx.query('select public.icepack_relay_' + name + '(' + keys.map((_, i) => '$' + (i + 1)).join(',') + ') as result',
@@ -150,6 +152,7 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   await db.exec(await readFile(expandedCatalogMigration, 'utf8'));
   await db.exec(await readFile(customKitsMigration, 'utf8'));
   await db.exec(await readFile(quantitiesMigration, 'utf8'));
+  await db.exec(await readFile(dinosaurLevelsMigration, 'utf8'));
   const supported = await db.query('select public.icepack_hosted_reward_ids() as ids');
   assert.deepEqual(supported.rows[0].ids, rewardCatalog.map(entry => entry.id));
   const upgraded = await db.query('select allowed_reward_ids from public.icepack_relay_servers where owner_id = $1', [outsider]);
@@ -169,7 +172,8 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   const commands = [];
   const rconSessions = [];
   const rconPort = await listen(t, fakeRcon(commands, rconSessions));
-  const backendPort = await listen(t, fakeSupabase(db));
+  let hasLevelMigration = true;
+  const backendPort = await listen(t, fakeSupabase(db, () => hasLevelMigration));
   const config = readConfig({ ...env, SUPABASE_URL: 'http://127.0.0.1:' + backendPort });
   let pauseConnection;
   let releaseConnection;
@@ -519,7 +523,7 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   const giftIds = async () => (await db.query('select public.get_companion_relay_test_target($1) as status',
     [pairingSecret])).rows[0].status.targets[0].hostedGiftIds;
   const testKit = () => ({ serverId, requestId: crypto.randomUUID(), kitId: custom.id, kitRevision: revision });
-  assert.deepEqual(await knownKits(), [{ id: custom.id, name: custom.name, rewardIds: bundleIds, revision, itemQuantities: {} }]);
+  assert.deepEqual(await knownKits(), [{ id: custom.id, name: custom.name, rewardIds: bundleIds, revision, itemQuantities: {}, dinosaurLevels: {} }]);
   assert.deepEqual(await knownKits('owner-token'), []);
   assert.deepEqual(await knownKits('outsider-token'), []);
   assert.deepEqual(await giftIds(), ['8811','8812','8813','8814','8815','8816','8817']);
@@ -698,4 +702,89 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
     kitName: largerKit.name, itemQuantities: { [crystal]: 7, [cookedMeat]: 35 },
   });
   assert.equal(commands.length, beforeQuantityChange + 1);
+
+  await ageHistory();
+  const setLevelCaps = (policy, allowedRewardIds, maxDinosaurLevels, actor = 'owner-token') =>
+    api(actor, 'reward-policy', { serverId, policy, allowedRewardIds, maxDinosaurLevels });
+  const dodoId = 'wild-dodo';
+  const raptorId = 'wild-raptor';
+  const dodo50 = { ...dodo, level: 50 };
+  assert.deepEqual((await ownerDashboard()).maxDinosaurLevels, {});
+  assert.equal((await setLevelCaps('all_supported', [], { [dodoId]: 60 }, 'outsider-token')).status, 403);
+  for (const invalid of [{ [dodoId]: 0 }, { [dodoId]: '60' }, { [dodoId]: 60.5 }, { [dodoId]: 151 }, { [crystal]: 60 }]) {
+    assert.equal((await setLevelCaps('all_supported', [], invalid)).status, 400);
+  }
+  assert.equal((await setLevelCaps('all_supported', [], { [dodoId]: 60 })).status, 200);
+  assert.equal((await deliver({ ...reward(raptorId), level: 151 })).status, 400);
+  assert.equal((await deliver({ ...reward(crystal), level: 10 })).status, 400);
+  assert.equal((await deliver({ ...reward(dodoId), level: 61 })).status, 403);
+  assert.deepEqual(await deliver({ ...reward(dodoId), level: 60 }), {
+    status: 200, body: { state: 'acknowledged', rewardId: dodoId, acknowledged: 1, total: 1, dinosaurLevels: { [dodoId]: 60 } },
+  });
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,60,12345');
+  assert.deepEqual((await ownerDashboard()).history[0].dinosaurLevels, { [dodoId]: 60 });
+  await liftCooldown();
+  assert.equal((await deliver({ ...reward(raptorId), level: 150 })).status, 200);
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Raptor,150,12345');
+  draft.rules.push(
+    { giftId: '8827', enabled: true, action: dodo50 },
+    { giftId: '8828', enabled: true, action: { ...dodo, level: 61 } },
+    { giftId: '8829', enabled: true, action: { ...dodo, level: '50' } },
+  );
+  const huntingKit = bundle('hunting-kit', 'Hunting Kit', [stone, { ...raptor, level: 100 }]);
+  draft.kits.push(huntingKit);
+  assignKit(huntingKit.id, '8830');
+  revision = await saveDraft();
+  assert.equal(await authorizeSaved(giftGrant, '8828', 'blocked high level'), 'ignored');
+  assert.equal(await authorizeSaved(giftGrant, '8829', 'invalid string level'), 'ignored');
+  assert.equal(await authorizeSaved(giftGrant, '8827', 'accepted live creature level'), 'ready');
+  const unsupportedLive = await db.transaction(async tx => {
+    await tx.exec('set local role service_role');
+    return tx.query("select public.icepack_relay_hosted_gift_delivery($1,$2,'reserve',null,true) as result",
+      [hash(giftGrant), owner]);
+  });
+  assert.equal(unsupportedLive.rows[0].result.status, 409);
+  await liftCooldown();
+  const dodoGift = await sendSaved(giftGrant);
+  assert.equal(dodoGift.status, 200);
+  assert.deepEqual((await dodoGift.json()).dinosaurLevels, { [dodoId]: 50 });
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,50,12345');
+  assert.equal((await ownerDashboard()).history[0].source, 'live_draft');
+
+  const whitelistLevels = ['custom-kit', 'rose-stone', dodoId, raptorId, 'starter-kit'];
+  assert.equal((await setLevelCaps('whitelist', whitelistLevels, { [dodoId]: 20, [raptorId]: 90 })).status, 200);
+  assert.equal((await deliver(reward('starter-kit'))).status, 403);
+  assert.equal((await knownKits()).some(entry => entry.id === huntingKit.id), false);
+  assert.equal(await authorizeSaved(giftGrant, '8830', 'hunting Kit blocked'), 'ignored');
+  assert.equal((await setLevelCaps('whitelist', whitelistLevels, { [raptorId]: 100 })).status, 200);
+  assert.equal((await knownKits()).some(entry => entry.id === huntingKit.id), true);
+  const huntingTest = () => ({ serverId, requestId: crypto.randomUUID(), kitId: huntingKit.id, kitRevision: revision });
+  await liftCooldown();
+  assert.deepEqual((await deliver(huntingTest())).body.dinosaurLevels, { [raptorId]: 100 });
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Raptor,100,12345');
+  await liftCooldown();
+  const firstHuntingStep = new Promise(resolve => {
+    pauseAfterCommand = () => new Promise(release => { releaseCommand = release; resolve(); });
+  });
+  const sendingHuntingKit = deliver(huntingTest());
+  await Promise.race([firstHuntingStep, sendingHuntingKit.then(() => assert.fail('The hunting Kit did not reach its first step.'))]);
+  try {
+    assert.equal((await setLevelCaps('whitelist', whitelistLevels, { [raptorId]: 99 })).status, 200);
+    assert.equal((await setLevelCaps('whitelist', whitelistLevels, {})).status, 200);
+  } finally { pauseAfterCommand = undefined; releaseCommand(); }
+  assert.deepEqual((await sendingHuntingKit).body, {
+    state: 'unconfirmed', rewardId: 'custom-kit', acknowledged: 1, total: 2,
+    kitName: huntingKit.name, dinosaurLevels: { [raptorId]: 100 },
+  });
+  assert.equal(commands.at(-1), commands[0]);
+  await liftCooldown();
+  hasLevelMigration = false;
+  assert.equal(await authorizeSaved(giftGrant, '8811', 'deployment before the level migration'), 'ready');
+  const legacyDodo = await sendSaved(giftGrant);
+  assert.equal(legacyDodo.status, 200);
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,25,12345');
+  await liftCooldown();
+  assert.equal(await authorizeSaved(giftGrant, '8827', 'old RPC must refuse a different level'), 'ready');
+  assert.equal((await sendSaved(giftGrant)).status, 409);
+  assert.equal(commands.at(-1), 'ScriptCommand IcePackSpawn,Dodo,25,12345');
 });

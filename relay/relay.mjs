@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { isUuid } from './config.mjs';
-import { defaultItemQuantity, maxItemQuantity, rewardsById } from './reward-catalog.mjs';
+import { defaultDinosaurLevel, defaultItemQuantity, maxDinosaurLevel, maxItemQuantity, rewardsById } from './reward-catalog.mjs';
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -78,26 +78,32 @@ async function readBody(request, maxBytes = 4096) {
   throw new HttpError(400, 'Invalid JSON request.');
 }
 
-const hostedDinosaurs = new Map([['wild-dodo', 'Dodo'], ['wild-raptor', 'Raptor'], ['wild-rex', 'Rex']]);
 const validItemQuantity = quantity => Number.isInteger(quantity) && quantity >= 1 && quantity <= maxItemQuantity;
+const validDinosaurLevel = level => Number.isInteger(level) && level >= 1 && level <= maxDinosaurLevel;
+const validLimits = (limits, property, validate) => limits === undefined ||
+  (limits && typeof limits === 'object' && !Array.isArray(limits) &&
+    Object.entries(limits).every(([id, value]) => rewardsById.get(id)?.[property] && validate(value)));
 
-function rewardCommands(reward, playerId, quantities) {
-  if (reward === 'starter-kit') return ['rose-stone', 'wild-dodo'].flatMap(id => rewardCommands(id, playerId, quantities));
-  const item = rewardsById.get(reward)?.item;
+function rewardCommands(reward, playerId, quantities, levels) {
+  if (reward === 'starter-kit') return ['rose-stone', 'wild-dodo'].flatMap(id => rewardCommands(id, playerId, quantities, levels));
+  const { item, creature } = rewardsById.get(reward) ?? {};
   if (item) {
     const quantity = quantities[reward] ?? defaultItemQuantity;
     if (!validItemQuantity(quantity)) throw Error('Invalid hosted item quantity.');
     return [`GiveItemToPlayer ${playerId} "Blueprint'${item.blueprint}'" ${quantity} 0 0`];
   }
-  const dinosaur = hostedDinosaurs.get(reward);
   // The same supported wild-spawn command used by the Windows engine.
-  if (dinosaur) return [`ScriptCommand IcePackSpawn,${dinosaur},25,${playerId}`];
+  if (creature) {
+    const level = levels[reward] ?? defaultDinosaurLevel;
+    if (!validDinosaurLevel(level)) throw Error('Invalid hosted dinosaur level.');
+    return [`ScriptCommand IcePackSpawn,${creature},${level},${playerId}`];
+  }
   throw Error('Unsupported hosted reward.');
 }
 
 export function createRelay({ config, store, connect }) {
-  async function rpc(name, params) {
-    const result = await store.rpc(name, params);
+  async function rpc(name, params, previousParams) {
+    const result = await store.rpc(name, params, previousParams);
     if (result?.error) throw new HttpError(result.status, result.error);
     return result;
   }
@@ -133,7 +139,8 @@ export function createRelay({ config, store, connect }) {
   }
 
   async function simulate(authorize, rewardId) {
-    const { envelope, actor, server, request, rewardId: savedReward, kitRewardIds, kitName, itemQuantities = {} } = await authorize('reserve');
+    const { envelope, actor, server, request, rewardId: savedReward, kitRewardIds, kitName,
+      itemQuantities = {}, dinosaurLevels = {} } = await authorize('reserve');
     rewardId ??= savedReward;
     let connection;
     let state = 'cancelled';
@@ -147,7 +154,7 @@ export function createRelay({ config, store, connect }) {
       state = 'unconfirmed';
       const playerId = survivor(approved.survivorId);
       const steps = rewardId === 'custom-kit' ? kitRewardIds : [rewardId ?? 'rose-stone'];
-      const commands = steps.flatMap(id => rewardCommands(id, playerId, itemQuantities));
+      const commands = steps.flatMap(id => rewardCommands(id, playerId, itemQuantities, dinosaurLevels));
       try {
         for (const command of commands) {
           if (acknowledged > 0 && (await authorize('continue', request)).survivorId !== playerId) break;
@@ -160,7 +167,8 @@ export function createRelay({ config, store, connect }) {
       }
       return rewardId
         ? { state, rewardId, acknowledged, total: commands.length, ...(kitName ? { kitName } : {}),
-          ...(Object.keys(itemQuantities).length ? { itemQuantities } : {}) }
+          ...(Object.keys(itemQuantities).length ? { itemQuantities } : {}),
+          ...(Object.keys(dinosaurLevels).length ? { dinosaurLevels } : {}) }
         : { state };
     } finally {
       connection?.close();
@@ -178,26 +186,30 @@ export function createRelay({ config, store, connect }) {
     const request = uuid(input.requestId, 'Invalid test request ID.');
     if (input.kitId !== undefined) {
       const kitId = input.kitId;
-      requireInput(input.rewardId === undefined && input.quantity === undefined &&
+      requireInput(input.rewardId === undefined && input.quantity === undefined && input.level === undefined &&
         typeof kitId === 'string' && kitId.length > 0 && Array.from(kitId).length <= 120,
         'Choose a saved custom Kit.');
       const revision = uuid(input.kitRevision, 'Refresh server access and choose a saved Kit.');
-      return simulate(async phase => ({
-        ...await rpc('saved_kit_delivery', {
+      return simulate(async phase => {
+        const params = {
           p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_kit_id: kitId, p_revision: revision,
           p_supports_quantities: true,
-        }),
-        actor, server, request,
-      }), 'custom-kit');
+        };
+        return { ...await rpc('saved_kit_delivery', { ...params, p_supports_levels: true }, params), actor, server, request };
+      }, 'custom-kit');
     }
     if (input.rewardId !== undefined) {
       const reward = input.rewardId;
-      requireInput(reward !== 'custom-kit' && rewardsById.has(reward), 'Choose a supported hosted reward.');
-      requireInput(input.quantity === undefined || (rewardsById.get(reward)?.item && validItemQuantity(input.quantity)),
+      const entry = rewardsById.get(reward);
+      requireInput(reward !== 'custom-kit' && entry, 'Choose a supported hosted reward.');
+      requireInput(input.quantity === undefined || (entry.item && validItemQuantity(input.quantity)),
         'Choose an item quantity between 1 and ' + maxItemQuantity + '.');
+      requireInput(input.level === undefined || (entry.creature && validDinosaurLevel(input.level)),
+        'Choose a dinosaur level between 1 and ' + maxDinosaurLevel + '.');
       return simulate(async phase => ({
         ...await rpc('catalog_delivery', {
           p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_reward: reward, p_quantity: input.quantity ?? null,
+          ...(input.level !== undefined ? { p_level: input.level } : {}),
         }),
         actor, server, request,
       }), reward);
@@ -215,8 +227,10 @@ export function createRelay({ config, store, connect }) {
     }
     const hash = createHash('sha256').update(secret).digest('hex');
     const params = { p_token_hash: hash, p_owner: config.ownerId };
-    if (route === '/v1/live-reward') return simulate((phase, request) =>
-      rpc('hosted_gift_delivery', { ...params, p_phase: phase, p_request: request ?? null, p_supports_quantities: true }));
+    if (route === '/v1/live-reward') return simulate((phase, request) => {
+      const gift = { ...params, p_phase: phase, p_request: request ?? null, p_supports_quantities: true };
+      return rpc('hosted_gift_delivery', { ...gift, p_supports_levels: true }, gift);
+    });
     if (route === '/v1/live-rose') return simulate(phase => rpc('paired_delivery', { ...params, p_phase: phase, p_source: 'live_rose' }));
     return simulate(phase => rpc('desktop_delivery', { ...params, p_phase: phase }));
   }
@@ -267,15 +281,17 @@ export function createRelay({ config, store, connect }) {
             requireInput(Array.isArray(ids) && ids.length <= rewardsById.size && ids.every(id => rewardsById.has(id)) &&
               new Set(ids).size === ids.length, 'Choose a valid hosted reward whitelist.');
             const limits = input.maxItemQuantities;
-            requireInput(limits === undefined || (limits && typeof limits === 'object' && !Array.isArray(limits) &&
-              Object.entries(limits).every(([id, quantity]) => rewardsById.get(id)?.item && validItemQuantity(quantity))),
-              'Set valid item quantity limits.');
+            const levelLimits = input.maxDinosaurLevels;
+            requireInput(validLimits(limits, 'item', validItemQuantity), 'Set valid item quantity limits.');
+            requireInput(validLimits(levelLimits, 'creature', validDinosaurLevel), 'Set valid dinosaur level limits.');
             result = await rpc('catalog_policy', {
               p_actor: actor, p_server: server, p_policy: input.policy, p_rewards: ids, p_limits: limits ?? null,
+              ...(levelLimits !== undefined ? { p_level_limits: levelLimits } : {}),
             });
             break;
           }
-          requireInput(input.maxItemQuantities === undefined && typeof input.roseWhitelisted === 'boolean', 'Select a supported reward policy.');
+          requireInput(input.maxItemQuantities === undefined && input.maxDinosaurLevels === undefined &&
+            typeof input.roseWhitelisted === 'boolean', 'Select a supported reward policy.');
           result = await rpc('live_rose_policy', {
             p_actor: actor, p_server: server, p_policy: input.policy, p_enabled: input.roseWhitelisted,
           });

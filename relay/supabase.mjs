@@ -10,12 +10,17 @@ export function createStore(config) {
       if (!response.ok) throw Error('Authentication backend unavailable.');
       return (await response.json()).id;
     },
-    async rpc(name, parameters) {
-      const response = await fetch(config.supabaseOrigin + '/rest/v1/rpc/icepack_relay_' + name, {
+    async rpc(name, parameters, previousParameters) {
+      const send = body => fetch(config.supabaseOrigin + '/rest/v1/rpc/icepack_relay_' + name, {
         method: 'POST',
         headers: { ...headers, Authorization: 'Bearer ' + config.supabaseKey },
-        body: JSON.stringify(parameters), signal: AbortSignal.timeout(5000), redirect: 'error',
+        body: JSON.stringify(body), signal: AbortSignal.timeout(5000), redirect: 'error',
       });
+      let response = await send(parameters);
+      // A Railway deploy may arrive before the migration that adds the new RPC signature.
+      if (previousParameters && response.status === 404 && (await response.clone().json().catch(() => null))?.code === 'PGRST202') {
+        response = await send(previousParameters);
+      }
       if (!response.ok) throw Error('Registry backend unavailable.');
       return response.status === 204 ? null : response.json();
     },
