@@ -158,3 +158,10 @@ Custom hosted Kits use two to four distinct catalog rewards, including at most o
 5. Export the owner’s saved whitelist and import it again. The version 2 preset restores the selected policy, allowed rewards, and optional limits after you review and save it. Version 1 presets are accepted with no item limits.
 
 Hosted items come from the reviewed catalog’s verified, enabled base-game entries. The hosted creature set is wild level-25 Dodo, Raptor, and Rex. The relay checks the configured item amount against the owner’s current limits before dispatch and each remaining Kit step. A reward above the limit is blocked in full before delivery begins.
+
+## Manage rewards by category or group
+
+1. In **Companion → Connections → ARK server registry → Reward policy**, search by reward name or blueprint. Use **Category** for catalog types such as Structures, Armor, Resources, Dinosaurs, or Kits. Use **Item group** for Tek, Flak / Metal, or Cosmetics. Filters can be combined. Tek includes Tek-named items and Element resources. Cosmetics includes catalog-tagged cosmetics and chibis, skins, costumes, and dyes.
+2. Use a card’s checkbox to allow or block a single entry. Use **Allow all matches** or **Block all matches** to apply the action across every page of the current search and filters. The count above the cards shows the size of the selection.
+3. Blocking a reward from **All supported rewards** starts an **Owner whitelist** with the rest of the catalog allowed. Choose **Save reward policy** when the selection is ready. Use **Reward status → Blocked** to review or restore rewards later.
+4. Turn on **Show optional item quantity limits** to edit caps on allowed item cards. Export a saved whitelist to preserve a wipe-phase preset, then import and review it before saving it again.
