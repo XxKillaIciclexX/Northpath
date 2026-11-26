@@ -344,3 +344,5 @@ Use `--repo` and `--engine` to inspect another checkout. The checker reports sou
 ## Next milestone
 
 v5.7 prioritizes the ARK base-game and free-expansion catalog. The first step stages new creatures, items, and resources alongside the catalog already in Kit Editor. The next step uses an ASA DevKit inventory and checks access requirements per asset before expanding coverage. [Catalog Manager instructions](https://github.com/XxKillaIciclexX/ice-pack-ark/tree/development/icepack-catalog-manager)
+
+See the [ASA DevKit spawn batch](mod-devkit/README.md) for the Blueprint changes and dedicated-server tests for Parasaur, Triceratops, and Pteranodon.

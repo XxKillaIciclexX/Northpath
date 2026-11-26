@@ -1,0 +1,9 @@
+{
+  "curseForgeProjectId": 1814233,
+  "baseline": ["Dodo", "Raptor", "Rex"],
+  "additions": [
+    { "id": "Parasaur", "testLevel": 25 },
+    { "id": "Triceratops", "testLevel": 75 },
+    { "id": "Pteranodon", "testLevel": 150 }
+  ]
+}
