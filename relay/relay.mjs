@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { isUuid } from './config.mjs';
-import rewardCatalog from './reward-catalog.json' with { type: 'json' };
+import { defaultItemQuantity, maxItemQuantity, rewardsById } from './reward-catalog.mjs';
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -56,16 +56,16 @@ function unseal(envelope, key, ownerId) {
   return JSON.parse(Buffer.concat([decipher.update(packed.subarray(28)), decipher.final()]).toString());
 }
 
-async function readBody(request) {
+async function readBody(request, maxBytes = 4096) {
   if (!/^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? '')) {
     throw new HttpError(415, 'Use a JSON request.');
   }
-  if (Number(request.headers['content-length']) > 4096) throw new HttpError(413, 'Request is too large.');
+  if (Number(request.headers['content-length']) > maxBytes) throw new HttpError(413, 'Request is too large.');
   let size = 0;
   const chunks = [];
   for await (const chunk of request.iterator({ destroyOnReturn: false })) {
     size += chunk.length;
-    if (size > 4096) {
+    if (size > maxBytes) {
       request.resume();
       throw new HttpError(413, 'Request is too large.');
     }
@@ -78,17 +78,16 @@ async function readBody(request) {
   throw new HttpError(400, 'Invalid JSON request.');
 }
 
-const rewardIds = new Set(rewardCatalog.map(reward => reward.id));
-const hostedItems = new Map([['rose-stone', 'Stone'], ['wood-5', 'Wood'], ['thatch-5', 'Thatch']]);
 const hostedDinosaurs = new Map([['wild-dodo', 'Dodo'], ['wild-raptor', 'Raptor'], ['wild-rex', 'Rex']]);
+const validItemQuantity = quantity => Number.isInteger(quantity) && quantity >= 1 && quantity <= maxItemQuantity;
 
-function rewardCommands(reward, playerId) {
-  if (reward === 'starter-kit') return ['rose-stone', 'wild-dodo'].flatMap(id => rewardCommands(id, playerId));
-  const item = hostedItems.get(reward);
+function rewardCommands(reward, playerId, quantities) {
+  if (reward === 'starter-kit') return ['rose-stone', 'wild-dodo'].flatMap(id => rewardCommands(id, playerId, quantities));
+  const item = rewardsById.get(reward)?.item;
   if (item) {
-    const asset = 'PrimalItemResource_' + item;
-    const blueprint = '/Game/PrimalEarth/CoreBlueprints/Resources/' + asset + '.' + asset;
-    return [`GiveItemToPlayer ${playerId} "Blueprint'${blueprint}'" 5 0 0`];
+    const quantity = quantities[reward] ?? defaultItemQuantity;
+    if (!validItemQuantity(quantity)) throw Error('Invalid hosted item quantity.');
+    return [`GiveItemToPlayer ${playerId} "Blueprint'${item.blueprint}'" ${quantity} 0 0`];
   }
   const dinosaur = hostedDinosaurs.get(reward);
   // The same supported wild-spawn command used by the Windows engine.
@@ -134,7 +133,7 @@ export function createRelay({ config, store, connect }) {
   }
 
   async function simulate(authorize, rewardId) {
-    const { envelope, actor, server, request, rewardId: savedReward, kitRewardIds, kitName } = await authorize('reserve');
+    const { envelope, actor, server, request, rewardId: savedReward, kitRewardIds, kitName, itemQuantities = {} } = await authorize('reserve');
     rewardId ??= savedReward;
     let connection;
     let state = 'cancelled';
@@ -148,7 +147,7 @@ export function createRelay({ config, store, connect }) {
       state = 'unconfirmed';
       const playerId = survivor(approved.survivorId);
       const steps = rewardId === 'custom-kit' ? kitRewardIds : [rewardId ?? 'rose-stone'];
-      const commands = steps.flatMap(id => rewardCommands(id, playerId));
+      const commands = steps.flatMap(id => rewardCommands(id, playerId, itemQuantities));
       try {
         for (const command of commands) {
           if (acknowledged > 0 && (await authorize('continue', request)).survivorId !== playerId) break;
@@ -160,7 +159,8 @@ export function createRelay({ config, store, connect }) {
         // A dropped RCON reply can follow a successful send. Treat it as unknown.
       }
       return rewardId
-        ? { state, rewardId, acknowledged, total: commands.length, ...(kitName ? { kitName } : {}) }
+        ? { state, rewardId, acknowledged, total: commands.length, ...(kitName ? { kitName } : {}),
+          ...(Object.keys(itemQuantities).length ? { itemQuantities } : {}) }
         : { state };
     } finally {
       connection?.close();
@@ -178,21 +178,27 @@ export function createRelay({ config, store, connect }) {
     const request = uuid(input.requestId, 'Invalid test request ID.');
     if (input.kitId !== undefined) {
       const kitId = input.kitId;
-      requireInput(input.rewardId === undefined && typeof kitId === 'string' && kitId.length > 0 && kitId.length <= 120,
+      requireInput(input.rewardId === undefined && input.quantity === undefined &&
+        typeof kitId === 'string' && kitId.length > 0 && Array.from(kitId).length <= 120,
         'Choose a saved custom Kit.');
       const revision = uuid(input.kitRevision, 'Refresh server access and choose a saved Kit.');
       return simulate(async phase => ({
         ...await rpc('saved_kit_delivery', {
           p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_kit_id: kitId, p_revision: revision,
+          p_supports_quantities: true,
         }),
         actor, server, request,
       }), 'custom-kit');
     }
     if (input.rewardId !== undefined) {
       const reward = input.rewardId;
-      requireInput(reward !== 'custom-kit' && rewardIds.has(reward), 'Choose a supported hosted reward.');
+      requireInput(reward !== 'custom-kit' && rewardsById.has(reward), 'Choose a supported hosted reward.');
+      requireInput(input.quantity === undefined || (rewardsById.get(reward)?.item && validItemQuantity(input.quantity)),
+        'Choose an item quantity between 1 and ' + maxItemQuantity + '.');
       return simulate(async phase => ({
-        ...await rpc('catalog_delivery', { p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_reward: reward }),
+        ...await rpc('catalog_delivery', {
+          p_actor: actor, p_server: server, p_request: request, p_phase: phase, p_reward: reward, p_quantity: input.quantity ?? null,
+        }),
         actor, server, request,
       }), reward);
     }
@@ -210,7 +216,7 @@ export function createRelay({ config, store, connect }) {
     const hash = createHash('sha256').update(secret).digest('hex');
     const params = { p_token_hash: hash, p_owner: config.ownerId };
     if (route === '/v1/live-reward') return simulate((phase, request) =>
-      rpc('hosted_gift_delivery', { ...params, p_phase: phase, p_request: request ?? null }));
+      rpc('hosted_gift_delivery', { ...params, p_phase: phase, p_request: request ?? null, p_supports_quantities: true }));
     if (route === '/v1/live-rose') return simulate(phase => rpc('paired_delivery', { ...params, p_phase: phase, p_source: 'live_rose' }));
     return simulate(phase => rpc('desktop_delivery', { ...params, p_phase: phase }));
   }
@@ -241,10 +247,10 @@ export function createRelay({ config, store, connect }) {
       if (request.method !== 'POST') throw new HttpError(405, 'Use POST for relay actions.');
       const authorization = /^Bearer ([A-Za-z0-9._-]{1,4096})$/i.exec(request.headers.authorization ?? '');
       if (!authorization) throw new HttpError(401, 'Sign in to Northpath first.');
-      const input = await readBody(request);
       const identity = await store.authenticate(authorization[1]);
       if (!isUuid(identity)) throw new HttpError(401, 'Sign in to Northpath first.');
       const actor = identity.toLowerCase();
+      const input = await readBody(request, 128 * 1024);
       let result;
       switch (input.action) {
         case 'dashboard': {
@@ -258,12 +264,18 @@ export function createRelay({ config, store, connect }) {
           requireInput(['all_supported', 'whitelist'].includes(input.policy), 'Select a supported reward policy.');
           if (input.allowedRewardIds !== undefined) {
             const ids = input.allowedRewardIds;
-            requireInput(Array.isArray(ids) && ids.length <= rewardIds.size && ids.every(id => rewardIds.has(id)) &&
+            requireInput(Array.isArray(ids) && ids.length <= rewardsById.size && ids.every(id => rewardsById.has(id)) &&
               new Set(ids).size === ids.length, 'Choose a valid hosted reward whitelist.');
-            result = await rpc('catalog_policy', { p_actor: actor, p_server: server, p_policy: input.policy, p_rewards: ids });
+            const limits = input.maxItemQuantities;
+            requireInput(limits === undefined || (limits && typeof limits === 'object' && !Array.isArray(limits) &&
+              Object.entries(limits).every(([id, quantity]) => rewardsById.get(id)?.item && validItemQuantity(quantity))),
+              'Set valid item quantity limits.');
+            result = await rpc('catalog_policy', {
+              p_actor: actor, p_server: server, p_policy: input.policy, p_rewards: ids, p_limits: limits ?? null,
+            });
             break;
           }
-          requireInput(typeof input.roseWhitelisted === 'boolean', 'Select a supported reward policy.');
+          requireInput(input.maxItemQuantities === undefined && typeof input.roseWhitelisted === 'boolean', 'Select a supported reward policy.');
           result = await rpc('live_rose_policy', {
             p_actor: actor, p_server: server, p_policy: input.policy, p_enabled: input.roseWhitelisted,
           });

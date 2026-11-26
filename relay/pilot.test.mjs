@@ -10,7 +10,7 @@ import { readConfig } from './config.mjs';
 import { connectRcon } from './rcon.mjs';
 import { createRelay } from './relay.mjs';
 import { createStore } from './supabase.mjs';
-import rewardCatalog from './reward-catalog.json' with { type: 'json' };
+import { rewardCatalog } from './reward-catalog.mjs';
 
 const owner = '238fc7ec-c121-4ee4-8a67-f9bed33eb901';
 const streamer = '9f88f270-5f67-4ed9-b9f9-e068a46538b4';
@@ -24,6 +24,7 @@ const draftsMigration = new URL('../supabase/migrations/20261123000200_create_co
 const giftRulesMigration = new URL('../supabase/migrations/20261125000400_add_streamer_hosted_gift_rules.sql', import.meta.url);
 const expandedCatalogMigration = new URL('../supabase/migrations/20261125000500_expand_hosted_reward_catalog.sql', import.meta.url);
 const customKitsMigration = new URL('../supabase/migrations/20261125000600_add_custom_hosted_kits.sql', import.meta.url);
+const quantitiesMigration = new URL('../supabase/migrations/20261126000100_expand_hosted_items_and_quantity_limits.sql', import.meta.url);
 const site = 'https://northpath.test';
 const fixtureKey = 'fixture-service-role';
 const env = {
@@ -77,11 +78,11 @@ const argumentsFor = {
   desktop_delivery: ['p_token_hash', 'p_owner', 'p_phase'],
   paired_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_source'],
   live_rose_policy: ['p_actor', 'p_server', 'p_policy', 'p_enabled'],
-  catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards'],
-  catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward'],
+  catalog_policy: ['p_actor', 'p_server', 'p_policy', 'p_rewards', 'p_limits'],
+  catalog_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_reward', 'p_quantity'],
   finish_catalog: ['p_actor', 'p_server', 'p_request', 'p_reward', 'p_state', 'p_acknowledged'],
-  saved_kit_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_kit_id', 'p_revision'],
-  hosted_gift_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_request'],
+  saved_kit_delivery: ['p_actor', 'p_server', 'p_request', 'p_phase', 'p_kit_id', 'p_revision', 'p_supports_quantities'],
+  hosted_gift_delivery: ['p_token_hash', 'p_owner', 'p_phase', 'p_request', 'p_supports_quantities'],
   finish: ['p_actor', 'p_server', 'p_request', 'p_state'],
 };
 
@@ -136,6 +137,7 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   await db.exec(await readFile(giftRulesMigration, 'utf8'));
   await db.exec(await readFile(expandedCatalogMigration, 'utf8'));
   await db.exec(await readFile(customKitsMigration, 'utf8'));
+  await db.exec(await readFile(quantitiesMigration, 'utf8'));
   const supported = await db.query('select public.icepack_hosted_reward_ids() as ids');
   assert.deepEqual(supported.rows[0].ids, rewardCatalog.map(entry => entry.id));
   const upgraded = await db.query('select allowed_reward_ids from public.icepack_relay_servers where owner_id = $1', [outsider]);
@@ -489,7 +491,7 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   }
   draft.kits.push(custom, bundle('two-creatures', 'Two creatures', [raptor, rex]),
     bundle('duplicate-material', 'Duplicate material', [wood, wood]),
-    bundle('oversized-stack', 'Oversized stack', [{ ...wood, quantity: 10 }, raptor]),
+    bundle('oversized-stack', 'Oversized stack', [{ ...wood, quantity: 101 }, raptor]),
     bundle('duplicate-id', 'One', [wood, raptor]), bundle('duplicate-id', 'Two', [stone, raptor]),
     bundle('nested', 'Nested', [kit, raptor]));
   assignKit(custom.id, '8817');
@@ -505,7 +507,7 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   const giftIds = async () => (await db.query('select public.get_companion_relay_test_target($1) as status',
     [pairingSecret])).rows[0].status.targets[0].hostedGiftIds;
   const testKit = () => ({ serverId, requestId: crypto.randomUUID(), kitId: custom.id, kitRevision: revision });
-  assert.deepEqual(await knownKits(), [{ id: custom.id, name: custom.name, rewardIds: bundleIds, revision }]);
+  assert.deepEqual(await knownKits(), [{ id: custom.id, name: custom.name, rewardIds: bundleIds, revision, itemQuantities: {} }]);
   assert.deepEqual(await knownKits('owner-token'), []);
   assert.deepEqual(await knownKits('outsider-token'), []);
   assert.deepEqual(await giftIds(), ['8811','8812','8813','8814','8815','8816','8817']);
@@ -593,4 +595,93 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
     await tx.query("select public.icepack_relay_saved_kit_delivery($1,$2,$3,'reserve',$4,$5)",
       [streamer, serverId, crypto.randomUUID(), custom.id, revision]);
   }), /permission denied/);
+
+  const crystal = 'item:Crystal';
+  const cookedMeat = 'item:CookedMeat';
+  const saveLimits = (policy, allowedRewardIds, maxItemQuantities, actor = 'owner-token') =>
+    api(actor, 'reward-policy', { serverId, policy, allowedRewardIds, maxItemQuantities });
+  const ageHistory = () => db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '2 hours'");
+  const itemTest = (id, quantity) => ({ ...reward(id), quantity });
+  await ageHistory();
+  assert.equal(rewardCatalog.filter(entry => entry.item).length, reviewed.items.filter(entry =>
+    entry.enabled && entry.verified && entry.contentPack === 'base-game').length);
+  assert.ok(!rewardCatalog.some(entry => entry.item?.catalogId === 'Fiber'));
+  assert.deepEqual((await ownerDashboard()).maxItemQuantities, {});
+  assert.equal((await saveLimits('all_supported', [], { [crystal]: 10 }, 'outsider-token')).status, 403);
+  for (const invalid of [{ [crystal]: 0 }, { [crystal]: '10' }, { [crystal]: 1.5 }, { [crystal]: 101 }, { 'wild-raptor': 1 }]) {
+    assert.equal((await saveLimits('all_supported', [], invalid)).status, 400);
+  }
+  const allIds = rewardCatalog.map(entry => entry.id);
+  const largeLimits = Object.fromEntries(rewardCatalog.filter(entry => entry.item).map(entry => [entry.id, 100]));
+  assert.ok(JSON.stringify(largeLimits).length > 4096);
+  assert.equal((await saveLimits('whitelist', allIds, largeLimits)).status, 200);
+  assert.deepEqual((await ownerDashboard()).maxItemQuantities, largeLimits);
+  assert.equal((await saveLimits('all_supported', [], { [crystal]: 10 })).status, 200);
+  assert.equal((await deliver(itemTest(crystal, 101))).status, 400);
+  assert.equal((await deliver(itemTest('wild-raptor', 2))).status, 400);
+  assert.equal((await deliver(itemTest(crystal, 11))).status, 403);
+  const crystalTest = await deliver(itemTest(crystal, 7));
+  assert.deepEqual(crystalTest, {
+    status: 200, body: { state: 'acknowledged', rewardId: crystal, acknowledged: 1, total: 1, itemQuantities: { [crystal]: 7 } },
+  });
+  const crystalBlueprint = reviewed.items.find(entry => entry.id === 'Crystal').blueprint.replace(/_C$/, '');
+  assert.equal(commands.at(-1), `GiveItemToPlayer 12345 "Blueprint'${crystalBlueprint}'" 7 0 0`);
+  assert.deepEqual((await ownerDashboard()).history[0].itemQuantities, { [crystal]: 7 });
+  await liftCooldown();
+  assert.equal((await deliver(itemTest(cookedMeat, 100))).status, 200);
+  const meatBlueprint = reviewed.items.find(entry => entry.id === 'CookedMeat').blueprint.replace(/_C$/, '');
+  assert.equal(commands.at(-1), `GiveItemToPlayer 12345 "Blueprint'${meatBlueprint}'" 100 0 0`);
+
+  const largerKit = bundle('larger-kit', 'Crystal supplies', [
+    { ...stone, catalogId: 'Crystal', quantity: 7 },
+    { ...stone, catalogId: 'CookedMeat', quantity: 35 },
+  ]);
+  draft.kits.push(largerKit);
+  assignKit(largerKit.id, '8824');
+  draft.rules.push({ giftId: '8825', enabled: true, action: { ...stone, catalogId: 'Crystal', quantity: 11 } });
+  draft.rules.push({ giftId: '8826', enabled: true, action: { ...stone, catalogId: 'Crystal', quantity: '7' } });
+  revision = await saveDraft();
+  assert.equal(await authorizeSaved(giftGrant, '8825', 'over owner cap'), 'ignored');
+  assert.equal(await authorizeSaved(giftGrant, '8826', 'invalid quantity type'), 'ignored');
+  assert.equal(await authorizeSaved(giftGrant, '8824', 'variable quantity grant'), 'ready');
+  const oldRelay = await db.transaction(async tx => {
+    await tx.exec('set local role service_role');
+    return tx.query("select public.icepack_relay_hosted_gift_delivery($1,$2,'reserve',null) as result",
+      [hash(giftGrant), owner]);
+  });
+  assert.equal(oldRelay.rows[0].result.status, 409);
+  await liftCooldown();
+  const deliveredKit = await sendSaved(giftGrant);
+  assert.equal(deliveredKit.status, 200);
+  assert.deepEqual((await deliveredKit.json()).itemQuantities, { [crystal]: 7, [cookedMeat]: 35 });
+  assert.deepEqual(commands.slice(-2), [
+    `GiveItemToPlayer 12345 "Blueprint'${crystalBlueprint}'" 7 0 0`,
+    `GiveItemToPlayer 12345 "Blueprint'${meatBlueprint}'" 35 0 0`,
+  ]);
+  const whitelist = ['custom-kit', crystal, cookedMeat, 'rose-stone', 'wild-dodo', 'starter-kit'];
+  const capped = { [crystal]: 10, [cookedMeat]: 30, 'rose-stone': 4 };
+  const largeKitRequest = () => ({ serverId, requestId: crypto.randomUUID(), kitId: largerKit.id, kitRevision: revision });
+  assert.equal((await saveLimits('whitelist', whitelist, capped)).status, 200);
+  assert.equal((await knownKits()).some(entry => entry.id === largerKit.id), false);
+  assert.equal((await deliver(largeKitRequest())).status, 403);
+  assert.equal((await deliver(reward('starter-kit'))).status, 403);
+  assert.equal((await api('streamer-token', 'simulate', { serverId, requestId: crypto.randomUUID() })).status, 403);
+  assert.equal((await saveLimits('whitelist', whitelist, { [crystal]: 10 })).status, 200);
+  assert.equal((await knownKits()).some(entry => entry.id === largerKit.id), true);
+  await liftCooldown();
+  const beforeQuantityChange = commands.length;
+  const sentCrystal = new Promise(resolve => {
+    pauseAfterCommand = () => new Promise(release => { releaseCommand = release; resolve(); });
+  });
+  const partialKit = deliver(largeKitRequest());
+  await Promise.race([sentCrystal, partialKit.then(() => assert.fail('The Kit did not reach its first item.'))]);
+  try {
+    assert.equal((await saveLimits('whitelist', whitelist, capped)).status, 200);
+    assert.equal((await saveLimits('whitelist', whitelist, {})).status, 200);
+  } finally { pauseAfterCommand = undefined; releaseCommand(); }
+  assert.deepEqual((await partialKit).body, {
+    state: 'unconfirmed', rewardId: 'custom-kit', acknowledged: 1, total: 2,
+    kitName: largerKit.name, itemQuantities: { [crystal]: 7, [cookedMeat]: 35 },
+  });
+  assert.equal(commands.length, beforeQuantityChange + 1);
 });

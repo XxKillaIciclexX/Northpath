@@ -75,6 +75,10 @@ const entriesById = {
 const packLabel = (pack: CatalogPack) => pack.premium ? `${pack.name} · Paid` : pack.name;
 const matchesCatalogQuery = (entry: CatalogEntry, query: string) =>
   [entry.name, entry.id, entry.blueprint, entry.category, ...entry.tags].some(value => value?.toLowerCase().includes(query));
+const hostedCreatures = new Set(['Dodo', 'Raptor', 'Rex']);
+const supportsHostedEntry = (kind: CatalogKind, entry: CatalogEntry) =>
+  entry.enabled && entry.verified && entry.contentPack === 'base-game' &&
+  (kind === 'items' ? !!entry.blueprint : hostedCreatures.has(entry.id));
 const STORAGE_KEY = 'northpath.icepack.dashboard.v1';
 const defaultAction = (type: ActionType = 'dinosaur'): Action => ({
   type, catalogId: type === 'item' ? 'Stone' : 'Dodo', quantity: 1, level: 25, tamed: false, quality: 0, kitId: '', announcement: '',
@@ -164,13 +168,20 @@ const IconCircle = ({ children }: { children: ReactNode }) => <div className="fl
 
 function CatalogPicker({ kind, value, onChange }: { kind: CatalogKind; value: string; onChange: (id: string) => void }) {
   const [search, setSearch] = useState('');
+  const [hostedOnly, setHostedOnly] = useState(false);
   const label = kind === 'items' ? 'Item' : 'Dinosaur';
   const query = search.trim().toLowerCase();
-  const options = browseableCatalog[kind].filter(entry => entry.id === value || matchesCatalogQuery(entry, query));
+  const options = browseableCatalog[kind].filter(entry => entry.id === value ||
+    ((!hostedOnly || supportsHostedEntry(kind, entry)) && matchesCatalogQuery(entry, query)));
+  const selectedEntry = entriesById[kind].get(value);
 
   return <div className="space-y-2">
     <Label>{label}</Label>
     <input className="field" aria-label={`Search ${kind}`} placeholder={`Search ${kind}...`} value={search} onChange={event => setSearch(event.target.value)}/>
+    {!localServicesEnabled && <label className="flex items-center gap-2 text-xs text-slate-300">
+      <input type="checkbox" checked={hostedOnly} onChange={event => setHostedOnly(event.target.checked)} />
+      Show hosted rewards only
+    </label>}
     <select className="field" aria-label={label} value={value} onChange={event => onChange(event.target.value)}>
       {value && !options.some(entry => entry.id === value) && <option value={value}>{value} (from saved draft)</option>}
       {options.map(entry => {
@@ -178,6 +189,9 @@ function CatalogPicker({ kind, value, onChange }: { kind: CatalogKind; value: st
         return <option key={entry.id} value={entry.id}>{pack && pack.id !== 'base-game' ? `${entry.name} (${packLabel(pack)})` : entry.name}</option>;
       })}
     </select>
+    {!localServicesEnabled && selectedEntry && <p className="text-xs text-slate-400">
+      {supportsHostedEntry(kind, selectedEntry) ? 'Available for hosted delivery subject to owner policy.' : 'Unavailable for hosted delivery.'}
+    </p>}
   </div>;
 }
 
@@ -460,7 +474,7 @@ function App({ accountId, accountControl, connectionsPanel, renderAccountDrafts 
         </>}
         {page === 'kits' && <>
           <SectionTitle title="Kit builder" subtitle="Create bundles containing multiple items and dinosaurs. Kits cannot contain other kits." extra={<button className="btn btn-primary" onClick={() => { const id = newId(); update({ kits: [...config.kits, { id, name: 'New kit', description: '', entries: [] }] }); setKitOpen(id); }}><Plus size={16}/> Create kit</button>}/>
-          {!localServicesEnabled && <p className="mb-5 text-sm leading-6 text-slate-300">For hosted delivery, use two to four different entries. Add 5 Stone, Wood, or Thatch at quality 0, and at most one wild level-25 Dodo, Raptor, or Rex. Leave announcements empty. Save to your Northpath account, then test the Kit in Connections or assign it to a gift in Gift Rules.</p>}
+          {!localServicesEnabled && <p className="mb-5 text-sm leading-6 text-slate-300">Hosted Kits use two to four distinct rewards. Supported items allow 1–100 per entry at quality 0, subject to the owner’s limits. Add at most one wild level-25 Dodo, Raptor, or Rex and leave announcements empty. Save to your account to test the Kit in Connections.</p>}
           <div className="grid gap-5 xl:grid-cols-2">{config.kits.length === 0 && <Card>No kits yet. Create a kit to get started.</Card>}{config.kits.map(kit => <Card key={kit.id} className="h-fit"><div className="flex items-start gap-3"><IconCircle><Boxes size={20}/></IconCircle><div className="min-w-0 flex-1"><h3 className="font-semibold text-white">{kit.name}</h3><p className="mt-1 text-xs text-slate-400">{kit.entries.length} entries · {kit.description || 'No description'}</p></div><button className="btn btn-ghost" onClick={() => setKitOpen(kitOpen === kit.id ? null : kit.id)}>{kitOpen === kit.id ? 'Close' : 'Edit'}</button><button className="rounded-lg p-2 text-slate-500 hover:text-rose-400" aria-label={`Delete ${kit.name}`} onClick={() => { if (window.confirm(`Delete ${kit.name}? Rules referencing it will need updating.`)) update({ kits: config.kits.filter(k => k.id !== kit.id) }); }}><Trash2 size={17}/></button></div><div className="mt-4 space-y-2">{kit.entries.map(entry => <div key={entry.id} className="rounded-lg bg-[#0a1524] px-3 py-2 text-xs text-slate-300">{displayAction(entry.action, config.kits)}</div>)}{!kit.entries.length && <p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-500">This kit is empty.</p>}</div>{kitOpen === kit.id && <div className="mt-5 space-y-5 border-t border-slate-700 pt-5"><div><Label>Kit name</Label><input className="field" maxLength={120} value={kit.name} onChange={e => updateKit(kit.id, { name: e.target.value })}/></div><div><Label>Description</Label><textarea className="field" rows={2} maxLength={500} value={kit.description} onChange={e => updateKit(kit.id, { description: e.target.value })}/></div>{kit.entries.map((entry, idx) => <div key={entry.id} className="rounded-xl border border-slate-700 bg-[#0a1524] p-4"><div className="mb-4 flex justify-between"><span className="text-xs font-semibold text-slate-300">Entry {idx + 1}</span><button aria-label="Remove kit entry" className="text-rose-400" onClick={() => updateKit(kit.id, { entries: kit.entries.filter(e => e.id !== entry.id) })}><Trash2 size={16}/></button></div><ActionEditor allowKit={false} kits={config.kits} value={entry.action} onChange={action => updateEntry(kit, entry.id, action)}/></div>)}<button className="btn btn-ghost w-full" onClick={() => updateKit(kit.id, { entries: [...kit.entries, { id: newId(), action: defaultAction('item') }] })}><Plus size={16}/> Add item or dinosaur</button></div>}</Card>)}</div>
         </>}
         {page === 'catalog' && <>

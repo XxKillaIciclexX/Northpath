@@ -1,22 +1,25 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import rewardCatalog from '../../relay/reward-catalog.json';
+import { defaultItemQuantity, maxItemQuantity, rewardCatalog, rewardsById, type HostedReward } from '../../relay/reward-catalog.mjs';
 
 type AccessState = 'requested' | 'approved' | 'revoked';
 type RewardPolicy = 'whitelist' | 'all_supported';
 type DeliveryState = 'pending' | 'sending' | 'cancelled' | 'unconfirmed' | 'acknowledged';
+type Quantities = Record<string, number>;
+type OwnerPolicy = { policy: RewardPolicy; allowedRewardIds: string[]; maxItemQuantities: Quantities };
 type Server = { id: string; name: string };
-type LinkedServer = Server & { state: AccessState; survivorId: string; roseAllowed?: boolean; allowedRewardIds?: string[] };
-type SavedKit = { id: string; name: string; rewardIds: string[]; revision: string };
-type TestReward = { rewardId?: string; kitId?: string; kitRevision?: string };
+type LinkedServer = Server & { state: AccessState; survivorId: string; roseAllowed?: boolean; allowedRewardIds?: string[]; maxItemQuantities?: Quantities };
+type SavedKit = { id: string; name: string; rewardIds: string[]; itemQuantities?: Quantities; revision: string };
+type TestReward = { rewardId?: string; kitId?: string; kitRevision?: string; quantity?: number };
 type OwnerServer = Server & {
   listed: boolean;
   hourlyLimit: number;
   rewardPolicy?: RewardPolicy;
   roseWhitelisted?: boolean;
   allowedRewardIds?: string[];
+  maxItemQuantities?: Quantities;
   access: { streamerId: string; survivorId: string; state: AccessState; email: string }[];
   history: { requestId: string; createdAt: string; state: DeliveryState; streamer: string; source?: 'test' | 'live_rose' | 'live_draft';
-    rewardId?: string; acknowledgedCommands?: number; totalCommands?: number; kitName?: string | null; kitRewardIds?: string[] | null }[];
+    rewardId?: string; acknowledgedCommands?: number; totalCommands?: number; kitName?: string | null; kitRewardIds?: string[] | null; itemQuantities?: Quantities }[];
 };
 type Dashboard = {
   canRegister: boolean;
@@ -35,25 +38,47 @@ const field = 'field mt-1 block';
 const card = 'card space-y-4 p-5';
 const roseRewardId = 'rose-stone';
 const customKitId = 'custom-kit';
-const rewardLabel = (id = roseRewardId) => rewardCatalog.find(reward => reward.id === id)?.label ?? 'Hosted reward';
-const orderRewards = (ids: string[]) => rewardCatalog.filter(reward => ids.includes(reward.id)).map(reward => reward.id);
+const rewardName = (reward: HostedReward) => reward.item?.name ?? reward.label;
+const validQuantity = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= maxItemQuantity;
 
-function parseOwnerWhitelist(raw: string, available: typeof rewardCatalog): string[] {
+function rewardLabel(id = roseRewardId, quantities: Quantities = {}) {
+  const reward = rewardsById.get(id);
+  if (reward?.item) return (quantities[id] ?? defaultItemQuantity) + ' ' + reward.item.name;
+  return reward?.label ?? 'Hosted reward';
+}
+
+function orderRewards(ids: string[]) {
+  const selected = new Set(ids);
+  return rewardCatalog.filter(reward => selected.has(reward.id)).map(reward => reward.id);
+}
+
+function parseOwnerWhitelist(raw: string, available: HostedReward[], supportsQuantities: boolean): OwnerPolicy {
   const config = JSON.parse(raw);
-  if (!config || config.version !== 1 || !Array.isArray(config.allowedRewardIds) ||
-      Object.keys(config).some(key => key !== 'version' && key !== 'allowedRewardIds')) {
-    throw new Error('Choose a version 1 Northpath owner whitelist.');
+  const version1 = config?.version === 1;
+  const version2 = config?.version === 2 && supportsQuantities;
+  const allowedKeys = version1 ? ['version', 'allowedRewardIds'] : ['version', 'policy', 'allowedRewardIds', 'maxItemQuantities'];
+  if ((!version1 && !version2) || !Array.isArray(config.allowedRewardIds) ||
+      Object.keys(config).some(key => !allowedKeys.includes(key)) ||
+      (version2 && !['whitelist', 'all_supported'].includes(config.policy))) {
+    throw new Error('Choose a valid Northpath owner whitelist.');
   }
-  if (config.allowedRewardIds.some((id: unknown) => !available.some(reward => reward.id === id))) {
+  const entries = new Map(available.map(reward => [reward.id, reward]));
+  if (config.allowedRewardIds.some((id: string) => !entries.has(id))) {
     throw new Error('This whitelist includes a reward the relay does not support yet.');
   }
   if (new Set(config.allowedRewardIds).size !== config.allowedRewardIds.length) throw new Error('Remove duplicate reward IDs from the whitelist.');
-  return orderRewards(config.allowedRewardIds);
+  const limits = version1 ? {} : config.maxItemQuantities;
+  if (!limits || typeof limits !== 'object' || Array.isArray(limits) ||
+    Object.entries(limits).some(([id, quantity]) => !entries.get(id)?.item || !validQuantity(quantity))) {
+    throw new Error('Item quantity limits must be whole numbers from 1 to ' + maxItemQuantity + '.');
+  }
+  return { policy: version1 ? 'whitelist' : config.policy, allowedRewardIds: orderRewards(config.allowedRewardIds), maxItemQuantities: limits };
 }
 
-function exportOwnerWhitelist(allowedRewardIds: string[]) {
-  const json = JSON.stringify({ version: 1, allowedRewardIds }, null, 2) + '\n';
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+function exportOwnerWhitelist(saved: OwnerPolicy, supportsQuantities: boolean) {
+  const config = supportsQuantities ? { version: 2, ...saved } : { version: 1, allowedRewardIds: saved.allowedRewardIds };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(config, null, 2) + '\n'], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
   link.download = 'northpath-owner-whitelist.json';
@@ -61,34 +86,57 @@ function exportOwnerWhitelist(allowedRewardIds: string[]) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function OwnerRewardPolicy({ initialPolicy, initialIds, catalogEnabled, busy, save }: {
-  initialPolicy: RewardPolicy;
-  initialIds: string[];
+function OwnerRewardPolicy({ saved, catalogEnabled, supportsQuantities, busy, save }: {
+  saved: OwnerPolicy;
   catalogEnabled: boolean;
+  supportsQuantities: boolean;
   busy: boolean;
-  save: (policy: RewardPolicy, allowedRewardIds: string[]) => void;
+  save: (value: OwnerPolicy) => void;
 }) {
-  const [policy, setPolicy] = useState(initialPolicy);
-  const [allowedRewardIds, setAllowedRewardIds] = useState(initialIds);
+  const [policy, setPolicy] = useState(saved.policy);
+  const [allowedRewardIds, setAllowedRewardIds] = useState(saved.allowedRewardIds);
+  const [limits, setLimits] = useState(saved.maxItemQuantities);
+  const [showLimits, setShowLimits] = useState(false);
+  const [search, setSearch] = useState('');
+  const [visibleCount, setVisibleCount] = useState(24);
   const [fileStatus, setFileStatus] = useState<{ text: string; error?: boolean }>();
   const fileInput = useRef<HTMLInputElement>(null);
   const available = catalogEnabled ? rewardCatalog : rewardCatalog.slice(0, 1);
+  const allowed = new Set(allowedRewardIds);
+  const query = search.trim().toLowerCase();
+  const matching = available.filter(reward => (policy === 'whitelist' || reward.item) &&
+    [rewardName(reward), reward.category, reward.item?.category].some(label => label?.toLowerCase().includes(query)));
+  const visible = matching.slice(0, visibleCount);
+  const capCount = Object.keys(limits).length;
+  const limitsChanged = capCount !== Object.keys(saved.maxItemQuantities).length ||
+    Object.entries(limits).some(([id, quantity]) => saved.maxItemQuantities[id] !== quantity);
+  const changed = policy !== saved.policy || allowedRewardIds.join(',') !== saved.allowedRewardIds.join(',') || limitsChanged;
+  const limitsValid = Object.values(limits).every(validQuantity);
 
   async function importWhitelist(file: File) {
     try {
-      if (file.size > 16_384) throw new Error('The whitelist file is too large.');
-      const allowed = parseOwnerWhitelist(await file.text(), available);
-      setAllowedRewardIds(allowed);
-      setPolicy('whitelist');
+      if (file.size > 128 * 1024) throw new Error('The whitelist file is too large.');
+      const imported = parseOwnerWhitelist(await file.text(), available, supportsQuantities);
+      setAllowedRewardIds(imported.allowedRewardIds);
+      setPolicy(imported.policy);
+      setLimits(imported.maxItemQuantities);
       setFileStatus({ text: 'Whitelist loaded. Review it and save the reward policy to activate it.' });
     } catch (error) {
       setFileStatus({ text: error instanceof SyntaxError ? 'The whitelist file contains invalid JSON.'
         : error instanceof Error ? error.message : 'Could not open the whitelist file.', error: true });
     }
   }
+
+  function changeLimit(id: string, value: string) {
+    const next = { ...limits };
+    if (value === '') delete next[id];
+    else next[id] = Number(value);
+    setLimits(next);
+  }
+
   return <form className="space-y-3" onSubmit={event => {
     event.preventDefault();
-    save(policy, allowedRewardIds);
+    if (changed && limitsValid) save({ policy, allowedRewardIds, maxItemQuantities: limits });
   }}>
     <label className="block max-w-sm font-semibold text-white">Reward policy
       <select className={field} value={policy} onChange={event => setPolicy(event.target.value as RewardPolicy)}>
@@ -96,29 +144,46 @@ function OwnerRewardPolicy({ initialPolicy, initialIds, catalogEnabled, busy, sa
         <option value="whitelist">Owner whitelist</option>
       </select>
     </label>
-    {policy === 'whitelist' ? <div className="space-y-3">
-      {[...new Set(available.map(reward => reward.category))].map(category => <fieldset key={category} className="space-y-1">
+    {supportsQuantities && <label className="flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={showLimits} onChange={event => setShowLimits(event.target.checked)} />
+      Show optional item quantity limits{capCount ? ' (' + capCount + ' set)' : ''}
+    </label>}
+    {showLimits && <p className="text-sm text-slate-300">Leave a limit blank to allow any supported quantity up to {maxItemQuantity} per delivery.</p>}
+    {(policy === 'whitelist' || showLimits) && <div className="space-y-3">
+      {available.length > 24 && <label className="block max-w-sm">Find rewards
+        <input className={field} type="search" value={search} onChange={event => { setSearch(event.target.value); setVisibleCount(24); }} />
+      </label>}
+      {[...new Set(visible.map(reward => reward.category))].map(category => <fieldset key={category} className="space-y-1">
         <legend className="font-semibold text-slate-200">{category}</legend>
-        {available.filter(reward => reward.category === category).map(reward => <label key={reward.id} className="flex items-center gap-2">
-          <input type="checkbox" checked={allowedRewardIds.includes(reward.id)} onChange={event => {
-            const checked = event.target.checked;
-            setAllowedRewardIds(ids => checked ? orderRewards([...ids, reward.id]) : ids.filter(id => id !== reward.id));
-          }} />
-          Allow {reward.label}
-        </label>)}
+        {visible.filter(reward => reward.category === category).map(reward => <div key={reward.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          {policy === 'whitelist' ? <label className="flex min-w-0 items-center gap-2">
+            <input type="checkbox" checked={allowed.has(reward.id)} onChange={event => {
+              const checked = event.target.checked;
+              setAllowedRewardIds(ids => checked ? orderRewards([...ids, reward.id]) : ids.filter(id => id !== reward.id));
+            }} />
+            <span className="break-words">Allow {rewardName(reward)}</span>
+          </label> : <span className="break-words">{rewardName(reward)}</span>}
+          {showLimits && reward.item && (policy === 'all_supported' || allowed.has(reward.id)) &&
+            <input className="field !w-24" aria-label={'Max quantity of ' + reward.item.name}
+              type="number" min={1} max={maxItemQuantity} placeholder="Any" value={limits[reward.id] ?? ''}
+              onChange={event => changeLimit(reward.id, event.target.value)} />}
+        </div>)}
       </fieldset>)}
-      {catalogEnabled && <p className="text-sm text-slate-300">Each Kit also requires permission for its items and dinosaurs.</p>}
-    </div> : <p className="text-sm text-slate-300">{available.map(reward => reward.label).join(' / ')}</p>}
+      {matching.length === 0 && <p className="text-sm text-slate-300">No rewards match.</p>}
+      {visible.length < matching.length && <button type="button" className="btn btn-ghost"
+        onClick={() => setVisibleCount(count => count + 24)}>Show more rewards ({visible.length} of {matching.length})</button>}
+      {catalogEnabled && policy === 'whitelist' && <p className="text-sm text-slate-300">Each Kit also requires permission for its items and dinosaurs.</p>}
+    </div>}
+    {!limitsValid && <p role="alert" className="text-sm text-rose-300">Enter a whole number from 1 to {maxItemQuantity}, or leave the limit blank.</p>}
     <div className="flex flex-wrap items-center gap-2">
-      <button type="submit" className="btn btn-primary"
-        disabled={busy || (policy === initialPolicy && allowedRewardIds.join(',') === initialIds.join(','))}>Save reward policy</button>
+      <button type="submit" className="btn btn-primary" disabled={busy || !changed || !limitsValid}>Save reward policy</button>
       <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => fileInput.current?.click()}>Import whitelist</button>
       <input ref={fileInput} type="file" hidden accept=".json,application/json" disabled={busy} onChange={event => {
         const file = event.currentTarget.files?.[0];
         event.currentTarget.value = '';
         if (file) void importWhitelist(file);
       }} />
-      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => exportOwnerWhitelist(initialIds)}>Export saved whitelist</button>
+      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => exportOwnerWhitelist(saved, supportsQuantities)}>Export saved whitelist</button>
     </div>
     {fileStatus && <p role={fileStatus.error ? 'alert' : 'status'} className={fileStatus.error ? 'text-rose-300' : 'text-sm text-slate-300'}>{fileStatus.text}</p>}
   </form>;
@@ -128,31 +193,60 @@ function HostedRewardTest({ server, kits, busy, send }: {
   server: LinkedServer; kits: SavedKit[]; busy: boolean; send: (test: TestReward) => void;
 }) {
   const [selected, setSelected] = useState(roseRewardId);
-  const ids = server.allowedRewardIds ?? (server.roseAllowed === false ? [] : [roseRewardId]);
-  const available: { id: string; label: string; test: TestReward; components?: string[] }[] = rewardCatalog
-    .filter(reward => reward.id !== customKitId && ids.includes(reward.id))
-    .map(reward => ({ id: reward.id, label: reward.label, test: { rewardId: server.allowedRewardIds ? reward.id : undefined } }));
-  if (ids.includes(customKitId)) {
-    available.push(...kits.filter(kit => kit.rewardIds.every(id => ids.includes(id))).map(kit => ({
-      id: 'kit:' + kit.id, label: 'Kit: ' + kit.name, test: { kitId: kit.id, kitRevision: kit.revision }, components: kit.rewardIds,
+  const [search, setSearch] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const ids = new Set(server.allowedRewardIds ?? (server.roseAllowed === false ? [] : [roseRewardId]));
+  const limits = server.maxItemQuantities ?? {};
+  const supportsQuantities = server.maxItemQuantities !== undefined;
+  const withinLimits = (rewardIds: string[], amounts: Quantities = {}) =>
+    rewardIds.every(id => (amounts[id] ?? defaultItemQuantity) <= (limits[id] ?? maxItemQuantity));
+  const available: { id: string; label: string; test: TestReward; item?: HostedReward['item']; components?: string[] }[] = rewardCatalog
+    .filter(reward => reward.id !== customKitId && ids.has(reward.id) &&
+      (reward.id !== 'starter-kit' || withinLimits([roseRewardId])))
+    .map(reward => ({ id: reward.id, label: supportsQuantities ? rewardName(reward) : reward.label,
+      item: reward.item, test: { rewardId: server.allowedRewardIds ? reward.id : undefined } }));
+  if (ids.has(customKitId)) {
+    available.push(...kits.filter(kit => kit.rewardIds.every(id => ids.has(id)) && withinLimits(kit.rewardIds, kit.itemQuantities)).map(kit => ({
+      id: 'kit:' + kit.id, label: 'Kit: ' + kit.name, test: { kitId: kit.id, kitRevision: kit.revision },
+      components: kit.rewardIds.map(id => rewardLabel(id, kit.itemQuantities)),
     })));
   }
-  const reward = available.find(option => option.id === selected) ?? available[0];
-  if (!reward) return <p className="text-sm text-slate-300">The server has no rewards you can test.</p>;
-  const components = reward.components?.map(rewardLabel).join(' + ');
+  if (!available.length) return <p className="text-sm text-slate-300">The server has no rewards you can test.</p>;
+  const query = search.trim().toLowerCase();
+  const matches = available.filter(option => option.label.toLowerCase().includes(query));
+  const options = matches.slice(0, 60);
+  const active = matches.find(option => option.id === selected);
+  if (active && !options.includes(active)) options.push(active);
+  const reward = active ?? options[0];
+  const cap = reward ? (limits[reward.id] ?? maxItemQuantity) : maxItemQuantity;
+  const amount = quantity === '' ? Math.min(defaultItemQuantity, cap) : Number(quantity);
+  const hasQuantity = !!(reward?.item && supportsQuantities);
+  const validAmount = !hasQuantity || (validQuantity(amount) && amount <= cap);
+  const components = reward?.components?.join(' + ');
   return <div className="min-w-0 space-y-2">
-    <div className="flex flex-wrap items-end gap-2">
+    {available.length > 60 && <label className="block max-w-sm">Find a test reward
+      <input className={field} type="search" value={search} onChange={event => { setSearch(event.target.value); setQuantity(''); }} />
+    </label>}
+    {!reward && <p className="text-sm text-slate-300">No rewards match.</p>}
+    {reward && <div className="flex flex-wrap items-end gap-2">
       {available.length === 1 && reward.id !== roseRewardId && <p className="break-words text-sm text-slate-300">{reward.label}</p>}
       {available.length > 1 && <label className="min-w-0 max-w-full">Test reward
-        <select className={field + ' max-w-full'} value={reward.id} disabled={busy} onChange={event => setSelected(event.target.value)}>
-          {available.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+        <select className={field + ' max-w-full'} value={reward.id} disabled={busy} onChange={event => { setSelected(event.target.value); setQuantity(''); }}>
+          {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
       </label>}
-      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => {
+      {hasQuantity && <label>Quantity (max {cap})
+        <input className={field + ' !w-28'} type="number" min={1} max={cap} value={quantity === '' ? amount : quantity}
+          onChange={event => setQuantity(event.target.value)} />
+      </label>}
+      <button type="button" className="btn btn-primary" disabled={busy || !validAmount} onClick={() => {
         const detail = components ? ' (' + components + ')' : '';
-        if (window.confirm('Send ' + reward.label + detail + ' to your linked survivor on ' + server.name + '?')) send(reward.test);
-      }}>{available.length === 1 && reward.id === roseRewardId ? 'Send Rose test' : 'Send test reward'}</button>
-    </div>
+        const label = hasQuantity ? rewardLabel(reward.id, { [reward.id]: amount }) : reward.label;
+        if (window.confirm('Send ' + label + detail + ' to your linked survivor on ' + server.name + '?')) {
+          send(hasQuantity ? { ...reward.test, quantity: amount } : reward.test);
+        }
+      }}>{available.length === 1 && reward.id === roseRewardId && !hasQuantity ? 'Send Rose test' : 'Send test reward'}</button>
+    </div>}
     {components && <p className="text-sm text-slate-300">{components}</p>}
   </div>;
 }
@@ -201,11 +295,11 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
     let message = success;
     try {
       if (payload.action !== 'dashboard') {
-        const result = await relay<{ state?: DeliveryState; rewardId?: string; acknowledged?: number; total?: number; kitName?: string }>(credentials, payload);
+        const result = await relay<{ state?: DeliveryState; rewardId?: string; acknowledged?: number; total?: number; kitName?: string; itemQuantities?: Quantities }>(credentials, payload);
         if (payload.action === 'simulate') {
           if (result.state === 'acknowledged') {
-            message = result.rewardId && result.rewardId !== roseRewardId
-              ? 'ARK acknowledged ' + (result.kitName ? 'Kit “' + result.kitName + '”' : rewardLabel(result.rewardId)) + '. Verify the reward in game.'
+            message = result.rewardId && (result.rewardId !== roseRewardId || result.itemQuantities?.[roseRewardId])
+              ? 'ARK acknowledged ' + (result.kitName ? 'Kit “' + result.kitName + '”' : rewardLabel(result.rewardId, result.itemQuantities)) + '. Verify the reward in game.'
               : 'ARK acknowledged the test. Check your inventory for 5 Stone.';
           } else if (result.acknowledged && result.total && result.acknowledged < result.total) {
             message = 'ARK acknowledged ' + result.acknowledged + ' of ' + result.total +
@@ -244,7 +338,11 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
   }
 
   const owned = dashboard?.owned;
-  const initialIds = orderRewards(owned?.allowedRewardIds ?? (owned?.roseWhitelisted ? [roseRewardId] : []));
+  const savedPolicy: OwnerPolicy = {
+    policy: owned?.rewardPolicy ?? 'all_supported',
+    allowedRewardIds: orderRewards(owned?.allowedRewardIds ?? (owned?.roseWhitelisted ? [roseRewardId] : [])),
+    maxItemQuantities: owned?.maxItemQuantities ?? {},
+  };
   return <section className="mt-6 max-w-3xl space-y-4" aria-labelledby="relay-title">
     <h2 id="relay-title" className="text-xl font-semibold text-white">ARK server registry</h2>
     <p className="text-sm text-slate-300">Find a server, request access, and test an approved reward.</p>
@@ -280,11 +378,13 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
         <label>Rewards per hour<input className={field} name="hourlyLimit" type="number" min={1} max={10} defaultValue={owned.hourlyLimit} required /></label>
         <button type="submit" disabled={busy} className="btn btn-ghost">Save limit</button>
       </form>
-      {owned.rewardPolicy && <OwnerRewardPolicy key={owned.id + owned.rewardPolicy + initialIds.join(',')}
-        initialPolicy={owned.rewardPolicy} initialIds={initialIds} busy={busy} catalogEnabled={Array.isArray(owned.allowedRewardIds)}
-        save={(policy, allowedRewardIds) => void run({
+      {owned.rewardPolicy && <OwnerRewardPolicy key={owned.id + JSON.stringify(savedPolicy)}
+        saved={savedPolicy} busy={busy} catalogEnabled={Array.isArray(owned.allowedRewardIds)}
+        supportsQuantities={owned.maxItemQuantities !== undefined}
+        save={({ policy, allowedRewardIds, maxItemQuantities }) => void run({
           action: 'reward-policy', serverId: owned.id, policy,
           ...(owned.allowedRewardIds ? { allowedRewardIds } : { roseWhitelisted: allowedRewardIds.includes(roseRewardId) }),
+          ...(owned.maxItemQuantities !== undefined ? { maxItemQuantities } : {}),
         }, 'Saved the reward policy.')} />}
       <div>
         <h4 className="font-semibold text-white">Streamer access</h4>
@@ -312,10 +412,10 @@ export default function RelayRegistry({ token, relayUrl }: Props) {
           {owned.history.map(entry => {
             const total = entry.totalCommands ?? (entry.rewardId === 'starter-kit' ? 2 : 1);
             return <li key={entry.requestId + entry.streamer} className="break-words py-2 text-sm text-slate-300">
-              <span className="text-white">{entry.kitName ? 'Kit: ' + entry.kitName : rewardLabel(entry.rewardId)}</span> · {!entry.source || entry.source === 'test' ? 'Test' : 'Live gift'} · {deliveryLabels[entry.state]}
+              <span className="text-white">{entry.kitName ? 'Kit: ' + entry.kitName : rewardLabel(entry.rewardId, entry.itemQuantities)}</span> · {!entry.source || entry.source === 'test' ? 'Test' : 'Live gift'} · {deliveryLabels[entry.state]}
               {total > 1 && entry.acknowledgedCommands !== undefined && <> · {entry.acknowledgedCommands}/{total} steps acknowledged</>}
               {' · '}{entry.streamer} · <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
-              {entry.kitRewardIds && <p className="mt-1">{entry.kitRewardIds.map(rewardLabel).join(' + ')}</p>}
+              {entry.kitRewardIds && <p className="mt-1">{entry.kitRewardIds.map(id => rewardLabel(id, entry.itemQuantities)).join(' + ')}</p>}
             </li>;
           })}
         </ul>
