@@ -1,8 +1,8 @@
 # ASA DevKit spawn batch 01
 
-This batch adds wild **Parasaur**, **Triceratops**, and **Pteranodon** to the Ice Pack Companion mod. The command uses the creature token from the table, a level from 1 to 150, and the survivor’s numeric Specimen Implant ID.
+This DevKit edit replaces the two creature switches with a shared Data Table lookup. The table includes the existing **Dodo**, **Raptor**, and **Rex** and stages wild **Parasaur**, **Triceratops**, and **Pteranodon**. Each new species is a row in the table. The command uses the row name, a level from 1 to 150, and the survivor’s numeric Specimen Implant ID.
 
-| Switch case | Class picker | Expected targeted test |
+| New row name | Class picker | Expected targeted test |
 | --- | --- | --- |
 | `Parasaur` | `Para_Character_BP` | One wild Parasaur, level 25 |
 | `Triceratops` | `Trike_Character_BP` | One wild Triceratops, level 75 |
@@ -12,11 +12,27 @@ The batch uses the reviewed catalog paths for the standard versions of each crea
 
 ## Apply the Blueprint edit
 
-1. Open the **IcePackCompanion** mod in the Windows ARK DevKit. Open **Content → BP_IcePackCommandHandler → Event Graph**.
-2. Locate the two **Switch on String** nodes with **Dodo**, **Raptor**, and **Rex** pins. To find them, search the graph for **IcePack_FindTargetSurvivor** and **IcePack_FindSingleSurvivor**. Follow the incoming execution wires from each call through the **Set Requested Dino Class** nodes to its switch. The command-name switch has pins such as **IcePackPing** and **IcePackSpawn**.
-3. On the switch feeding **IcePack_FindTargetSurvivor**, add **Parasaur**, **Triceratops**, and **Pteranodon** using **Add pin** and the switch’s **Pin Names** in Details. Duplicate one of its **Set Requested Dino Class** nodes for each new case. Set the class on each new node from the table, wire its input to its switch case, and wire its execution output to the existing **IcePack_FindTargetSurvivor** call.
-4. Repeat for the switch feeding **IcePack_FindSingleSurvivor**, using that switch’s existing survivor lookup as the destination. Both switch **Default** pins go to the existing unsupported-creature message. The survivor lookups feed the existing `IcePack_PerformSpawn` path, which applies the cooldown and uses the assigned class.
-5. **Compile**, then **Save** the Blueprint. Start **Play** in the DevKit with one survivor. In the console run `cheat ScriptCommand IcePackListPlayers` to get that session’s numeric ID.
+### Create and import the creature table
+
+1. In the **IcePackCompanion** mod’s Content folder, create a Blueprint **Structure** named `ST_IcePackCreatureRow`. Add one field named `SpawnClass`. Set its type to **PrimalDinoCharacter Class Reference**, the same type as `RequestedDinoClass` in `BP_IcePackCommandHandler`. Save the structure.
+2. In the same folder, import [DT_IcePackCreatures.csv](DT_IcePackCreatures.csv) as a **DataTable**, then choose `ST_IcePackCreatureRow` as the row structure. Open `DT_IcePackCreatures` and confirm six rows with a populated **SpawnClass** in each. The CSV uses generated class paths ending in `_C`. If the importer reports an empty class or a column mismatch, use the Data Table’s row editor to select each class. The source paths and class names are in the CSV.
+
+### Wire one resolver into both paths
+
+1. In **BP_IcePackCommandHandler**, add a Blueprint function named `IcePack_ResolveDinoClass`. Add a **String** input named `CreatureToken`. Add a **Boolean** output named `Found` and a **PrimalDinoCharacter Class Reference** output named `SpawnClass`.
+2. Inside the function, connect **String to Name** on `CreatureToken` to **Get Data Table Row → Row Name** and select `DT_IcePackCreatures` on the lookup node. From **Row Found**, break the row and return its `SpawnClass` and **Found = true**. From **Row Not Found**, return **Found = false** and **SpawnClass = None**. The caller uses `Found` and a nonempty `SpawnClass` before it assigns the class.
+3. In the **Event Graph**, find the two **Switch on String** nodes with **Dodo**, **Raptor**, and **Rex** pins. Trace back from **IcePack_FindTargetSurvivor** and **IcePack_FindSingleSurvivor** through their existing **Set Requested Dino Class** nodes. Replace each creature switch’s incoming execution and **Selection** wires with a call to `IcePack_ResolveDinoClass` using the same token wire.
+4. On the valid output of each lookup, set `RequestedDinoClass` from the returned class and call that path’s existing survivor lookup. On the unsuccessful output, route to that path’s unsupported-creature message. The lookups feed `IcePack_PerformSpawn` to apply the existing spawn cooldown and placement. The command-name switch still dispatches commands such as `IcePackPing` and `IcePackSpawn`.
+5. **Compile** and **Save** the Blueprint. Start **Play** in the DevKit with one survivor and run `cheat ScriptCommand IcePackListPlayers` for the session ID.
+
+The initial six rows use direct class references. To expand to a much larger table, test a **Soft Class Reference** column and class loading on a cooked dedicated server first. The command should continue to receive the row token, for example `ScriptCommand IcePackSpawn,Parasaur,25,12345`.
+
+To regenerate the CSV from [the batch list](spawn-batch-01.json) and the reviewed ARK catalog, run this from Northpath in PowerShell.
+
+```powershell
+node .\scripts\Prepare-IcePackSpawnBatch.mjs --csv |
+  Set-Content -Encoding ascii .\mod-devkit\DT_IcePackCreatures.csv
+```
 
 ## Verify the DevKit and server builds
 

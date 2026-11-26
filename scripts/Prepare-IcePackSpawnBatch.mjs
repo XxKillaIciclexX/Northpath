@@ -2,9 +2,10 @@ import { parseArgs } from 'node:util';
 import catalog from '../companion/src/reviewed-catalog.json' with { type: 'json' };
 import batch from '../mod-devkit/spawn-batch-01.json' with { type: 'json' };
 
-const help = 'Usage: node scripts/Prepare-IcePackSpawnBatch.mjs [--player-id <Specimen Implant ID>]';
+const help = 'Usage: node scripts/Prepare-IcePackSpawnBatch.mjs [--player-id <Specimen Implant ID> | --csv]';
 
-function prepare({ 'player-id': selectedId }) {
+function prepare({ 'player-id': selectedId, csv }) {
+  if (csv && selectedId !== undefined) throw new Error('Generate the Data Table CSV separately from the player-specific test commands.');
   if (selectedId !== undefined && (!/^[1-9][0-9]{0,9}$/.test(selectedId) || Number(selectedId) > 4294967295)) {
     throw new Error('Use a numeric Specimen Implant ID between 1 and 4294967295.');
   }
@@ -24,8 +25,14 @@ function prepare({ 'player-id': selectedId }) {
     return { ...test, blueprint: creature.blueprint };
   });
 
+  if (csv) {
+    console.log(['Name,SpawnClass', ...rows.map(({ id, blueprint }) =>
+      `${id},"/Script/Engine.BlueprintGeneratedClass'${blueprint}'"`)].join('\n'));
+    return;
+  }
+
   console.log('Ice Pack Companion spawn batch 01 · CurseForge project ' + batch.curseForgeProjectId);
-  console.log('Class reference for each case');
+  console.log('Class reference for each row');
   for (const { id, blueprint } of rows) console.log(`${id}  ${blueprint}`);
 
   console.log('\nDevKit console · send each command separately, at least six seconds apart');
@@ -42,7 +49,7 @@ function prepare({ 'player-id': selectedId }) {
 }
 
 try {
-  const { values } = parseArgs({ options: { 'player-id': { type: 'string' }, help: { type: 'boolean' } } });
+  const { values } = parseArgs({ options: { 'player-id': { type: 'string' }, csv: { type: 'boolean' }, help: { type: 'boolean' } } });
   if (values.help) console.log(help);
   else prepare(values);
 } catch (error) {

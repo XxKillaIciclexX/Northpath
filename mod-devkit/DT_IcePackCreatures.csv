@@ -1,0 +1,7 @@
+Name,SpawnClass
+Dodo,"/Script/Engine.BlueprintGeneratedClass'/Game/PrimalEarth/Dinos/Dodo/Dodo_Character_BP.Dodo_Character_BP_C'"
+Raptor,"/Script/Engine.BlueprintGeneratedClass'/Game/PrimalEarth/Dinos/Raptor/Raptor_Character_BP.Raptor_Character_BP_C'"
+Rex,"/Script/Engine.BlueprintGeneratedClass'/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP_C'"
+Parasaur,"/Script/Engine.BlueprintGeneratedClass'/Game/PrimalEarth/Dinos/Para/Para_Character_BP.Para_Character_BP_C'"
+Triceratops,"/Script/Engine.BlueprintGeneratedClass'/Game/PrimalEarth/Dinos/Trike/Trike_Character_BP.Trike_Character_BP_C'"
+Pteranodon,"/Script/Engine.BlueprintGeneratedClass'/Game/PrimalEarth/Dinos/Ptero/Ptero_Character_BP.Ptero_Character_BP_C'"
