@@ -1,13 +1,9 @@
 import fixedRewards from './reward-catalog.json' with { type: 'json' };
-import reviewed from '../companion/src/reviewed-catalog.json' with { type: 'json' };
+import items from './hosted-items.json' with { type: 'json' };
 
 export const defaultItemQuantity = 5;
 export const maxItemQuantity = 100;
 const legacyItemIds = new Map([['Stone', 'rose-stone'], ['Wood', 'wood-5'], ['Thatch', 'thatch-5']]);
-const blueprintPath = /^\/Game(?:\/[A-Za-z0-9_]+)+\.[A-Za-z0-9_]+$/;
-
-const items = reviewed.items.filter(entry => entry.enabled && entry.verified && entry.contentPack === 'base-game' &&
-  /^[A-Za-z0-9_-]+$/.test(entry.id) && typeof entry.blueprint === 'string' && blueprintPath.test(entry.blueprint));
 const byCatalogId = new Map(items.map(entry => [entry.id, entry]));
 
 function asReward(item) {

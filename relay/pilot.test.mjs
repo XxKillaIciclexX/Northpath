@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
-import { readFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createTcpServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { readConfig } from './config.mjs';
 import { connectRcon } from './rcon.mjs';
@@ -113,6 +116,15 @@ function fakeSupabase(db) {
     }
   });
 }
+
+test('relay catalog loads from its deployment directory alone', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'northpath-relay-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await Promise.all(['reward-catalog.mjs', 'reward-catalog.json', 'hosted-items.json'].map(file =>
+    copyFile(new URL(file, import.meta.url), join(directory, file))));
+  const isolated = await import(pathToFileURL(join(directory, 'reward-catalog.mjs')).href);
+  assert.deepEqual(isolated.rewardCatalog, rewardCatalog);
+});
 
 test('relay pins a public target and rejects local, shared, and reserved RCON addresses', () => {
   for (const address of ['127.0.0.1', '169.254.169.254', '10.1.0.2', '100.64.0.1', '192.0.2.1', '224.0.0.1', '::ffff:127.0.0.1']) {
@@ -603,8 +615,10 @@ test('server registration, policies, saved Gift Rules and Kit delivery across HT
   const ageHistory = () => db.exec("update public.icepack_relay_deliveries set created_at = clock_timestamp() - interval '2 hours'");
   const itemTest = (id, quantity) => ({ ...reward(id), quantity });
   await ageHistory();
-  assert.equal(rewardCatalog.filter(entry => entry.item).length, reviewed.items.filter(entry =>
-    entry.enabled && entry.verified && entry.contentPack === 'base-game').length);
+  const itemCatalog = rewardCatalog.flatMap(entry => entry.item ? [[entry.item.catalogId, entry.item]] : []);
+  const reviewedItems = reviewed.items.filter(entry => entry.enabled && entry.verified && entry.contentPack === 'base-game')
+    .map(({ id, name, category, blueprint }) => [id, { catalogId: id, name, category, blueprint: blueprint.replace(/_C$/, '') }]);
+  assert.deepEqual(Object.fromEntries(itemCatalog), Object.fromEntries(reviewedItems));
   assert.ok(!rewardCatalog.some(entry => entry.item?.catalogId === 'Fiber'));
   assert.deepEqual((await ownerDashboard()).maxItemQuantities, {});
   assert.equal((await saveLimits('all_supported', [], { [crystal]: 10 }, 'outsider-token')).status, 403);

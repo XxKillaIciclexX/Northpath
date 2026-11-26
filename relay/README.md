@@ -19,6 +19,8 @@ npm run build
 
 The relay test uses the real SQL migration and a local mock RCON server.
 
+For a Railway service rooted at `relay/`, install with `npm ci --omit=dev` and start with `npm start`. The runtime reads its item catalog from `relay/hosted-items.json`. When the reviewed catalog changes, regenerate that file from the repository root with `node scripts/Export-IcePackHostedItemCatalog.mjs`. The relay tests compare the snapshot with the reviewed catalog and verify that its reward IDs match the database.
+
 ## Set up staging
 
 1. In the **staging Supabase** SQL Editor, run [the relay migration](../supabase/migrations/20261124000100_create_icepack_relay_pilot.sql). Use two test accounts in that project. Copy the owner account’s UUID from **Authentication → Users**.
